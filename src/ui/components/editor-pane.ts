@@ -14,6 +14,7 @@ import { hasSelection, getSelectionRange } from '../../core/cursor.ts';
 import { highlighter as shikiHighlighter, type HighlightToken } from '../../features/syntax/shiki-highlighter.ts';
 import { themeLoader } from '../themes/theme-loader.ts';
 import { minimap } from './minimap.ts';
+import { inFileSearch, type SearchMatch } from '../../features/search/in-file-search.ts';
 
 export interface EditorTheme {
   background: string;
@@ -262,6 +263,11 @@ export class EditorPane implements MouseHandler {
       .filter(c => c.selection && hasSelection(c.selection))
       .map(c => getSelectionRange(c.selection!));
 
+    // Get search matches for highlighting
+    const searchState = inFileSearch.getState(this.document);
+    const searchMatches = searchState.isActive ? searchState.matches : [];
+    const currentMatchIndex = searchState.currentMatchIndex;
+
     // Build entire screen as one string
     let screenOutput = '';
     const moveTo = (x: number, y: number) => `\x1b[${y};${x}H`;
@@ -273,7 +279,7 @@ export class EditorPane implements MouseHandler {
 
       // Build the entire line as a single string
       screenOutput += moveTo(this.rect.x, screenY);
-      screenOutput += this.buildLineString(lineNum, textWidth, selections);
+      screenOutput += this.buildLineString(lineNum, textWidth, selections, searchMatches, currentMatchIndex);
     }
 
     // Render cursor(s) - these are overlaid on top
@@ -292,7 +298,9 @@ export class EditorPane implements MouseHandler {
   private buildLineString(
     lineNum: number,
     textWidth: number,
-    selections: { start: Position; end: Position }[]
+    selections: { start: Position; end: Position }[],
+    searchMatches: SearchMatch[] = [],
+    currentMatchIndex: number = -1
   ): string {
     // ANSI escape helpers
     const bgRgb = (r: number, g: number, b: number) => `\x1b[48;2;${r};${g};${b}m`;
@@ -307,6 +315,10 @@ export class EditorPane implements MouseHandler {
     const lineHighlightColor = this.hexToRgb(themeLoader.getColor('editor.lineHighlightBackground')) || { r: 44, g: 49, b: 60 };
     const selectionBgColor = this.hexToRgb(themeLoader.getColor('editor.selectionBackground')) || { r: 62, g: 68, b: 81 };
     const defaultFgColor = this.hexToRgb(themeLoader.getColor('editor.foreground')) || { r: 171, g: 178, b: 191 };
+    
+    // Search match highlight colors
+    const findMatchBgColor = this.hexToRgb(themeLoader.getColor('editor.findMatchBackground')) || { r: 81, g: 92, b: 106 };
+    const findMatchHighlightBgColor = this.hexToRgb(themeLoader.getColor('editor.findMatchHighlightBackground')) || { r: 234, g: 92, b: 0 };
     
     let output = '';
     
@@ -340,6 +352,12 @@ export class EditorPane implements MouseHandler {
       // Build a color map for each column
       const colorMap = this.buildColorMap(line.length, tokens);
       
+      // Pre-compute search match ranges for this line
+      const lineSearchMatches = searchMatches.filter(m => {
+        const { start, end } = m.range;
+        return lineNum >= start.line && lineNum <= end.line;
+      });
+      
       let currentBgKey = this.rgbToKey(baseBgColor);
       let currentFgKey = -1; // -1 means default foreground
       output += bgRgb(baseBgColor.r, baseBgColor.g, baseBgColor.b);
@@ -358,8 +376,38 @@ export class EditorPane implements MouseHandler {
           return true;
         });
         
-        // Apply background
-        const newBgColor = isSelected ? selectionBgColor : baseBgColor;
+        // Check if in a search match
+        let isInSearchMatch = false;
+        let isCurrentMatch = false;
+        for (const match of lineSearchMatches) {
+          const { start, end } = match.range;
+          let inMatch = false;
+          if (lineNum === start.line && lineNum === end.line) {
+            inMatch = col >= start.column && col < end.column;
+          } else if (lineNum === start.line) {
+            inMatch = col >= start.column;
+          } else if (lineNum === end.line) {
+            inMatch = col < end.column;
+          } else {
+            inMatch = true;  // Line is fully within match
+          }
+          if (inMatch) {
+            isInSearchMatch = true;
+            isCurrentMatch = match.index === currentMatchIndex;
+            break;
+          }
+        }
+        
+        // Apply background: selection > current match > other matches > base
+        let newBgColor = baseBgColor;
+        if (isSelected) {
+          newBgColor = selectionBgColor;
+        } else if (isCurrentMatch) {
+          newBgColor = findMatchHighlightBgColor;
+        } else if (isInSearchMatch) {
+          newBgColor = findMatchBgColor;
+        }
+        
         const newBgKey = this.rgbToKey(newBgColor);
         if (newBgKey !== currentBgKey) {
           currentBgKey = newBgKey;

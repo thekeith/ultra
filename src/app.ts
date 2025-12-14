@@ -17,6 +17,7 @@ import { filePicker } from './ui/components/file-picker.ts';
 import { fileBrowser } from './ui/components/file-browser.ts';
 import { commandPalette } from './ui/components/command-palette.ts';
 import { fileTree } from './ui/components/file-tree.ts';
+import { searchWidget } from './ui/components/search-widget.ts';
 import { commandRegistry } from './input/commands.ts';
 import { keymap, type ParsedKey } from './input/keymap.ts';
 import { settings } from './config/settings.ts';
@@ -240,6 +241,14 @@ export class App {
         return;
       }
 
+      // Handle search widget input if visible
+      if (searchWidget.visible) {
+        if (searchWidget.handleKey(event)) {
+          renderer.scheduleRender();
+          return;
+        }
+      }
+
       // Handle file browser input if it's open
       if (fileBrowser.isOpen()) {
         if (event.key === 'ESCAPE') {
@@ -423,6 +432,7 @@ export class App {
     mouseManager.registerHandler(commandPalette);
     mouseManager.registerHandler(fileBrowser);
     mouseManager.registerHandler(filePicker);
+    mouseManager.registerHandler(searchWidget);
     mouseManager.registerHandler(tabBar);
     mouseManager.registerHandler(this.editorPane);
     mouseManager.registerHandler(this.editorPane.getMinimap());
@@ -641,6 +651,17 @@ export class App {
     // Render editor pane
     this.editorPane.setRect(editorRect);
     this.editorPane.render(ctx);
+
+    // Render search widget (positioned in editor area)
+    if (searchWidget.visible) {
+      const searchWidgetWidth = Math.min(60, editorRect.width - 4);
+      searchWidget.setPosition(
+        editorRect.x + editorRect.width - searchWidgetWidth - 2,
+        editorRect.y,
+        searchWidgetWidth
+      );
+      searchWidget.render(ctx);
+    }
 
     // Render status bar
     statusBar.setRect(statusBarRect);
@@ -1291,13 +1312,31 @@ export class App {
         }
       },
       
-      // Search/Navigate placeholders
+      // Search/Navigate commands
       {
         id: 'ultra.find',
         title: 'Find',
         category: 'Search',
         handler: () => {
-          // TODO: Implement find UI
+          const doc = this.getActiveDocument();
+          if (doc) {
+            searchWidget.setDocument(doc);
+            searchWidget.show('find');
+            searchWidget.onClose(() => {
+              renderer.scheduleRender();
+            });
+            searchWidget.onNavigate((match) => {
+              if (match && doc) {
+                doc.cursorManager.setPosition(match.range.start);
+                this.editorPane.ensureCursorVisible();
+              }
+              renderer.scheduleRender();
+            });
+            searchWidget.onReplace(() => {
+              renderer.scheduleRender();
+            });
+            renderer.scheduleRender();
+          }
         }
       },
       {
@@ -1305,7 +1344,10 @@ export class App {
         title: 'Find Next',
         category: 'Search',
         handler: () => {
-          // TODO: Implement find next
+          if (searchWidget.visible) {
+            searchWidget.findNext();
+            renderer.scheduleRender();
+          }
         }
       },
       {
@@ -1313,15 +1355,36 @@ export class App {
         title: 'Find Previous',
         category: 'Search',
         handler: () => {
-          // TODO: Implement find previous
+          if (searchWidget.visible) {
+            searchWidget.findPrevious();
+            renderer.scheduleRender();
+          }
         }
       },
       {
         id: 'ultra.replace',
-        title: 'Replace',
+        title: 'Find and Replace',
         category: 'Search',
         handler: () => {
-          // TODO: Implement replace UI
+          const doc = this.getActiveDocument();
+          if (doc) {
+            searchWidget.setDocument(doc);
+            searchWidget.show('replace');
+            searchWidget.onClose(() => {
+              renderer.scheduleRender();
+            });
+            searchWidget.onNavigate((match) => {
+              if (match && doc) {
+                doc.cursorManager.setPosition(match.range.start);
+                this.editorPane.ensureCursorVisible();
+              }
+              renderer.scheduleRender();
+            });
+            searchWidget.onReplace(() => {
+              renderer.scheduleRender();
+            });
+            renderer.scheduleRender();
+          }
         }
       },
       {
