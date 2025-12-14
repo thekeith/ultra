@@ -2,6 +2,10 @@
  * Raw Terminal Input Handler
  * 
  * Parses stdin input into key and mouse events.
+ * Supports:
+ *   - Standard escape sequences
+ *   - CSI u (fixterms) encoding for proper modifier support
+ *   - Mouse tracking (SGR and X10)
  */
 
 import { ESC } from './ansi.ts';
@@ -30,7 +34,7 @@ type MouseCallback = (event: MouseEventData) => void;
 type ResizeCallback = (width: number, height: number) => void;
 
 // Special key mappings for escape sequences
-const ESCAPE_SEQUENCES: Record<string, { key: string; shift?: boolean }> = {
+const ESCAPE_SEQUENCES: Record<string, { key: string; shift?: boolean; ctrl?: boolean; alt?: boolean }> = {
   // Arrow keys
   '[A': { key: 'UP' },
   '[B': { key: 'DOWN' },
@@ -40,19 +44,32 @@ const ESCAPE_SEQUENCES: Record<string, { key: string; shift?: boolean }> = {
   'OB': { key: 'DOWN' },
   'OC': { key: 'RIGHT' },
   'OD': { key: 'LEFT' },
-  // Arrow keys with modifiers (xterm style)
+  // Arrow keys with modifiers (xterm style: 1;modifier)
+  // modifier: 2=shift, 3=alt, 4=alt+shift, 5=ctrl, 6=ctrl+shift, 7=ctrl+alt, 8=ctrl+alt+shift
   '[1;2A': { key: 'UP', shift: true },
   '[1;2B': { key: 'DOWN', shift: true },
   '[1;2C': { key: 'RIGHT', shift: true },
   '[1;2D': { key: 'LEFT', shift: true },
-  '[1;5A': { key: 'UP' },  // Ctrl+Up
-  '[1;5B': { key: 'DOWN' },
-  '[1;5C': { key: 'RIGHT' },
-  '[1;5D': { key: 'LEFT' },
-  '[1;3A': { key: 'UP' },  // Alt+Up
-  '[1;3B': { key: 'DOWN' },
-  '[1;3C': { key: 'RIGHT' },
-  '[1;3D': { key: 'LEFT' },
+  '[1;3A': { key: 'UP', alt: true },
+  '[1;3B': { key: 'DOWN', alt: true },
+  '[1;3C': { key: 'RIGHT', alt: true },
+  '[1;3D': { key: 'LEFT', alt: true },
+  '[1;4A': { key: 'UP', alt: true, shift: true },
+  '[1;4B': { key: 'DOWN', alt: true, shift: true },
+  '[1;4C': { key: 'RIGHT', alt: true, shift: true },
+  '[1;4D': { key: 'LEFT', alt: true, shift: true },
+  '[1;5A': { key: 'UP', ctrl: true },
+  '[1;5B': { key: 'DOWN', ctrl: true },
+  '[1;5C': { key: 'RIGHT', ctrl: true },
+  '[1;5D': { key: 'LEFT', ctrl: true },
+  '[1;6A': { key: 'UP', ctrl: true, shift: true },
+  '[1;6B': { key: 'DOWN', ctrl: true, shift: true },
+  '[1;6C': { key: 'RIGHT', ctrl: true, shift: true },
+  '[1;6D': { key: 'LEFT', ctrl: true, shift: true },
+  '[1;7A': { key: 'UP', ctrl: true, alt: true },
+  '[1;7B': { key: 'DOWN', ctrl: true, alt: true },
+  '[1;7C': { key: 'RIGHT', ctrl: true, alt: true },
+  '[1;7D': { key: 'LEFT', ctrl: true, alt: true },
   // Home/End
   '[H': { key: 'HOME' },
   '[F': { key: 'END' },
@@ -62,12 +79,20 @@ const ESCAPE_SEQUENCES: Record<string, { key: string; shift?: boolean }> = {
   '[4~': { key: 'END' },
   '[7~': { key: 'HOME' },
   '[8~': { key: 'END' },
+  // Home/End with modifiers
+  '[1;2H': { key: 'HOME', shift: true },
+  '[1;2F': { key: 'END', shift: true },
+  '[1;5H': { key: 'HOME', ctrl: true },
+  '[1;5F': { key: 'END', ctrl: true },
   // Insert/Delete
   '[2~': { key: 'INSERT' },
   '[3~': { key: 'DELETE' },
+  '[3;5~': { key: 'DELETE', ctrl: true },
   // Page Up/Down
   '[5~': { key: 'PAGEUP' },
   '[6~': { key: 'PAGEDOWN' },
+  '[5;5~': { key: 'PAGEUP', ctrl: true },
+  '[6;5~': { key: 'PAGEDOWN', ctrl: true },
   // Function keys
   'OP': { key: 'F1' },
   'OQ': { key: 'F2' },
@@ -81,6 +106,19 @@ const ESCAPE_SEQUENCES: Record<string, { key: string; shift?: boolean }> = {
   '[21~': { key: 'F10' },
   '[23~': { key: 'F11' },
   '[24~': { key: 'F12' },
+  // Function keys with shift
+  '[1;2P': { key: 'F1', shift: true },
+  '[1;2Q': { key: 'F2', shift: true },
+  '[1;2R': { key: 'F3', shift: true },
+  '[1;2S': { key: 'F4', shift: true },
+  '[15;2~': { key: 'F5', shift: true },
+  '[17;2~': { key: 'F6', shift: true },
+  '[18;2~': { key: 'F7', shift: true },
+  '[19;2~': { key: 'F8', shift: true },
+  '[20;2~': { key: 'F9', shift: true },
+  '[21;2~': { key: 'F10', shift: true },
+  '[23;2~': { key: 'F11', shift: true },
+  '[24;2~': { key: 'F12', shift: true },
   // Alternative function key sequences
   '[[A': { key: 'F1' },
   '[[B': { key: 'F2' },
@@ -91,6 +129,8 @@ const ESCAPE_SEQUENCES: Record<string, { key: string; shift?: boolean }> = {
   '[12~': { key: 'F2' },
   '[13~': { key: 'F3' },
   '[14~': { key: 'F4' },
+  // Tab with shift (some terminals)
+  '[Z': { key: 'TAB', shift: true },
 };
 
 // Control character mappings
@@ -129,6 +169,14 @@ const CTRL_CHARS: Record<number, string> = {
   31: '_',
 };
 
+// CSI u key code mappings
+const CSI_U_KEYS: Record<number, string> = {
+  9: 'TAB',
+  13: 'ENTER',
+  27: 'ESCAPE',
+  127: 'BACKSPACE',
+};
+
 export class InputHandler {
   private keyCallbacks: Set<KeyCallback> = new Set();
   private mouseCallbacks: Set<MouseCallback> = new Set();
@@ -155,6 +203,11 @@ export class InputHandler {
     process.stdin.resume();
     process.stdin.setEncoding('utf8');
 
+    // Enable CSI u (modifyOtherKeys) mode for better modifier key support
+    // Mode 1: Report ambiguous keys differently
+    // Mode 2: Report all keys with modifiers
+    process.stdout.write('\x1b[>4;2m');  // Enable modifyOtherKeys mode 2
+    
     // Use 'readable' event with read() for more reliable input handling
     // This works better with Bun's compiled binaries
     process.stdin.on('readable', () => {
@@ -180,6 +233,9 @@ export class InputHandler {
   stop(): void {
     if (!this.isRunning) return;
     this.isRunning = false;
+
+    // Disable CSI u mode
+    process.stdout.write('\x1b[>4;0m');
 
     if (process.stdin.isTTY) {
       process.stdin.setRawMode(false);
@@ -233,7 +289,7 @@ export class InputHandler {
       const consumed = this.tryParse();
       if (consumed === 0) {
         // Couldn't parse anything yet - might be incomplete escape sequence
-        if (this.buffer.startsWith(ESC) && this.buffer.length < 10) {
+        if (this.buffer.startsWith(ESC) && this.buffer.length < 20) {
           // Wait a bit for more data
           this.escapeTimer = setTimeout(() => {
             // Timeout - treat as plain ESC key
@@ -280,15 +336,68 @@ export class InputHandler {
       return 6;
     }
 
+    // Check for CSI u format: ESC [ keycode ; modifiers u
+    // This is the "fixterms" / "libtermkey" encoding that properly reports modifiers
+    if (this.buffer.startsWith(`${ESC}[`)) {
+      const csiUMatch = this.buffer.match(/^\x1b\[(\d+)(?:;(\d+))?u/);
+      if (csiUMatch) {
+        const keycode = parseInt(csiUMatch[1]!, 10);
+        const modifiers = csiUMatch[2] ? parseInt(csiUMatch[2], 10) : 1;
+        
+        // Decode modifiers: 1=none, 2=shift, 3=alt, 4=alt+shift, 5=ctrl, 6=ctrl+shift, 7=ctrl+alt, 8=all
+        const shift = (modifiers - 1) & 1;
+        const alt = (modifiers - 1) & 2;
+        const ctrl = (modifiers - 1) & 4;
+        
+        // Get key name
+        let key = CSI_U_KEYS[keycode] || String.fromCharCode(keycode).toUpperCase();
+        
+        this.emitKey({
+          key,
+          char: keycode >= 32 && keycode < 127 ? String.fromCharCode(keycode) : undefined,
+          ctrl: ctrl !== 0,
+          alt: alt !== 0,
+          shift: shift !== 0,
+          meta: false
+        });
+        return csiUMatch[0].length;
+      }
+      
+      // Check for modified key format: ESC [ 27 ; modifiers ; keycode ~
+      // Some terminals use this format
+      const modKeyMatch = this.buffer.match(/^\x1b\[27;(\d+);(\d+)~/);
+      if (modKeyMatch) {
+        const modifiers = parseInt(modKeyMatch[1]!, 10);
+        const keycode = parseInt(modKeyMatch[2]!, 10);
+        
+        const shift = (modifiers - 1) & 1;
+        const alt = (modifiers - 1) & 2;
+        const ctrl = (modifiers - 1) & 4;
+        
+        let key = String.fromCharCode(keycode).toUpperCase();
+        
+        this.emitKey({
+          key,
+          char: keycode >= 32 && keycode < 127 ? String.fromCharCode(keycode) : undefined,
+          ctrl: ctrl !== 0,
+          alt: alt !== 0,
+          shift: shift !== 0,
+          meta: false
+        });
+        return modKeyMatch[0].length;
+      }
+    }
+
     // Check for escape sequences
     if (firstChar === ESC && this.buffer.length > 1) {
-      // Try to match known escape sequences
-      for (const [seq, mapping] of Object.entries(ESCAPE_SEQUENCES)) {
+      // Try to match known escape sequences (longest first for proper matching)
+      const sortedSeqs = Object.entries(ESCAPE_SEQUENCES).sort((a, b) => b[0].length - a[0].length);
+      for (const [seq, mapping] of sortedSeqs) {
         if (this.buffer.startsWith(ESC + seq)) {
           this.emitKey({
             key: mapping.key,
-            ctrl: false,
-            alt: false,
+            ctrl: mapping.ctrl || false,
+            alt: mapping.alt || false,
             shift: mapping.shift || false,
             meta: false
           });
