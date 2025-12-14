@@ -165,8 +165,19 @@ export class App {
     renderer.terminal.on('mouse', (name: string, data: { x: number; y: number; shift?: boolean; ctrl?: boolean; meta?: boolean; alt?: boolean }) => {
       if (!this.isRunning) return;
 
+      // Ignore pure motion events - only process when dragging or button events
+      // MOUSE_MOTION is sent when no button is pressed
+      // MOUSE_DRAG is sent when a button is held during movement
+      if (name === 'MOUSE_MOTION') {
+        return;
+      }
+
       mouseManager.processEvent(name, data);
-      renderer.scheduleRender();
+      
+      // Only render for meaningful events
+      if (name !== 'MOUSE_OTHER_BUTTON_PRESSED' && name !== 'MOUSE_OTHER_BUTTON_RELEASED') {
+        renderer.scheduleRender();
+      }
     });
 
     // Register editor pane as mouse handler
