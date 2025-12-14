@@ -21,8 +21,9 @@ import { keymap, type ParsedKey } from './input/keymap.ts';
 import { keybindingsLoader } from './input/keybindings-loader.ts';
 import { settings } from './config/settings.ts';
 import { settingsLoader } from './config/settings-loader.ts';
-import { defaultKeybindings, defaultSettings } from './config/defaults.ts';
+import { defaultKeybindings, defaultSettings, defaultThemes } from './config/defaults.ts';
 import { type KeyEvent, type MouseEventData } from './terminal/index.ts';
+import { themeLoader } from './ui/themes/theme-loader.ts';
 
 interface OpenDocument {
   id: string;
@@ -125,6 +126,24 @@ export class App {
       }
     } catch {
       // Use embedded defaults
+    }
+
+    // Load theme from embedded defaults based on settings
+    const themeName = settings.get('workbench.colorTheme') || 'catppuccin-frappe';
+    const embeddedTheme = defaultThemes[themeName];
+    if (embeddedTheme) {
+      themeLoader.parse(JSON.stringify(embeddedTheme));
+    } else {
+      // Try to load from file as fallback
+      try {
+        const themePath = new URL(`../config/themes/${themeName}.json`, import.meta.url).pathname;
+        await themeLoader.loadFromFile(themePath);
+      } catch {
+        // Fall back to embedded catppuccin-frappe if available
+        if (defaultThemes['catppuccin-frappe']) {
+          themeLoader.parse(JSON.stringify(defaultThemes['catppuccin-frappe']));
+        }
+      }
     }
   }
 

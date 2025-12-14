@@ -12,6 +12,7 @@ import * as path from "path";
 console.log("Generating embedded config from JSON files...");
 
 const configDir = "./config";
+const themesDir = path.join(configDir, "themes");
 const outputFile = "./src/config/defaults.ts";
 
 // Read JSON files
@@ -28,6 +29,17 @@ const settingsJson = fs.readFileSync(
 const keybindings = JSON.parse(keybindingsJson);
 const settings = JSON.parse(settingsJson);
 
+// Read all theme files
+const themeFiles = fs.readdirSync(themesDir).filter(f => f.endsWith('.json'));
+const themes: Record<string, any> = {};
+
+for (const themeFile of themeFiles) {
+  const themeName = themeFile.replace('.json', '');
+  const themeJson = fs.readFileSync(path.join(themesDir, themeFile), "utf-8");
+  themes[themeName] = JSON.parse(themeJson);
+  console.log(`  Loaded theme: ${themeName}`);
+}
+
 // Generate TypeScript file
 const generatedTs = `/**
  * Default Configuration (Auto-generated)
@@ -38,13 +50,17 @@ const generatedTs = `/**
  * Generated from:
  *   - config/default-keybindings.json
  *   - config/default-settings.json
+ *   - config/themes/*.json
  */
 
 import type { KeyBinding } from '../input/keymap.ts';
+import type { Theme } from '../ui/themes/theme-loader.ts';
 
 export const defaultKeybindings: KeyBinding[] = ${JSON.stringify(keybindings, null, 2)};
 
 export const defaultSettings: Record<string, any> = ${JSON.stringify(settings, null, 2)};
+
+export const defaultThemes: Record<string, Theme> = ${JSON.stringify(themes, null, 2)};
 `;
 
 fs.writeFileSync(outputFile, generatedTs);

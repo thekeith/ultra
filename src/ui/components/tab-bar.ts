@@ -7,6 +7,7 @@
 import type { RenderContext } from '../renderer.ts';
 import type { Rect } from '../layout.ts';
 import type { MouseHandler, MouseEvent } from '../mouse.ts';
+import { themeLoader } from '../themes/theme-loader.ts';
 
 export interface Tab {
   id: string;
@@ -76,13 +77,21 @@ export class TabBar implements MouseHandler {
     if (width <= 0) return;
 
     // ANSI helpers
-    const bg = (n: number) => `\x1b[48;5;${n}m`;
-    const fg = (n: number) => `\x1b[38;5;${n}m`;
+    const bgRgb = (r: number, g: number, b: number) => `\x1b[48;2;${r};${g};${b}m`;
+    const fgRgb = (r: number, g: number, b: number) => `\x1b[38;2;${r};${g};${b}m`;
     const reset = '\x1b[0m';
     const moveTo = (px: number, py: number) => `\x1b[${py};${px}H`;
 
+    // Get theme colors
+    const inactiveBg = this.hexToRgb(themeLoader.getColor('tab.inactiveBackground')) || { r: 41, g: 44, b: 60 };
+    const activeBg = this.hexToRgb(themeLoader.getColor('tab.activeBackground')) || { r: 48, g: 52, b: 70 };
+    const activeFg = this.hexToRgb(themeLoader.getColor('tab.activeForeground')) || { r: 198, g: 208, b: 245 };
+    const inactiveFg = this.hexToRgb(themeLoader.getColor('tab.inactiveForeground')) || { r: 131, g: 139, b: 167 };
+    const borderColor = this.hexToRgb(themeLoader.getColor('tab.border')) || { r: 35, g: 38, b: 52 };
+    const dirtyColor = { r: 231, g: 130, b: 132 }; // Catppuccin red
+
     // Build entire tab bar as one string
-    let output = moveTo(x, y) + bg(234) + ' '.repeat(width);
+    let output = moveTo(x, y) + bgRgb(inactiveBg.r, inactiveBg.g, inactiveBg.b) + ' '.repeat(width);
     
     let currentX = x;
     const maxTabWidth = Math.min(30, Math.floor(width / Math.max(1, this.tabs.length)));
@@ -103,32 +112,47 @@ export class TabBar implements MouseHandler {
       });
 
       // Tab background
-      const tabBg = tab.isActive ? 236 : 234;
-      output += moveTo(currentX, y) + bg(tabBg);
+      const tabBg = tab.isActive ? activeBg : inactiveBg;
+      output += moveTo(currentX, y) + bgRgb(tabBg.r, tabBg.g, tabBg.b);
 
       // Dirty indicator or space
       if (tab.isDirty) {
-        output += fg(203) + ' ●';
+        output += fgRgb(dirtyColor.r, dirtyColor.g, dirtyColor.b) + ' ●';
       } else {
         output += '  ';
       }
 
       // Tab name
-      output += fg(tab.isActive ? 252 : 245) + tabContent;
+      const tabFg = tab.isActive ? activeFg : inactiveFg;
+      output += fgRgb(tabFg.r, tabFg.g, tabFg.b) + tabContent;
 
       // Close button with visible hover area
-      output += ' ' + fg(tab.isActive ? 245 : 238) + '×' + ' ';
+      const closeFg = tab.isActive ? inactiveFg : { r: Math.floor(inactiveFg.r * 0.6), g: Math.floor(inactiveFg.g * 0.6), b: Math.floor(inactiveFg.b * 0.6) };
+      output += ' ' + fgRgb(closeFg.r, closeFg.g, closeFg.b) + '×' + ' ';
 
       // Tab separator
       currentX += tabWidth;
       if (currentX < x + width) {
-        output += moveTo(currentX, y) + bg(234) + fg(238) + '│';
+        output += moveTo(currentX, y) + bgRgb(inactiveBg.r, inactiveBg.g, inactiveBg.b) + fgRgb(borderColor.r, borderColor.g, borderColor.b) + '│';
         currentX += 1;
       }
     }
     
     output += reset;
     ctx.buffer(output);
+  }
+
+  /**
+   * Convert hex to RGB
+   */
+  private hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+    const match = hex.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+    if (!match) return null;
+    return {
+      r: parseInt(match[1]!, 16),
+      g: parseInt(match[2]!, 16),
+      b: parseInt(match[3]!, 16)
+    };
   }
 
   /**

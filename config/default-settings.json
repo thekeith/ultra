@@ -15,7 +15,7 @@
     "**/.git": true,
     "**/.DS_Store": true
   },
-  "workbench.colorTheme": "One Dark",
+  "workbench.colorTheme": "catppuccin-frappe",
   "ultra.ai.model": "claude-sonnet-4-20250514",
   "ultra.ai.apiKey": "${env:ANTHROPIC_API_KEY}"
 }

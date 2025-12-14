@@ -8,6 +8,7 @@ import type { DocumentState } from '../../core/document.ts';
 import type { Position } from '../../core/buffer.ts';
 import type { RenderContext } from '../renderer.ts';
 import type { Rect } from '../layout.ts';
+import { themeLoader } from '../themes/theme-loader.ts';
 
 export interface StatusBarState {
   document: DocumentState | null;
@@ -71,17 +72,24 @@ export class StatusBar {
     if (width <= 0) return;
 
     // ANSI helpers
-    const bg = (n: number) => `\x1b[48;5;${n}m`;
-    const fg = (n: number) => `\x1b[38;5;${n}m`;
+    const bgRgb = (r: number, g: number, b: number) => `\x1b[48;2;${r};${g};${b}m`;
+    const fgRgb = (r: number, g: number, b: number) => `\x1b[38;2;${r};${g};${b}m`;
     const reset = '\x1b[0m';
     const moveTo = (px: number, py: number) => `\x1b[${py};${px}H`;
 
+    // Get theme colors
+    const statusBg = this.hexToRgb(themeLoader.getColor('statusBar.background')) || { r: 41, g: 44, b: 60 };
+    const statusFg = this.hexToRgb(themeLoader.getColor('statusBar.foreground')) || { r: 198, g: 208, b: 245 };
+    const dimFg = { r: Math.floor(statusFg.r * 0.7), g: Math.floor(statusFg.g * 0.7), b: Math.floor(statusFg.b * 0.7) };
+    const warningColor = { r: 231, g: 130, b: 132 }; // Catppuccin red for dirty indicator
+    const accentColor = { r: 202, g: 158, b: 230 }; // Catppuccin mauve for branch
+
     // Build entire status bar as one string
-    let output = moveTo(x, y) + bg(236) + ' '.repeat(width) + moveTo(x, y) + bg(236);
+    let output = moveTo(x, y) + bgRgb(statusBg.r, statusBg.g, statusBg.b) + ' '.repeat(width) + moveTo(x, y) + bgRgb(statusBg.r, statusBg.g, statusBg.b);
 
     // If there's a message, show it prominently
     if (this.message) {
-      output += fg(226) + ' ' + this.message;
+      output += fgRgb(accentColor.r, accentColor.g, accentColor.b) + ' ' + this.message;
       output += reset;
       ctx.buffer(output);
       return;
@@ -90,16 +98,16 @@ export class StatusBar {
     // Left side
     if (this.state.document) {
       if (this.state.document.isDirty) {
-        output += fg(203) + '● ';
+        output += fgRgb(warningColor.r, warningColor.g, warningColor.b) + '● ';
       }
-      output += fg(252) + this.state.document.fileName;
+      output += fgRgb(statusFg.r, statusFg.g, statusFg.b) + this.state.document.fileName;
     } else {
-      output += fg(245) + 'No file';
+      output += fgRgb(dimFg.r, dimFg.g, dimFg.b) + 'No file';
     }
 
     // Git branch (if available)
     if (this.state.gitBranch) {
-      output += fg(245) + '  ' + fg(141) + '⎇ ' + this.state.gitBranch;
+      output += fgRgb(dimFg.r, dimFg.g, dimFg.b) + '  ' + fgRgb(accentColor.r, accentColor.g, accentColor.b) + '⎇ ' + this.state.gitBranch;
     }
 
     // Build right side content
@@ -135,11 +143,24 @@ export class StatusBar {
     // Position and render right side
     const rightX = x + width - right.length - 1;
     if (rightX > x) {
-      output += moveTo(rightX, y) + bg(236) + fg(245) + right;
+      output += moveTo(rightX, y) + bgRgb(statusBg.r, statusBg.g, statusBg.b) + fgRgb(dimFg.r, dimFg.g, dimFg.b) + right;
     }
     
     output += reset;
     ctx.buffer(output);
+  }
+
+  /**
+   * Convert hex to RGB
+   */
+  private hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+    const match = hex.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+    if (!match) return null;
+    return {
+      r: parseInt(match[1]!, 16),
+      g: parseInt(match[2]!, 16),
+      b: parseInt(match[3]!, 16)
+    };
   }
 
   /**

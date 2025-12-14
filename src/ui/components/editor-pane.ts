@@ -235,18 +235,27 @@ export class EditorPane implements MouseHandler {
     selections: { start: Position; end: Position }[]
   ): string {
     // ANSI escape helpers
-    const bg = (n: number) => `\x1b[48;5;${n}m`;
-    const fg = (n: number) => `\x1b[38;5;${n}m`;
+    const bgRgb = (r: number, g: number, b: number) => `\x1b[48;2;${r};${g};${b}m`;
     const fgRgb = (r: number, g: number, b: number) => `\x1b[38;2;${r};${g};${b}m`;
     const reset = '\x1b[0m';
+    
+    // Get theme colors
+    const gutterBgColor = this.hexToRgb(themeLoader.getColor('editorGutter.background')) || { r: 40, g: 44, b: 52 };
+    const lineNumColor = this.hexToRgb(themeLoader.getColor('editorLineNumber.foreground')) || { r: 73, g: 81, b: 98 };
+    const lineNumActiveColor = this.hexToRgb(themeLoader.getColor('editorLineNumber.activeForeground')) || { r: 171, g: 178, b: 191 };
+    const editorBgColor = this.hexToRgb(themeLoader.getColor('editor.background')) || { r: 40, g: 44, b: 52 };
+    const lineHighlightColor = this.hexToRgb(themeLoader.getColor('editor.lineHighlightBackground')) || { r: 44, g: 49, b: 60 };
+    const selectionBgColor = this.hexToRgb(themeLoader.getColor('editor.selectionBackground')) || { r: 62, g: 68, b: 81 };
+    const defaultFgColor = this.hexToRgb(themeLoader.getColor('editor.foreground')) || { r: 171, g: 178, b: 191 };
     
     let output = '';
     
     // Gutter
-    const gutterBg = bg(236);
+    const gutterBg = bgRgb(gutterBgColor.r, gutterBgColor.g, gutterBgColor.b);
     if (lineNum >= 0 && lineNum < (this.document?.lineCount || 0)) {
       const isCursorLine = this.document?.cursors.some(c => c.position.line === lineNum);
-      const gutterFg = isCursorLine ? fg(252) : fg(241);
+      const gutterFgRgb = isCursorLine ? lineNumActiveColor : lineNumColor;
+      const gutterFg = fgRgb(gutterFgRgb.r, gutterFgRgb.g, gutterFgRgb.b);
       const numStr = String(lineNum + 1).padStart(this.gutterWidth - 1, ' ') + ' ';
       output += gutterBg + gutterFg + numStr;
     } else {
@@ -256,12 +265,11 @@ export class EditorPane implements MouseHandler {
     // Line content
     if (lineNum < 0 || lineNum >= (this.document?.lineCount || 0)) {
       // Empty line after document end
-      output += bg(235) + ' '.repeat(textWidth);
+      output += bgRgb(editorBgColor.r, editorBgColor.g, editorBgColor.b) + ' '.repeat(textWidth);
     } else {
       const line = this.document!.getLine(lineNum);
       const isCursorLine = this.document?.cursors.some(c => c.position.line === lineNum);
-      const baseBg = isCursorLine && this.isFocused ? 237 : 235;
-      const selectionBg = 24;
+      const baseBgColor = isCursorLine && this.isFocused ? lineHighlightColor : editorBgColor;
       
       const visibleStart = this.scrollLeft;
       const visibleEnd = this.scrollLeft + textWidth;
@@ -272,9 +280,9 @@ export class EditorPane implements MouseHandler {
       // Build a color map for each column
       const colorMap = this.buildColorMap(line.length, tokens);
       
-      let currentBg = baseBg;
-      let currentFg = -1; // -1 means default foreground
-      output += bg(baseBg);
+      let currentBgKey = this.rgbToKey(baseBgColor);
+      let currentFgKey = -1; // -1 means default foreground
+      output += bgRgb(baseBgColor.r, baseBgColor.g, baseBgColor.b);
       
       for (let col = visibleStart; col < visibleEnd; col++) {
         const char = col < line.length ? line[col]! : ' ';
@@ -291,23 +299,24 @@ export class EditorPane implements MouseHandler {
         });
         
         // Apply background
-        const newBg = isSelected ? selectionBg : baseBg;
-        if (newBg !== currentBg) {
-          currentBg = newBg;
-          output += bg(currentBg);
+        const newBgColor = isSelected ? selectionBgColor : baseBgColor;
+        const newBgKey = this.rgbToKey(newBgColor);
+        if (newBgKey !== currentBgKey) {
+          currentBgKey = newBgKey;
+          output += bgRgb(newBgColor.r, newBgColor.g, newBgColor.b);
         }
         
         // Apply foreground color from syntax highlighting
         const tokenColor = col < colorMap.length ? colorMap[col] : null;
         if (tokenColor) {
           const rgb = this.hexToRgb(tokenColor);
-          if (rgb && currentFg !== this.rgbToKey(rgb)) {
-            currentFg = this.rgbToKey(rgb);
+          if (rgb && this.rgbToKey(rgb) !== currentFgKey) {
+            currentFgKey = this.rgbToKey(rgb);
             output += fgRgb(rgb.r, rgb.g, rgb.b);
           }
-        } else if (currentFg !== -1) {
-          currentFg = -1;
-          output += fg(252); // Default foreground
+        } else if (currentFgKey !== this.rgbToKey(defaultFgColor)) {
+          currentFgKey = this.rgbToKey(defaultFgColor);
+          output += fgRgb(defaultFgColor.r, defaultFgColor.g, defaultFgColor.b);
         }
         
         output += char === '\t' ? '  ' : char;
@@ -359,22 +368,22 @@ export class EditorPane implements MouseHandler {
    * Get fallback color for scope when theme doesn't have a match
    */
   private getFallbackColor(scope: string): string | null {
-    // One Dark inspired fallback colors
-    if (scope.startsWith('comment')) return '#5c6370';
-    if (scope.startsWith('string')) return '#98c379';
-    if (scope.startsWith('constant.numeric')) return '#d19a66';
-    if (scope.startsWith('constant.language')) return '#d19a66';
-    if (scope.startsWith('keyword')) return '#c678dd';
-    if (scope.startsWith('storage')) return '#c678dd';
-    if (scope.startsWith('entity.name.function')) return '#61afef';
-    if (scope.startsWith('entity.name.class')) return '#e5c07b';
-    if (scope.startsWith('entity.name.type')) return '#e5c07b';
-    if (scope.startsWith('variable.parameter')) return '#e06c75';
-    if (scope.startsWith('variable.other.property')) return '#e06c75';
-    if (scope.startsWith('variable.language')) return '#e06c75';
-    if (scope.startsWith('variable')) return '#e06c75';
-    if (scope.startsWith('support.type')) return '#e5c07b';
-    if (scope.startsWith('punctuation')) return '#abb2bf';
+    // Catppuccin Frappé inspired fallback colors
+    if (scope.startsWith('comment')) return '#626880';
+    if (scope.startsWith('string')) return '#a6d189';
+    if (scope.startsWith('constant.numeric')) return '#ef9f76';
+    if (scope.startsWith('constant.language')) return '#ef9f76';
+    if (scope.startsWith('keyword')) return '#ca9ee6';
+    if (scope.startsWith('storage')) return '#ca9ee6';
+    if (scope.startsWith('entity.name.function')) return '#8caaee';
+    if (scope.startsWith('entity.name.class')) return '#e5c890';
+    if (scope.startsWith('entity.name.type')) return '#e5c890';
+    if (scope.startsWith('variable.parameter')) return '#eebebe';
+    if (scope.startsWith('variable.other.property')) return '#8caaee';
+    if (scope.startsWith('variable.language')) return '#e78284';
+    if (scope.startsWith('variable')) return '#c6d0f5';
+    if (scope.startsWith('support.type')) return '#e5c890';
+    if (scope.startsWith('punctuation')) return '#c6d0f5';
     
     return null;
   }
@@ -403,13 +412,16 @@ export class EditorPane implements MouseHandler {
    * Render empty state (no document)
    */
   private renderEmptyState(ctx: RenderContext): void {
-    const bg = (n: number) => `\x1b[48;5;${n}m`;
-    const fg = (n: number) => `\x1b[38;5;${n}m`;
+    const bgRgb = (r: number, g: number, b: number) => `\x1b[48;2;${r};${g};${b}m`;
+    const fgRgb = (r: number, g: number, b: number) => `\x1b[38;2;${r};${g};${b}m`;
     const reset = '\x1b[0m';
     const moveTo = (x: number, y: number) => `\x1b[${y};${x}H`;
     
+    const editorBg = this.hexToRgb(themeLoader.getColor('editor.background')) || { r: 40, g: 44, b: 52 };
+    const fgColor = this.hexToRgb(themeLoader.getColor('editorLineNumber.foreground')) || { r: 133, g: 133, b: 133 };
+    
     let output = '';
-    const emptyLine = bg(236) + ' '.repeat(Math.max(0, this.rect.width)) + reset;
+    const emptyLine = bgRgb(editorBg.r, editorBg.g, editorBg.b) + ' '.repeat(Math.max(0, this.rect.width)) + reset;
     for (let y = 0; y < this.rect.height; y++) {
       output += moveTo(this.rect.x, this.rect.y + y) + emptyLine;
     }
@@ -418,7 +430,7 @@ export class EditorPane implements MouseHandler {
     const message = 'No file open';
     const msgX = this.rect.x + Math.floor((this.rect.width - message.length) / 2);
     const msgY = this.rect.y + Math.floor(this.rect.height / 2);
-    output += moveTo(msgX, msgY) + fg(245) + message + reset;
+    output += moveTo(msgX, msgY) + fgRgb(fgColor.r, fgColor.g, fgColor.b) + message + reset;
     
     ctx.buffer(output);
   }
@@ -430,10 +442,14 @@ export class EditorPane implements MouseHandler {
     if (!this.document || !this.isFocused) return '';
 
     const textStartX = this.rect.x + this.gutterWidth;
-    const bg = (n: number) => `\x1b[48;5;${n}m`;
-    const fg = (n: number) => `\x1b[38;5;${n}m`;
+    const bgRgb = (r: number, g: number, b: number) => `\x1b[48;2;${r};${g};${b}m`;
+    const fgRgb = (r: number, g: number, b: number) => `\x1b[38;2;${r};${g};${b}m`;
     const reset = '\x1b[0m';
     const moveTo = (x: number, y: number) => `\x1b[${y};${x}H`;
+    
+    // Get cursor color from theme
+    const cursorColor = this.hexToRgb(themeLoader.getColor('editorCursor.foreground')) || { r: 82, g: 139, b: 255 };
+    const editorBg = this.hexToRgb(themeLoader.getColor('editor.background')) || { r: 40, g: 44, b: 52 };
     
     let output = '';
 
@@ -451,7 +467,7 @@ export class EditorPane implements MouseHandler {
       const line = this.document.getLine(cursor.position.line);
       const char = cursor.position.column < line.length ? line[cursor.position.column]! : ' ';
       
-      output += moveTo(cursorX, cursorY) + bg(75) + fg(235) + char + reset;
+      output += moveTo(cursorX, cursorY) + bgRgb(cursorColor.r, cursorColor.g, cursorColor.b) + fgRgb(editorBg.r, editorBg.g, editorBg.b) + char + reset;
     }
     
     return output;
