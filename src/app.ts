@@ -1173,6 +1173,39 @@ export class App {
           renderer.scheduleRender();
         }
       },
+      {
+        id: 'ultra.editTheme',
+        title: 'Edit Current Theme (JSON)',
+        category: 'Preferences',
+        handler: async () => {
+          await this.openFile(userConfigManager.getCurrentThemePath());
+          renderer.scheduleRender();
+        }
+      },
+      {
+        id: 'ultra.changeTheme',
+        title: 'Change Color Theme',
+        category: 'Preferences',
+        handler: async () => {
+          const themes = await userConfigManager.getAvailableThemes();
+          const currentTheme = settings.get('workbench.colorTheme') || 'catppuccin-frappe';
+          
+          // Show theme selector in command palette
+          commandPalette.showWithItems(
+            themes.map(t => ({
+              id: t.name,
+              title: t.displayName,
+              category: t.isBuiltIn ? 'Built-in' : 'User',
+              handler: async () => {
+                await userConfigManager.changeTheme(t.name);
+              }
+            })),
+            'Select Color Theme',
+            currentTheme
+          );
+          renderer.scheduleRender();
+        }
+      },
       
       // Additional editing commands
       {

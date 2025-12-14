@@ -17,6 +17,18 @@ interface ScoredCommand {
   score: number;
 }
 
+export interface PaletteItem {
+  id: string;
+  title: string;
+  category?: string;
+  handler: () => void | Promise<void>;
+}
+
+interface ScoredItem {
+  item: PaletteItem;
+  score: number;
+}
+
 export class CommandPalette implements MouseHandler {
   private isVisible: boolean = false;
   private query: string = '';
@@ -29,12 +41,21 @@ export class CommandPalette implements MouseHandler {
   private height: number = 20;
   private onSelectCallback: ((command: Command) => void) | null = null;
   private onCloseCallback: (() => void) | null = null;
+  
+  // Custom items mode
+  private customItems: PaletteItem[] = [];
+  private filteredItems: ScoredItem[] = [];
+  private customTitle: string = 'Command Palette';
+  private isCustomMode: boolean = false;
+  private highlightedId: string = '';
 
   show(commands: Command[], screenWidth: number, screenHeight: number): void {
     this.isVisible = true;
+    this.isCustomMode = false;
     this.commands = commands;
     this.query = '';
     this.selectedIndex = 0;
+    this.customTitle = 'Command Palette';
     
     // Center the palette
     this.width = Math.min(70, screenWidth - 4);
@@ -43,6 +64,41 @@ export class CommandPalette implements MouseHandler {
     this.y = 2;
     
     this.filter();
+  }
+
+  /**
+   * Show palette with custom items
+   */
+  showWithItems(
+    items: PaletteItem[], 
+    title: string = 'Select Item',
+    highlightId: string = ''
+  ): void {
+    this.isVisible = true;
+    this.isCustomMode = true;
+    this.customItems = items;
+    this.customTitle = title;
+    this.highlightedId = highlightId;
+    this.query = '';
+    this.selectedIndex = 0;
+    
+    // Find the highlighted item's index
+    if (highlightId) {
+      const idx = items.findIndex(item => item.id === highlightId);
+      if (idx >= 0) {
+        this.selectedIndex = idx;
+      }
+    }
+    
+    // Center the palette
+    const screenWidth = process.stdout.columns || 80;
+    const screenHeight = process.stdout.rows || 24;
+    this.width = Math.min(70, screenWidth - 4);
+    this.height = Math.min(20, screenHeight - 4);
+    this.x = Math.floor((screenWidth - this.width) / 2) + 1;
+    this.y = 2;
+    
+    this.filterCustomItems();
   }
 
   hide(): void {
@@ -63,23 +119,40 @@ export class CommandPalette implements MouseHandler {
   appendToQuery(char: string): void {
     this.query += char;
     this.selectedIndex = 0;
-    this.filter();
+    if (this.isCustomMode) {
+      this.filterCustomItems();
+    } else {
+      this.filter();
+    }
   }
 
   backspaceQuery(): void {
     if (this.query.length > 0) {
       this.query = this.query.slice(0, -1);
       this.selectedIndex = 0;
-      this.filter();
+      if (this.isCustomMode) {
+        this.filterCustomItems();
+      } else {
+        this.filter();
+      }
     }
   }
 
   getSelectedCommand(): Command | null {
+    if (this.isCustomMode) return null;
     return this.filteredCommands[this.selectedIndex]?.command || null;
   }
 
+  getSelectedItem(): PaletteItem | null {
+    if (!this.isCustomMode) return null;
+    return this.filteredItems[this.selectedIndex]?.item || null;
+  }
+
   selectNext(): void {
-    if (this.selectedIndex < this.filteredCommands.length - 1) {
+    const maxIndex = this.isCustomMode 
+      ? this.filteredItems.length - 1 
+      : this.filteredCommands.length - 1;
+    if (this.selectedIndex < maxIndex) {
       this.selectedIndex++;
     }
   }
@@ -91,9 +164,16 @@ export class CommandPalette implements MouseHandler {
   }
 
   confirm(): void {
-    const command = this.getSelectedCommand();
-    if (command && this.onSelectCallback) {
-      this.onSelectCallback(command);
+    if (this.isCustomMode) {
+      const item = this.getSelectedItem();
+      if (item) {
+        item.handler();
+      }
+    } else {
+      const command = this.getSelectedCommand();
+      if (command && this.onSelectCallback) {
+        this.onSelectCallback(command);
+      }
     }
     this.hide();
   }
@@ -132,6 +212,57 @@ export class CommandPalette implements MouseHandler {
     // Sort by score descending
     results.sort((a, b) => b.score - a.score);
     this.filteredCommands = results;
+  }
+
+  /**
+   * Filter and score custom items based on query
+   */
+  private filterCustomItems(): void {
+    if (!this.query) {
+      // No query - show all items in original order
+      this.filteredItems = this.customItems.map(item => ({
+        item,
+        score: 0
+      }));
+      return;
+    }
+
+    const results: ScoredItem[] = [];
+    const lowerQuery = this.query.toLowerCase();
+
+    for (const item of this.customItems) {
+      const score = this.scoreItem(item, lowerQuery);
+      if (score > 0) {
+        results.push({ item, score });
+      }
+    }
+
+    // Sort by score descending
+    results.sort((a, b) => b.score - a.score);
+    this.filteredItems = results;
+  }
+
+  /**
+   * Score a custom item against the query
+   */
+  private scoreItem(item: PaletteItem, lowerQuery: string): number {
+    const title = item.title;
+    const lowerTitle = title.toLowerCase();
+
+    let bestScore = 0;
+
+    // Exact substring match
+    if (lowerTitle.includes(lowerQuery)) {
+      bestScore = Math.max(bestScore, 100 + (50 - lowerQuery.length));
+    }
+
+    // Fuzzy match
+    const fuzzyScore = this.fuzzyScore(lowerQuery, lowerTitle);
+    if (fuzzyScore > 0) {
+      bestScore = Math.max(bestScore, 40 + fuzzyScore);
+    }
+
+    return bestScore;
   }
 
   /**
@@ -261,7 +392,7 @@ export class CommandPalette implements MouseHandler {
     this.drawBorder(ctx);
 
     // Title
-    const title = ' Command Palette ';
+    const title = ` ${this.customTitle} `;
     const titleX = this.x + Math.floor((this.width - title.length) / 2);
     ctx.drawStyled(titleX, this.y, title, '#c678dd', '#2d2d2d');
 
@@ -282,7 +413,18 @@ export class CommandPalette implements MouseHandler {
     const sepY = this.y + 2;
     ctx.drawStyled(this.x + 1, sepY, '─'.repeat(this.width - 2), '#444444', '#2d2d2d');
 
-    // Results
+    // Results - render differently based on mode
+    if (this.isCustomMode) {
+      this.renderCustomItems(ctx);
+    } else {
+      this.renderCommands(ctx);
+    }
+  }
+
+  /**
+   * Render command list
+   */
+  private renderCommands(ctx: RenderContext): void {
     if (this.filteredCommands.length === 0) {
       const noResults = this.query ? 'No matching commands' : 'Type to search commands';
       ctx.drawStyled(this.x + 3, this.y + 4, noResults, '#888888', '#2d2d2d');
@@ -327,6 +469,59 @@ export class CommandPalette implements MouseHandler {
     // Footer with count
     const footerY = this.y + this.height - 1;
     const count = `${this.filteredCommands.length} commands`;
+    ctx.drawStyled(this.x + this.width - count.length - 2, footerY, count, '#666666', '#2d2d2d');
+  }
+
+  /**
+   * Render custom items list
+   */
+  private renderCustomItems(ctx: RenderContext): void {
+    if (this.filteredItems.length === 0) {
+      const noResults = this.query ? 'No matching items' : 'Type to search';
+      ctx.drawStyled(this.x + 3, this.y + 4, noResults, '#888888', '#2d2d2d');
+    } else {
+      const maxResults = this.height - 4;
+      for (let i = 0; i < maxResults; i++) {
+        const scoredItem = this.filteredItems[i];
+        if (!scoredItem) break;
+
+        const resultY = this.y + 3 + i;
+        const isSelected = i === this.selectedIndex;
+        const item = scoredItem.item;
+        const isCurrent = item.id === this.highlightedId;
+
+        // Background
+        const bgColor = isSelected ? '#3e5f8a' : '#2d2d2d';
+        ctx.fill(this.x + 1, resultY, this.width - 2, 1, ' ', undefined, bgColor);
+
+        // Checkmark for current item
+        const checkmark = isCurrent ? '✓ ' : '  ';
+        const checkColor = isSelected ? '#98c379' : '#98c379';
+        ctx.drawStyled(this.x + 2, resultY, checkmark, checkColor, bgColor);
+
+        // Item title
+        const titleColor = isSelected ? '#ffffff' : '#d4d4d4';
+        const maxTitleLen = this.width - 20;
+        const displayTitle = item.title.length > maxTitleLen 
+          ? item.title.slice(0, maxTitleLen - 1) + '…'
+          : item.title;
+        ctx.drawStyled(this.x + 4, resultY, displayTitle, titleColor, bgColor);
+
+        // Category label (right-aligned, dimmed)
+        if (item.category) {
+          const categoryColor = isSelected ? '#a0a0a0' : '#666666';
+          const categoryText = item.category;
+          const categoryX = this.x + this.width - categoryText.length - 3;
+          if (categoryX > this.x + 4 + displayTitle.length + 2) {
+            ctx.drawStyled(categoryX, resultY, categoryText, categoryColor, bgColor);
+          }
+        }
+      }
+    }
+
+    // Footer with count
+    const footerY = this.y + this.height - 1;
+    const count = `${this.filteredItems.length} items`;
     ctx.drawStyled(this.x + this.width - count.length - 2, footerY, count, '#666666', '#2d2d2d');
   }
 
@@ -382,7 +577,8 @@ export class CommandPalette implements MouseHandler {
     if (event.name === 'MOUSE_LEFT_BUTTON_PRESSED') {
       // Calculate which item was clicked
       const itemY = event.y - this.y - 3;
-      if (itemY >= 0 && itemY < this.filteredCommands.length) {
+      const itemCount = this.isCustomMode ? this.filteredItems.length : this.filteredCommands.length;
+      if (itemY >= 0 && itemY < itemCount) {
         this.selectedIndex = itemY;
         this.confirm();
         return true;
