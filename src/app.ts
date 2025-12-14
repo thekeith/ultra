@@ -414,6 +414,7 @@ export class App {
     mouseManager.registerHandler(commandPalette);
     mouseManager.registerHandler(fileBrowser);
     mouseManager.registerHandler(filePicker);
+    mouseManager.registerHandler(this.editorPane.getMinimap());
     mouseManager.registerHandler(this.editorPane);
     mouseManager.registerHandler(tabBar);
   }
@@ -1021,6 +1022,14 @@ export class App {
         title: 'Toggle AI Panel',
         category: 'View',
         handler: () => layoutManager.toggleAIPanel()
+      },
+      {
+        id: 'ultra.toggleMinimap',
+        title: 'Toggle Minimap',
+        category: 'View',
+        handler: () => {
+          this.editorPane.toggleMinimap();
+        }
       },
 
       // Tab commands

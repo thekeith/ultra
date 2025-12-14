@@ -13,6 +13,7 @@ import type { Position } from '../../core/buffer.ts';
 import { hasSelection, getSelectionRange } from '../../core/cursor.ts';
 import { highlighter as shikiHighlighter, type HighlightToken } from '../../features/syntax/shiki-highlighter.ts';
 import { themeLoader } from '../themes/theme-loader.ts';
+import { minimap } from './minimap.ts';
 
 export interface EditorTheme {
   background: string;
@@ -47,11 +48,22 @@ export class EditorPane implements MouseHandler {
   private lastParsedContent: string = '';
   private lastLanguage: string = '';
   private highlighterReady: boolean = false;
+  private minimapEnabled: boolean = true;
 
   // Callbacks
   private onClickCallback?: (position: Position, clickCount: number, event: MouseEvent) => void;
   private onDragCallback?: (position: Position, event: MouseEvent) => void;
   private onScrollCallback?: (deltaX: number, deltaY: number) => void;
+
+  constructor() {
+    // Setup minimap scroll callback
+    minimap.onScroll((line) => {
+      this.setScrollTop(line);
+      if (this.onScrollCallback) {
+        this.onScrollCallback(0, 0);
+      }
+    });
+  }
 
   /**
    * Set the document to display
@@ -61,6 +73,9 @@ export class EditorPane implements MouseHandler {
     this.scrollTop = 0;
     this.scrollLeft = 0;
     this.updateGutterWidth();
+    
+    // Setup minimap
+    minimap.setDocument(doc);
     
     // Setup syntax highlighting with Shiki
     if (doc) {
@@ -102,6 +117,32 @@ export class EditorPane implements MouseHandler {
   setRect(rect: Rect): void {
     this.rect = rect;
     this.updateGutterWidth();
+    
+    // Update minimap rect (right side of editor)
+    const minimapWidth = minimap.getWidth();
+    if (minimapWidth > 0) {
+      minimap.setRect({
+        x: rect.x + rect.width - minimapWidth,
+        y: rect.y,
+        width: minimapWidth,
+        height: rect.height
+      });
+    }
+  }
+
+  /**
+   * Toggle minimap visibility
+   */
+  toggleMinimap(): void {
+    this.minimapEnabled = !this.minimapEnabled;
+    minimap.setEnabled(this.minimapEnabled);
+  }
+
+  /**
+   * Get minimap instance (for registering as mouse handler)
+   */
+  getMinimap(): typeof minimap {
+    return minimap;
   }
 
   /**
@@ -183,10 +224,10 @@ export class EditorPane implements MouseHandler {
   }
 
   /**
-   * Get visible column count (after gutter)
+   * Get visible column count (after gutter and minimap)
    */
   getVisibleColumnCount(): number {
-    return this.rect.width - this.gutterWidth;
+    return this.rect.width - this.gutterWidth - minimap.getWidth();
   }
 
   /**
@@ -206,10 +247,15 @@ export class EditorPane implements MouseHandler {
     if (content !== this.lastParsedContent && this.highlighterReady) {
       shikiHighlighter.parse(content);
       this.lastParsedContent = content;
+      minimap.invalidateCache();
     }
 
+    // Update minimap scroll state
+    minimap.setEditorScroll(this.scrollTop, this.getVisibleLineCount());
+
     const visibleLines = this.getVisibleLineCount();
-    const textWidth = this.rect.width - this.gutterWidth;
+    const minimapWidth = minimap.getWidth();
+    const textWidth = this.rect.width - this.gutterWidth - minimapWidth;
 
     // Get all selection ranges for highlighting
     const selections = this.document.cursors
@@ -235,6 +281,9 @@ export class EditorPane implements MouseHandler {
     
     // Buffer everything for atomic write
     ctx.buffer(screenOutput);
+    
+    // Render minimap
+    minimap.render(ctx);
   }
 
   /**

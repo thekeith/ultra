@@ -211,6 +211,10 @@ export const defaultKeybindings: KeyBinding[] = [
     "command": "ultra.toggleSidebar"
   },
   {
+    "key": "ctrl+shift+m",
+    "command": "ultra.toggleMinimap"
+  },
+  {
     "key": "ctrl+\\",
     "command": "ultra.splitVertical"
   },
@@ -315,6 +319,10 @@ export const defaultSettings: Record<string, any> = {
   "editor.wordWrap": "off",
   "editor.lineNumbers": "on",
   "editor.minimap.enabled": true,
+  "editor.minimap.width": 10,
+  "editor.minimap.showSlider": "always",
+  "editor.minimap.maxColumn": 120,
+  "editor.minimap.side": "right",
   "editor.renderWhitespace": "selection",
   "editor.mouseWheelScrollSensitivity": 3,
   "editor.cursorBlinkRate": 500,

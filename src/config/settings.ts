@@ -11,6 +11,10 @@ export interface EditorSettings {
   'editor.wordWrap': 'off' | 'on' | 'wordWrapColumn' | 'bounded';
   'editor.lineNumbers': 'on' | 'off' | 'relative';
   'editor.minimap.enabled': boolean;
+  'editor.minimap.width': number;
+  'editor.minimap.showSlider': 'always' | 'mouseover';
+  'editor.minimap.maxColumn': number;
+  'editor.minimap.side': 'left' | 'right';
   'editor.renderWhitespace': 'none' | 'boundary' | 'selection' | 'trailing' | 'all';
   'editor.mouseWheelScrollSensitivity': number;
   'editor.cursorBlinkRate': number;
@@ -28,7 +32,11 @@ const defaultSettings: EditorSettings = {
   'editor.insertSpaces': true,
   'editor.wordWrap': 'off',
   'editor.lineNumbers': 'on',
-  'editor.minimap.enabled': false,
+  'editor.minimap.enabled': true,
+  'editor.minimap.width': 10,
+  'editor.minimap.showSlider': 'always',
+  'editor.minimap.maxColumn': 120,
+  'editor.minimap.side': 'right',
   'editor.renderWhitespace': 'selection',
   'editor.mouseWheelScrollSensitivity': 3,
   'editor.cursorBlinkRate': 500,

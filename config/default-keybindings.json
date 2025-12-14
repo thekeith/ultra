@@ -63,6 +63,7 @@
   
 
   { "key": "ctrl+b", "command": "ultra.toggleSidebar" },
+  { "key": "ctrl+shift+m", "command": "ultra.toggleMinimap" },
   { "key": "ctrl+\\", "command": "ultra.splitVertical" },
 
   { "key": "ctrl+1", "command": "ultra.goToTab1" },
