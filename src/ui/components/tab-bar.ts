@@ -20,7 +20,7 @@ export class TabBar implements MouseHandler {
   private rect: Rect = { x: 1, y: 1, width: 80, height: 1 };
   private tabs: Tab[] = [];
   private activeTabId: string | null = null;
-  private tabPositions: { id: string; startX: number; endX: number }[] = [];
+  private tabPositions: { id: string; startX: number; endX: number; closeX: number }[] = [];
 
   // Callbacks
   private onTabClickCallback?: (tabId: string) => void;
@@ -88,20 +88,22 @@ export class TabBar implements MouseHandler {
     const maxTabWidth = Math.min(30, Math.floor(width / Math.max(1, this.tabs.length)));
 
     for (const tab of this.tabs) {
-      const tabContent = this.formatTabContent(tab, maxTabWidth - 3);  // -3 for padding and close button
-      const tabWidth = tabContent.length + 3;
+      const tabContent = this.formatTabContent(tab, maxTabWidth - 5);  // -5 for padding and close button area
+      const tabWidth = tabContent.length + 5;  // space + content + space + × + space
 
       if (currentX + tabWidth > x + width) break;  // No more room
 
-      // Track tab position for click handling
+      // Track tab position for click handling (store close button start position)
+      const closeButtonX = currentX + tabWidth - 3;  // × takes last 3 chars including padding
       this.tabPositions.push({
         id: tab.id,
         startX: currentX,
-        endX: currentX + tabWidth
+        endX: currentX + tabWidth,
+        closeX: closeButtonX
       });
 
       // Tab background
-      const tabBg = tab.isActive ? 235 : 234;
+      const tabBg = tab.isActive ? 236 : 234;
       output += moveTo(currentX, y) + bg(tabBg);
 
       // Dirty indicator or space
@@ -114,8 +116,8 @@ export class TabBar implements MouseHandler {
       // Tab name
       output += fg(tab.isActive ? 252 : 245) + tabContent;
 
-      // Close button
-      output += fg(241) + ' ×';
+      // Close button with visible hover area
+      output += ' ' + fg(tab.isActive ? 245 : 238) + '×' + ' ';
 
       // Tab separator
       currentX += tabWidth;
@@ -158,8 +160,8 @@ export class TabBar implements MouseHandler {
       // Find which tab was clicked
       for (const pos of this.tabPositions) {
         if (event.x >= pos.startX && event.x < pos.endX) {
-          // Check if close button was clicked (last 2 chars of tab)
-          if (event.x >= pos.endX - 2) {
+          // Check if close button was clicked (the × area)
+          if (event.x >= pos.closeX) {
             if (this.onTabCloseCallback) {
               this.onTabCloseCallback(pos.id);
             }

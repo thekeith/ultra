@@ -23,7 +23,10 @@ export class KeybindingsLoader {
       const content = await file.text();
       return this.parse(content);
     } catch (error) {
-      console.error(`Failed to load keybindings from ${filePath}:`, error);
+      // Silently fail for $bunfs paths (expected in compiled binaries)
+      if (!filePath.includes('$bunfs')) {
+        console.error(`Failed to load keybindings from ${filePath}:`, error);
+      }
       return [];
     }
   }
