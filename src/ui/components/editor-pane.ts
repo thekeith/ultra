@@ -16,6 +16,7 @@ import { themeLoader } from '../themes/theme-loader.ts';
 import { minimap } from './minimap.ts';
 import { inFileSearch, type SearchMatch } from '../../features/search/in-file-search.ts';
 import { settings } from '../../config/settings.ts';
+import { findMatchingBracket, type BracketMatch } from '../../core/bracket-match.ts';
 
 // Represents a wrapped line segment
 interface WrappedLine {
@@ -64,6 +65,9 @@ export class EditorPane implements MouseHandler {
   private wrappedLines: WrappedLine[] = [];
   private lastWrapWidth: number = 0;
   private lastWrapContent: string = '';  // Track content for wrap cache invalidation
+
+  // Bracket matching state
+  private currentBracketMatch: BracketMatch | null = null;
 
   // Callbacks
   private onClickCallback?: (position: Position, clickCount: number, event: MouseEvent) => void;
@@ -459,6 +463,9 @@ export class EditorPane implements MouseHandler {
     const searchMatches = searchState.isActive ? searchState.matches : [];
     const currentMatchIndex = searchState.currentMatchIndex;
 
+    // Compute bracket matching for cursor position
+    this.updateBracketMatch();
+
     // Build entire screen as one string
     let screenOutput = '';
     const moveTo = (x: number, y: number) => `\x1b[${y};${x}H`;
@@ -532,6 +539,7 @@ export class EditorPane implements MouseHandler {
     const defaultFgColor = this.hexToRgb(themeLoader.getColor('editor.foreground')) || { r: 171, g: 178, b: 191 };
     const findMatchBgColor = this.hexToRgb(themeLoader.getColor('editor.findMatchBackground')) || { r: 81, g: 92, b: 106 };
     const findMatchHighlightBgColor = this.hexToRgb(themeLoader.getColor('editor.findMatchHighlightBackground')) || { r: 234, g: 92, b: 0 };
+    const bracketMatchBgColor = this.hexToRgb(themeLoader.getColor('editorBracketMatch.background')) || { r: 70, g: 76, b: 91 };
     
     let output = '';
     const lineNum = wrap.bufferLine;
@@ -615,6 +623,8 @@ export class EditorPane implements MouseHandler {
         newBgColor = findMatchHighlightBgColor;
       } else if (isInSearchMatch) {
         newBgColor = findMatchBgColor;
+      } else if (this.isMatchedBracket(lineNum, col)) {
+        newBgColor = bracketMatchBgColor;
       }
       
       const newBgKey = this.rgbToKey(newBgColor);
@@ -677,6 +687,9 @@ export class EditorPane implements MouseHandler {
     // Search match highlight colors
     const findMatchBgColor = this.hexToRgb(themeLoader.getColor('editor.findMatchBackground')) || { r: 81, g: 92, b: 106 };
     const findMatchHighlightBgColor = this.hexToRgb(themeLoader.getColor('editor.findMatchHighlightBackground')) || { r: 234, g: 92, b: 0 };
+    
+    // Bracket match highlight color
+    const bracketMatchBgColor = this.hexToRgb(themeLoader.getColor('editorBracketMatch.background')) || { r: 70, g: 76, b: 91 };
     
     let output = '';
     
@@ -756,7 +769,7 @@ export class EditorPane implements MouseHandler {
           }
         }
         
-        // Apply background: selection > current match > other matches > base
+        // Apply background: selection > current match > other matches > bracket match > base
         let newBgColor = baseBgColor;
         if (isSelected) {
           newBgColor = selectionBgColor;
@@ -764,6 +777,8 @@ export class EditorPane implements MouseHandler {
           newBgColor = findMatchHighlightBgColor;
         } else if (isInSearchMatch) {
           newBgColor = findMatchBgColor;
+        } else if (this.isMatchedBracket(lineNum, col)) {
+          newBgColor = bracketMatchBgColor;
         }
         
         const newBgKey = this.rgbToKey(newBgColor);
@@ -1123,6 +1138,40 @@ export class EditorPane implements MouseHandler {
     if (!this.isWordWrapEnabled()) {
       this.scrollLeft = Math.max(0, value);
     }
+  }
+
+  /**
+   * Update bracket matching for current cursor position
+   */
+  private updateBracketMatch(): void {
+    this.currentBracketMatch = null;
+    
+    if (!this.document) return;
+    
+    const cursor = this.document.primaryCursor;
+    const lineCount = this.document.lineCount;
+    
+    // Build lines array for bracket matching
+    const lines: string[] = [];
+    for (let i = 0; i < lineCount; i++) {
+      lines.push(this.document.getLine(i));
+    }
+    
+    this.currentBracketMatch = findMatchingBracket(
+      lines,
+      cursor.position.line,
+      cursor.position.column
+    );
+  }
+
+  /**
+   * Check if a position is a matched bracket position
+   */
+  private isMatchedBracket(line: number, column: number): boolean {
+    if (!this.currentBracketMatch) return false;
+    const { open, close } = this.currentBracketMatch;
+    return (line === open.line && column === open.column) ||
+           (line === close.line && column === close.column);
   }
 
   /**
