@@ -1,5 +1,7 @@
 # Ultra
 
+_v0.1.0_
+
 A terminal-native code editor with Sublime Text ergonomics, VS Code configuration compatibility, and AI-native capabilities.
 
 ## Features

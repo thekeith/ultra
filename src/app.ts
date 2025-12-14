@@ -110,7 +110,7 @@ export class App {
    * Setup keyboard event handler
    */
   private setupKeyboardHandler(): void {
-    renderer.terminal.on('key', (key: string, matches: unknown, data?: { code?: string; shift?: boolean; ctrl?: boolean; meta?: boolean; alt?: boolean }) => {
+    renderer.terminal.on('key', async (key: string, matches: unknown, data?: { code?: string; shift?: boolean; ctrl?: boolean; meta?: boolean; alt?: boolean }) => {
       if (!this.isRunning) return;
 
       // Parse the key
@@ -120,7 +120,7 @@ export class App {
       const commandId = keymap.getCommand(parsed);
       
       if (commandId) {
-        commandRegistry.execute(commandId);
+        await commandRegistry.execute(commandId);
         renderer.scheduleRender();
         return;
       }
@@ -162,6 +162,12 @@ export class App {
    * Setup mouse event handler
    */
   private setupMouseHandler(): void {
+    let lastRenderTime = 0;
+    let lastEventX = -1;
+    let lastEventY = -1;
+    let lastEventName = '';
+    const MOUSE_THROTTLE_MS = 16; // ~60fps max for continuous mouse events
+    
     renderer.terminal.on('mouse', (name: string, data: { x: number; y: number; shift?: boolean; ctrl?: boolean; meta?: boolean; alt?: boolean }) => {
       if (!this.isRunning) return;
 
@@ -171,6 +177,33 @@ export class App {
       if (name === 'MOUSE_MOTION') {
         return;
       }
+
+      const now = Date.now();
+      
+      // For continuous events (drag), throttle and skip if position hasn't changed
+      if (name === 'MOUSE_DRAG') {
+        // Skip if position is the same as last event
+        if (data.x === lastEventX && data.y === lastEventY && name === lastEventName) {
+          return;
+        }
+        // Throttle drag events
+        if (now - lastRenderTime < MOUSE_THROTTLE_MS) {
+          return;
+        }
+      }
+      
+      // Skip duplicate button press events at same position (click & hold artifacts)
+      if (name === 'MOUSE_LEFT_BUTTON_PRESSED') {
+        if (data.x === lastEventX && data.y === lastEventY && name === lastEventName &&
+            now - lastRenderTime < 100) {
+          return;
+        }
+      }
+      
+      lastRenderTime = now;
+      lastEventX = data.x;
+      lastEventY = data.y;
+      lastEventName = name;
 
       mouseManager.processEvent(name, data);
       
@@ -296,6 +329,38 @@ export class App {
   }
 
   /**
+   * Copy text to system clipboard (macOS)
+   */
+  private async copyToSystemClipboard(text: string): Promise<void> {
+    try {
+      const proc = Bun.spawn(['pbcopy'], {
+        stdin: 'pipe'
+      });
+      proc.stdin.write(text);
+      proc.stdin.end();
+      await proc.exited;
+    } catch {
+      // Silently fail - internal clipboard still works
+    }
+  }
+
+  /**
+   * Paste text from system clipboard (macOS)
+   */
+  private async pasteFromSystemClipboard(): Promise<string | null> {
+    try {
+      const proc = Bun.spawn(['pbpaste'], {
+        stdout: 'pipe'
+      });
+      const output = await new Response(proc.stdout).text();
+      await proc.exited;
+      return output || null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Setup render callback
    */
   private setupRenderCallback(): void {
@@ -339,7 +404,7 @@ export class App {
     if (doc) {
       // Move terminal cursor to a non-disruptive position (bottom right)
       // The visual cursor is rendered by EditorPane.renderCursors()
-      process.stdout.write(`\x1b[${ctx.height};${ctx.width}H`);
+      ctx.buffer(`\x1b[${ctx.height};${ctx.width}H`);
     }
   }
 
@@ -441,12 +506,13 @@ export class App {
         id: 'ultra.copy',
         title: 'Copy',
         category: 'Edit',
-        handler: () => {
+        handler: async () => {
           const doc = this.getActiveDocument();
           if (doc) {
             const text = doc.getSelectedText();
             if (text) {
               this.clipboard = text;
+              await this.copyToSystemClipboard(text);
             }
           }
         }
@@ -455,12 +521,13 @@ export class App {
         id: 'ultra.cut',
         title: 'Cut',
         category: 'Edit',
-        handler: () => {
+        handler: async () => {
           const doc = this.getActiveDocument();
           if (doc) {
             const text = doc.getSelectedText();
             if (text) {
               this.clipboard = text;
+              await this.copyToSystemClipboard(text);
               doc.backspace();
               this.editorPane.ensureCursorVisible();
               this.updateStatusBar();
@@ -472,11 +539,13 @@ export class App {
         id: 'ultra.paste',
         title: 'Paste',
         category: 'Edit',
-        handler: () => {
-          if (this.clipboard) {
-            const doc = this.getActiveDocument();
-            if (doc) {
-              doc.insert(this.clipboard);
+        handler: async () => {
+          const doc = this.getActiveDocument();
+          if (doc) {
+            // Try system clipboard first, fall back to internal
+            const text = await this.pasteFromSystemClipboard() || this.clipboard;
+            if (text) {
+              doc.insert(text);
               this.editorPane.ensureCursorVisible();
               this.updateStatusBar();
             }
@@ -772,6 +841,158 @@ export class App {
         title: 'Go to Tab 9',
         category: 'Tabs',
         handler: () => this.goToTab(8)
+      },
+      
+      // File operations (placeholder for future dialog)
+      {
+        id: 'ultra.openFile',
+        title: 'Open File',
+        category: 'File',
+        handler: () => {
+          // TODO: Implement file picker dialog
+          // For now, this is a no-op as it requires a file browser UI
+        }
+      },
+      
+      // Additional editing commands
+      {
+        id: 'ultra.outdent',
+        title: 'Outdent',
+        category: 'Edit',
+        handler: () => {
+          const doc = this.getActiveDocument();
+          if (doc) {
+            doc.outdent();
+            this.editorPane.ensureCursorVisible();
+            this.updateStatusBar();
+          }
+        }
+      },
+      {
+        id: 'ultra.selectNextOccurrence',
+        title: 'Select Next Occurrence',
+        category: 'Selection',
+        handler: () => {
+          const doc = this.getActiveDocument();
+          if (doc) {
+            doc.selectNextOccurrence();
+            this.editorPane.ensureCursorVisible();
+            this.updateStatusBar();
+          }
+        }
+      },
+      {
+        id: 'ultra.addCursorAbove',
+        title: 'Add Cursor Above',
+        category: 'Selection',
+        handler: () => {
+          const doc = this.getActiveDocument();
+          if (doc) {
+            doc.addCursorAbove();
+            this.editorPane.ensureCursorVisible();
+            this.updateStatusBar();
+          }
+        }
+      },
+      {
+        id: 'ultra.addCursorBelow',
+        title: 'Add Cursor Below',
+        category: 'Selection',
+        handler: () => {
+          const doc = this.getActiveDocument();
+          if (doc) {
+            doc.addCursorBelow();
+            this.editorPane.ensureCursorVisible();
+            this.updateStatusBar();
+          }
+        }
+      },
+      {
+        id: 'ultra.splitSelectionIntoLines',
+        title: 'Split Selection Into Lines',
+        category: 'Selection',
+        handler: () => {
+          const doc = this.getActiveDocument();
+          if (doc) {
+            doc.splitSelectionIntoLines();
+            this.editorPane.ensureCursorVisible();
+            this.updateStatusBar();
+          }
+        }
+      },
+      
+      // Search/Navigate placeholders
+      {
+        id: 'ultra.find',
+        title: 'Find',
+        category: 'Search',
+        handler: () => {
+          // TODO: Implement find UI
+        }
+      },
+      {
+        id: 'ultra.findNext',
+        title: 'Find Next',
+        category: 'Search',
+        handler: () => {
+          // TODO: Implement find next
+        }
+      },
+      {
+        id: 'ultra.findPrevious',
+        title: 'Find Previous',
+        category: 'Search',
+        handler: () => {
+          // TODO: Implement find previous
+        }
+      },
+      {
+        id: 'ultra.replace',
+        title: 'Replace',
+        category: 'Search',
+        handler: () => {
+          // TODO: Implement replace UI
+        }
+      },
+      {
+        id: 'ultra.goToLine',
+        title: 'Go to Line',
+        category: 'Navigation',
+        handler: () => {
+          // TODO: Implement go to line UI
+        }
+      },
+      {
+        id: 'ultra.projectSearch',
+        title: 'Search in Files',
+        category: 'Search',
+        handler: () => {
+          // TODO: Implement project search UI
+        }
+      },
+      {
+        id: 'ultra.quickOpen',
+        title: 'Quick Open',
+        category: 'Navigation',
+        handler: () => {
+          // TODO: Implement quick open UI
+        }
+      },
+      {
+        id: 'ultra.commandPalette',
+        title: 'Command Palette',
+        category: 'View',
+        handler: () => {
+          // TODO: Implement command palette UI
+        }
+      },
+      {
+        id: 'ultra.splitVertical',
+        title: 'Split Editor Vertical',
+        category: 'View',
+        handler: () => {
+          // TODO: Implement split view
+        }
       }
     ]);
   }

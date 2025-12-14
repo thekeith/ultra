@@ -169,6 +169,9 @@ export class Document {
    * Insert text at all cursor positions
    */
   insert(text: string): void {
+    // Capture cursor state BEFORE any modifications
+    const cursorsBefore = this._cursorManager.getSnapshot();
+    
     const cursors = [...this.cursors].sort((a, b) => {
       // Sort in reverse order so we can insert from bottom to top
       const aOffset = this._buffer.positionToOffset(a.position);
@@ -213,7 +216,7 @@ export class Document {
 
     this._undoManager.push({
       operations,
-      cursorsBefore: this._cursorManager.getSnapshot(),
+      cursorsBefore,
       cursorsAfter: this._cursorManager.getSnapshot()
     });
 
@@ -224,6 +227,9 @@ export class Document {
    * Delete text (backspace behavior)
    */
   backspace(): void {
+    // Capture cursor state BEFORE any modifications
+    const cursorsBefore = this._cursorManager.getSnapshot();
+    
     const cursors = [...this.cursors].sort((a, b) => {
       const aOffset = this._buffer.positionToOffset(a.position);
       const bOffset = this._buffer.positionToOffset(b.position);
@@ -265,7 +271,7 @@ export class Document {
     if (operations.length > 0) {
       this._undoManager.push({
         operations,
-        cursorsBefore: this._cursorManager.getSnapshot(),
+        cursorsBefore,
         cursorsAfter: this._cursorManager.getSnapshot()
       });
       this.markDirty();
@@ -276,6 +282,9 @@ export class Document {
    * Delete text (delete key behavior)
    */
   delete(): void {
+    // Capture cursor state BEFORE any modifications
+    const cursorsBefore = this._cursorManager.getSnapshot();
+    
     const cursors = [...this.cursors].sort((a, b) => {
       const aOffset = this._buffer.positionToOffset(a.position);
       const bOffset = this._buffer.positionToOffset(b.position);
@@ -314,7 +323,7 @@ export class Document {
     if (operations.length > 0) {
       this._undoManager.push({
         operations,
-        cursorsBefore: this._cursorManager.getSnapshot(),
+        cursorsBefore,
         cursorsAfter: this._cursorManager.getSnapshot()
       });
       this.markDirty();
@@ -573,6 +582,207 @@ export class Document {
       anchor: lineStart,
       head: lineEnd
     }]);
+  }
+
+  /**
+   * Outdent current line or selection
+   */
+  outdent(): void {
+    for (const cursor of this._cursorManager.cursors) {
+      const line = cursor.position.line;
+      const lineContent = this._buffer.getLine(line);
+      
+      // Find indentation to remove
+      let removeCount = 0;
+      if (lineContent.startsWith('\t')) {
+        removeCount = 1;
+      } else {
+        // Remove up to tabSize spaces
+        const tabSize = 2;  // TODO: get from settings
+        for (let i = 0; i < tabSize && i < lineContent.length; i++) {
+          if (lineContent[i] === ' ') {
+            removeCount++;
+          } else {
+            break;
+          }
+        }
+      }
+      
+      if (removeCount > 0) {
+        const range: Range = {
+          start: { line, column: 0 },
+          end: { line, column: removeCount }
+        };
+        this._buffer.delete(range);
+        this.markDirty();
+        
+        // Adjust cursor
+        cursor.position.column = Math.max(0, cursor.position.column - removeCount);
+      }
+    }
+  }
+
+  /**
+   * Select next occurrence of selected text (Cmd+D behavior)
+   */
+  selectNextOccurrence(): void {
+    const primaryCursor = this._cursorManager.primaryCursor;
+    
+    // If no selection, select word at cursor
+    if (!primaryCursor.selection || 
+        (primaryCursor.selection.anchor.line === primaryCursor.selection.head.line &&
+         primaryCursor.selection.anchor.column === primaryCursor.selection.head.column)) {
+      this.selectWordAtCursor();
+      return;
+    }
+    
+    // Get selected text
+    const selectedText = this.getSelectedText();
+    if (!selectedText) return;
+    
+    // Find next occurrence after the last cursor
+    const content = this._buffer.getContent();
+    const lastCursor = this._cursorManager.cursors[this._cursorManager.cursors.length - 1]!;
+    const startOffset = this._buffer.positionToOffset(lastCursor.selection?.head || lastCursor.position);
+    
+    let nextIndex = content.indexOf(selectedText, startOffset);
+    if (nextIndex === -1) {
+      // Wrap around to beginning
+      nextIndex = content.indexOf(selectedText);
+    }
+    
+    if (nextIndex !== -1) {
+      const nextStart = this._buffer.offsetToPosition(nextIndex);
+      const nextEnd = this._buffer.offsetToPosition(nextIndex + selectedText.length);
+      
+      // Check if we already have a cursor at this position
+      const alreadySelected = this._cursorManager.cursors.some(c => 
+        c.selection &&
+        c.selection.anchor.line === nextStart.line &&
+        c.selection.anchor.column === nextStart.column
+      );
+      
+      if (!alreadySelected) {
+        this._cursorManager.addCursorWithSelection(nextStart, nextEnd);
+      }
+    }
+  }
+
+  /**
+   * Select word at cursor position
+   */
+  private selectWordAtCursor(): void {
+    const cursor = this._cursorManager.primaryCursor;
+    const line = this._buffer.getLine(cursor.position.line);
+    let start = cursor.position.column;
+    let end = cursor.position.column;
+    
+    // Expand to word boundaries
+    while (start > 0 && this.isWordChar(line[start - 1]!)) {
+      start--;
+    }
+    while (end < line.length && this.isWordChar(line[end]!)) {
+      end++;
+    }
+    
+    if (start < end) {
+      cursor.selection = {
+        anchor: { line: cursor.position.line, column: start },
+        head: { line: cursor.position.line, column: end }
+      };
+      cursor.position = { line: cursor.position.line, column: end };
+    }
+  }
+
+  /**
+   * Add cursor above current position
+   */
+  addCursorAbove(): void {
+    const primaryCursor = this._cursorManager.primaryCursor;
+    if (primaryCursor.position.line > 0) {
+      const newLine = primaryCursor.position.line - 1;
+      const newColumn = Math.min(
+        primaryCursor.position.column,
+        this._buffer.getLineLength(newLine)
+      );
+      this._cursorManager.addCursor({ line: newLine, column: newColumn });
+    }
+  }
+
+  /**
+   * Add cursor below current position
+   */
+  addCursorBelow(): void {
+    const primaryCursor = this._cursorManager.primaryCursor;
+    if (primaryCursor.position.line < this._buffer.lineCount - 1) {
+      const newLine = primaryCursor.position.line + 1;
+      const newColumn = Math.min(
+        primaryCursor.position.column,
+        this._buffer.getLineLength(newLine)
+      );
+      this._cursorManager.addCursor({ line: newLine, column: newColumn });
+    }
+  }
+
+  /**
+   * Split selection into lines (put cursor on each line)
+   */
+  splitSelectionIntoLines(): void {
+    const primaryCursor = this._cursorManager.primaryCursor;
+    if (!primaryCursor.selection) return;
+    
+    const { anchor, head } = primaryCursor.selection;
+    const startLine = Math.min(anchor.line, head.line);
+    const endLine = Math.max(anchor.line, head.line);
+    
+    if (startLine === endLine) return;
+    
+    // Clear current cursors and create one per line
+    const newCursors: { position: Position; selection?: Selection }[] = [];
+    
+    for (let line = startLine; line <= endLine; line++) {
+      const lineLength = this._buffer.getLineLength(line);
+      let selStart: number;
+      let selEnd: number;
+      
+      if (line === startLine) {
+        selStart = anchor.line < head.line ? anchor.column : head.column;
+        selEnd = lineLength;
+      } else if (line === endLine) {
+        selStart = 0;
+        selEnd = anchor.line > head.line ? anchor.column : head.column;
+      } else {
+        selStart = 0;
+        selEnd = lineLength;
+      }
+      
+      newCursors.push({
+        position: { line, column: selEnd },
+        selection: {
+          anchor: { line, column: selStart },
+          head: { line, column: selEnd }
+        }
+      });
+    }
+    
+    // Set the new cursors
+    this._cursorManager.clearSecondary();
+    if (newCursors.length > 0) {
+      const first = newCursors[0]!;
+      this._cursorManager.setPosition(first.position);
+      if (first.selection) {
+        this._cursorManager.primaryCursor.selection = first.selection;
+      }
+      
+      for (let i = 1; i < newCursors.length; i++) {
+        const c = newCursors[i]!;
+        if (c.selection) {
+          this._cursorManager.addCursorWithSelection(c.selection.anchor, c.selection.head);
+        } else {
+          this._cursorManager.addCursor(c.position);
+        }
+      }
+    }
   }
 
   // Private helpers

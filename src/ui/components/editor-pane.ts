@@ -178,21 +178,25 @@ export class EditorPane implements MouseHandler {
       .filter(c => c.selection && hasSelection(c.selection))
       .map(c => getSelectionRange(c.selection!));
 
+    // Build entire screen as one string
+    let screenOutput = '';
+    const moveTo = (x: number, y: number) => `\x1b[${y};${x}H`;
+
     // Render each visible line as a single string with embedded ANSI
     for (let i = 0; i < visibleLines; i++) {
       const lineNum = this.scrollTop + i;
       const screenY = this.rect.y + i;
 
       // Build the entire line as a single string
-      const lineOutput = this.buildLineString(lineNum, textWidth, selections);
-      
-      // Single moveTo + write for the entire line
-      ctx.term.moveTo(this.rect.x, screenY);
-      process.stdout.write(lineOutput);
+      screenOutput += moveTo(this.rect.x, screenY);
+      screenOutput += this.buildLineString(lineNum, textWidth, selections);
     }
 
     // Render cursor(s) - these are overlaid on top
-    this.renderCursors(ctx);
+    screenOutput += this.buildCursorsString(ctx);
+    
+    // Buffer everything for atomic write
+    ctx.buffer(screenOutput);
   }
 
   /**
@@ -272,31 +276,36 @@ export class EditorPane implements MouseHandler {
     const bg = (n: number) => `\x1b[48;5;${n}m`;
     const fg = (n: number) => `\x1b[38;5;${n}m`;
     const reset = '\x1b[0m';
+    const moveTo = (x: number, y: number) => `\x1b[${y};${x}H`;
     
+    let output = '';
     const emptyLine = bg(236) + ' '.repeat(Math.max(0, this.rect.width)) + reset;
     for (let y = 0; y < this.rect.height; y++) {
-      ctx.term.moveTo(this.rect.x, this.rect.y + y);
-      process.stdout.write(emptyLine);
+      output += moveTo(this.rect.x, this.rect.y + y) + emptyLine;
     }
 
     // Center message
     const message = 'No file open';
     const msgX = this.rect.x + Math.floor((this.rect.width - message.length) / 2);
     const msgY = this.rect.y + Math.floor(this.rect.height / 2);
-    ctx.term.moveTo(msgX, msgY);
-    process.stdout.write(fg(245) + message + reset);
+    output += moveTo(msgX, msgY) + fg(245) + message + reset;
+    
+    ctx.buffer(output);
   }
 
   /**
-   * Render cursors - overlaid on content
+   * Build cursors string - overlaid on content
    */
-  private renderCursors(ctx: RenderContext): void {
-    if (!this.document || !this.isFocused) return;
+  private buildCursorsString(ctx: RenderContext): string {
+    if (!this.document || !this.isFocused) return '';
 
     const textStartX = this.rect.x + this.gutterWidth;
     const bg = (n: number) => `\x1b[48;5;${n}m`;
     const fg = (n: number) => `\x1b[38;5;${n}m`;
     const reset = '\x1b[0m';
+    const moveTo = (x: number, y: number) => `\x1b[${y};${x}H`;
+    
+    let output = '';
 
     for (const cursor of this.document.cursors) {
       const screenLine = cursor.position.line - this.scrollTop;
@@ -312,9 +321,10 @@ export class EditorPane implements MouseHandler {
       const line = this.document.getLine(cursor.position.line);
       const char = cursor.position.column < line.length ? line[cursor.position.column]! : ' ';
       
-      ctx.term.moveTo(cursorX, cursorY);
-      process.stdout.write(bg(75) + fg(235) + char + reset);
+      output += moveTo(cursorX, cursorY) + bg(75) + fg(235) + char + reset;
     }
+    
+    return output;
   }
 
   /**

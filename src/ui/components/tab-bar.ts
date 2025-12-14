@@ -126,7 +126,7 @@ export class TabBar implements MouseHandler {
     }
     
     output += reset;
-    process.stdout.write(output);
+    ctx.buffer(output);
   }
 
   /**

@@ -20,6 +20,7 @@ export interface RenderContext {
   term: Terminal;
   width: number;
   height: number;
+  buffer: (str: string) => void;  // Buffer output for atomic write
   draw: (x: number, y: number, text: string) => void;
   drawStyled: (x: number, y: number, text: string, fg?: string, bg?: string) => void;
   fill: (x: number, y: number, width: number, height: number, char: string, fg?: string, bg?: string) => void;
@@ -35,6 +36,7 @@ export class Renderer {
   private needsRender: boolean = true;
   private renderScheduled: boolean = false;
   private cursorVisible: boolean = false;
+  private outputBuffer: string = '';  // Collect all output for atomic write
 
   constructor() {
     this.term = term;
@@ -121,11 +123,27 @@ export class Renderer {
   render(): void {
     this.needsRender = false;
     
+    // Reset output buffer for this frame
+    this.outputBuffer = '';
+    
     const ctx = this.createRenderContext();
     
     for (const callback of this.renderCallbacks) {
       callback(ctx);
     }
+    
+    // Flush all buffered output in a single write
+    if (this.outputBuffer) {
+      process.stdout.write(this.outputBuffer);
+      this.outputBuffer = '';
+    }
+  }
+  
+  /**
+   * Buffer output for atomic write at end of render
+   */
+  bufferOutput(str: string): void {
+    this.outputBuffer += str;
   }
 
   /**
@@ -136,6 +154,10 @@ export class Renderer {
       term: this.term,
       width: this._width,
       height: this._height,
+      
+      buffer: (str: string) => {
+        this.outputBuffer += str;
+      },
       
       draw: (x: number, y: number, text: string) => {
         if (y < 1 || y > this._height || x < 1 || x > this._width) return;

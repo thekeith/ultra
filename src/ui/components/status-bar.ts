@@ -108,7 +108,7 @@ export class StatusBar {
     }
     
     output += reset;
-    process.stdout.write(output);
+    ctx.buffer(output);
   }
 
   /**
