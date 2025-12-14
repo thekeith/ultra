@@ -11,7 +11,7 @@ import type { Rect } from '../layout.ts';
 import type { MouseHandler, MouseEvent } from '../mouse.ts';
 import type { Position } from '../../core/buffer.ts';
 import { hasSelection, getSelectionRange } from '../../core/cursor.ts';
-import { Highlighter, type HighlightToken } from '../../features/syntax/highlighter.ts';
+import { highlighter as shikiHighlighter, type HighlightToken } from '../../features/syntax/shiki-highlighter.ts';
 import { themeLoader } from '../themes/theme-loader.ts';
 
 export interface EditorTheme {
@@ -44,9 +44,9 @@ export class EditorPane implements MouseHandler {
   private gutterWidth: number = 5;  // Line numbers + margin
   private theme: EditorTheme = defaultTheme;
   private isFocused: boolean = true;
-  private highlighter: Highlighter = new Highlighter();
   private lastParsedContent: string = '';
   private lastLanguage: string = '';
+  private highlighterReady: boolean = false;
 
   // Callbacks
   private onClickCallback?: (position: Position, clickCount: number, event: MouseEvent) => void;
@@ -62,17 +62,28 @@ export class EditorPane implements MouseHandler {
     this.scrollLeft = 0;
     this.updateGutterWidth();
     
-    // Setup syntax highlighting
+    // Setup syntax highlighting with Shiki
     if (doc) {
       const language = doc.language;
       if (language !== this.lastLanguage) {
-        this.highlighter.setLanguage(language);
+        // Try to set language - this may trigger async loading
+        this.highlighterReady = shikiHighlighter.setLanguageSync(language);
+        if (!this.highlighterReady) {
+          // Async load and re-parse when ready
+          shikiHighlighter.setLanguage(language).then((success) => {
+            if (success && this.document) {
+              this.highlighterReady = true;
+              shikiHighlighter.parse(this.document.content);
+              this.lastParsedContent = this.document.content;
+            }
+          });
+        }
         this.lastLanguage = language;
       }
       // Parse the document for highlighting
       const content = doc.content;
-      if (content !== this.lastParsedContent) {
-        this.highlighter.parse(content);
+      if (content !== this.lastParsedContent && this.highlighterReady) {
+        shikiHighlighter.parse(content);
         this.lastParsedContent = content;
       }
     }
@@ -192,8 +203,8 @@ export class EditorPane implements MouseHandler {
     
     // Update syntax highlighting if content changed
     const content = this.document.content;
-    if (content !== this.lastParsedContent) {
-      this.highlighter.parse(content);
+    if (content !== this.lastParsedContent && this.highlighterReady) {
+      shikiHighlighter.parse(content);
       this.lastParsedContent = content;
     }
 
@@ -275,7 +286,7 @@ export class EditorPane implements MouseHandler {
       const visibleEnd = this.scrollLeft + textWidth;
       
       // Get highlight tokens for this line
-      const tokens = this.highlighter.highlightLine(lineNum);
+      const tokens = shikiHighlighter.highlightLine(lineNum);
       
       // Build a color map for each column
       const colorMap = this.buildColorMap(line.length, tokens);
@@ -334,7 +345,8 @@ export class EditorPane implements MouseHandler {
     const colorMap: (string | null)[] = new Array(lineLength).fill(null);
     
     for (const token of tokens) {
-      const color = this.getColorForScope(token.scope);
+      // Shiki tokens already have the color - use it directly
+      const color = token.color || this.getColorForScope(token.scope);
       if (color) {
         for (let col = token.start; col < token.end && col < lineLength; col++) {
           colorMap[col] = color;
