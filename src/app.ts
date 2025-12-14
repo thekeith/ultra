@@ -127,6 +127,10 @@ export class App {
    * Apply current settings to the UI
    */
   private applySettings(): void {
+    // Handle sidebar location
+    const sidebarLocation = settings.get('workbench.sideBar.location') || 'left';
+    layoutManager.setSidebarLocation(sidebarLocation);
+    
     // Handle sidebar visibility changes
     const sidebarShouldBeVisible = settings.get('workbench.sideBar.visible');
     const sidebarIsVisible = layoutManager.isSidebarVisible();

@@ -29,6 +29,7 @@ export class LayoutManager {
   private statusBarHeight: number = 1;
   private sidebarWidth: number = 0;
   private sidebarVisible: boolean = false;
+  private sidebarLocation: 'left' | 'right' = 'left';
   private terminalHeight: number = 0;
   private terminalVisible: boolean = false;
   private aiPanelWidth: number = 0;
@@ -66,8 +67,15 @@ export class LayoutManager {
    * Get tab bar rect
    */
   getTabBarRect(): Rect {
-    const x = this.sidebarVisible ? this.sidebarWidth + 1 : 1;
-    const width = this._screenWidth - x + 1 - (this.aiPanelVisible ? this.aiPanelWidth : 0);
+    const sidebarOnLeft = this.sidebarLocation === 'left';
+    const x = (this.sidebarVisible && sidebarOnLeft) ? this.sidebarWidth + 1 : 1;
+    let width = this._screenWidth - x + 1;
+    if (this.aiPanelVisible) {
+      width -= this.aiPanelWidth;
+    }
+    if (this.sidebarVisible && !sidebarOnLeft) {
+      width -= this.sidebarWidth;
+    }
     return {
       x,
       y: 1,
@@ -93,8 +101,9 @@ export class LayoutManager {
    */
   getSidebarRect(): Rect | null {
     if (!this.sidebarVisible) return null;
+    const sidebarOnLeft = this.sidebarLocation === 'left';
     return {
-      x: 1,
+      x: sidebarOnLeft ? 1 : this._screenWidth - this.sidebarWidth + 1,
       y: 1,
       width: this.sidebarWidth,
       height: this._screenHeight - this.statusBarHeight
@@ -106,8 +115,15 @@ export class LayoutManager {
    */
   getTerminalRect(): Rect | null {
     if (!this.terminalVisible) return null;
-    const x = this.sidebarVisible ? this.sidebarWidth + 1 : 1;
-    const width = this._screenWidth - x + 1 - (this.aiPanelVisible ? this.aiPanelWidth : 0);
+    const sidebarOnLeft = this.sidebarLocation === 'left';
+    const x = (this.sidebarVisible && sidebarOnLeft) ? this.sidebarWidth + 1 : 1;
+    let width = this._screenWidth - x + 1;
+    if (this.aiPanelVisible) {
+      width -= this.aiPanelWidth;
+    }
+    if (this.sidebarVisible && !sidebarOnLeft) {
+      width -= this.sidebarWidth;
+    }
     return {
       x,
       y: this._screenHeight - this.statusBarHeight - this.terminalHeight + 1,
@@ -133,13 +149,18 @@ export class LayoutManager {
    * Get main editor area rect
    */
   getEditorAreaRect(): Rect {
-    const x = this.sidebarVisible ? this.sidebarWidth + 1 : 1;
+    const sidebarOnLeft = this.sidebarLocation === 'left';
+    const x = (this.sidebarVisible && sidebarOnLeft) ? this.sidebarWidth + 1 : 1;
     const y = this.tabBarHeight + 1;
     let width = this._screenWidth - x + 1;
     let height = this._screenHeight - this.tabBarHeight - this.statusBarHeight;
 
     if (this.aiPanelVisible) {
       width -= this.aiPanelWidth;
+    }
+    
+    if (this.sidebarVisible && !sidebarOnLeft) {
+      width -= this.sidebarWidth;
     }
 
     if (this.terminalVisible) {
@@ -202,6 +223,21 @@ export class LayoutManager {
   }
 
   /**
+   * Set sidebar location
+   */
+  setSidebarLocation(location: 'left' | 'right'): void {
+    this.sidebarLocation = location;
+    this.recalculateLayout();
+  }
+
+  /**
+   * Get sidebar location
+   */
+  getSidebarLocation(): 'left' | 'right' {
+    return this.sidebarLocation;
+  }
+
+  /**
    * Set terminal height
    */
   setTerminalHeight(height: number): void {
@@ -226,7 +262,11 @@ export class LayoutManager {
    */
   isOnSidebarDivider(x: number): boolean {
     if (!this.sidebarVisible) return false;
-    return x === this.sidebarWidth;
+    if (this.sidebarLocation === 'left') {
+      return x === this.sidebarWidth;
+    } else {
+      return x === this._screenWidth - this.sidebarWidth + 1;
+    }
   }
 
   /**
