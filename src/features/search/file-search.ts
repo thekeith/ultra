@@ -12,6 +12,7 @@ export interface FileSearchResult {
   relativePath: string;
   name: string;
   score: number;
+  isHidden: boolean;
 }
 
 export class FileSearch {
@@ -76,12 +77,25 @@ export class FileSearch {
    * Check if a path should be ignored
    */
   private shouldIgnore(relativePath: string): boolean {
+    // Always ignore .DS_Store
+    if (relativePath.endsWith('.DS_Store')) {
+      return true;
+    }
+    
     for (const pattern of this.ignorePatterns) {
       if (pattern.test(relativePath)) {
         return true;
       }
     }
     return false;
+  }
+
+  /**
+   * Check if a path is hidden (starts with . in any component)
+   */
+  private isHiddenPath(relativePath: string): boolean {
+    const parts = relativePath.split(path.sep);
+    return parts.some(part => part.startsWith('.'));
   }
 
   /**
@@ -131,7 +145,8 @@ export class FileSearch {
           path: path.join(this.workspaceRoot, relativePath),
           relativePath,
           name: path.basename(relativePath),
-          score: 0
+          score: 0,
+          isHidden: this.isHiddenPath(relativePath)
         }));
     }
 
@@ -144,7 +159,8 @@ export class FileSearch {
           path: path.join(this.workspaceRoot, relativePath),
           relativePath,
           name: path.basename(relativePath),
-          score
+          score,
+          isHidden: this.isHiddenPath(relativePath)
         });
       }
     }

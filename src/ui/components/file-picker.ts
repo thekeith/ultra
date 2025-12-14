@@ -213,18 +213,26 @@ export class FilePicker implements MouseHandler {
 
         // File icon based on extension
         const icon = this.getFileIcon(result.name);
-        ctx.drawStyled(this.x + 2, resultY, icon, '#888888', bgColor);
+        const iconColor = result.isHidden ? '#555555' : '#888888';
+        ctx.drawStyled(this.x + 2, resultY, icon, iconColor, bgColor);
 
-        // Filename (highlighted)
-        const nameColor = isSelected ? '#ffffff' : '#d4d4d4';
+        // Filename (highlighted, dimmer for hidden files)
+        let nameColor: string;
+        if (result.isHidden) {
+          nameColor = isSelected ? '#a0a0a0' : '#707070';
+        } else {
+          nameColor = isSelected ? '#ffffff' : '#d4d4d4';
+        }
         const maxNameLen = Math.min(30, this.width - 10);
         const displayName = result.name.length > maxNameLen 
           ? result.name.slice(0, maxNameLen - 1) + '…'
           : result.name;
         ctx.drawStyled(this.x + 5, resultY, displayName, nameColor, bgColor);
 
-        // Path (dimmed)
-        const pathColor = isSelected ? '#a0a0a0' : '#666666';
+        // Path (dimmed, even more for hidden)
+        const pathColor = result.isHidden 
+          ? (isSelected ? '#707070' : '#505050')
+          : (isSelected ? '#a0a0a0' : '#666666');
         const pathStart = this.x + 6 + displayName.length;
         const pathMaxLen = this.width - (pathStart - this.x) - 2;
         if (pathMaxLen > 5) {

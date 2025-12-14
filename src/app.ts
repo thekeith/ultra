@@ -19,10 +19,8 @@ import { commandPalette } from './ui/components/command-palette.ts';
 import { fileTree } from './ui/components/file-tree.ts';
 import { commandRegistry } from './input/commands.ts';
 import { keymap, type ParsedKey } from './input/keymap.ts';
-import { keybindingsLoader } from './input/keybindings-loader.ts';
 import { settings } from './config/settings.ts';
-import { settingsLoader } from './config/settings-loader.ts';
-import { defaultKeybindings, defaultSettings, defaultThemes } from './config/defaults.ts';
+import { userConfigManager } from './config/user-config.ts';
 import { type KeyEvent, type MouseEventData } from './terminal/index.ts';
 import { themeLoader } from './ui/themes/theme-loader.ts';
 
@@ -77,10 +75,8 @@ export class App {
         renderer.scheduleRender();
       });
 
-      // Show sidebar if setting enabled
-      if (settings.get('workbench.sideBar.visible')) {
-        layoutManager.toggleSidebar(settings.get('ultra.sidebar.width') || 30);
-      }
+      // Apply initial settings (sidebar visibility, etc.)
+      this.applySettings();
 
       // Open file if provided
       if (filePath) {
@@ -107,6 +103,8 @@ export class App {
    */
   stop(): void {
     this.isRunning = false;
+    userConfigManager.destroy();
+    fileTree.destroy();
     renderer.cleanup();
   }
 
@@ -114,51 +112,34 @@ export class App {
    * Load configuration files
    */
   private async loadConfiguration(): Promise<void> {
-    // Load embedded default keybindings
-    keymap.loadBindings(defaultKeybindings);
+    // Initialize user config manager (creates ~/.ultra if needed, loads config, watches for changes)
+    await userConfigManager.init();
+    
+    // Set up hot-reload callback
+    userConfigManager.onReload(() => {
+      // Re-apply any settings that affect the UI
+      this.applySettings();
+      renderer.scheduleRender();
+    });
+  }
 
-    // Load embedded default settings
-    settings.update(defaultSettings);
-
-    // Try to load user overrides from config files (optional, won't fail if missing)
-    try {
-      const userBindings = await keybindingsLoader.loadFromFile(
-        new URL('../config/default-keybindings.json', import.meta.url).pathname
-      );
-      if (userBindings.length > 0) {
-        keymap.loadBindings(userBindings);
-      }
-    } catch {
-      // Use embedded defaults
+  /**
+   * Apply current settings to the UI
+   */
+  private applySettings(): void {
+    // Handle sidebar visibility changes
+    const sidebarShouldBeVisible = settings.get('workbench.sideBar.visible');
+    const sidebarIsVisible = layoutManager.isSidebarVisible();
+    
+    if (sidebarShouldBeVisible && !sidebarIsVisible) {
+      layoutManager.toggleSidebar(settings.get('ultra.sidebar.width') || 30);
+    } else if (!sidebarShouldBeVisible && sidebarIsVisible) {
+      layoutManager.toggleSidebar();
     }
-
-    try {
-      const userSettings = await settingsLoader.loadFromFile(
-        new URL('../config/default-settings.json', import.meta.url).pathname
-      );
-      if (userSettings && Object.keys(userSettings).length > 0) {
-        settings.update(userSettings);
-      }
-    } catch {
-      // Use embedded defaults
-    }
-
-    // Load theme from embedded defaults based on settings
-    const themeName = settings.get('workbench.colorTheme') || 'catppuccin-frappe';
-    const embeddedTheme = defaultThemes[themeName];
-    if (embeddedTheme) {
-      themeLoader.parse(JSON.stringify(embeddedTheme));
-    } else {
-      // Try to load from file as fallback
-      try {
-        const themePath = new URL(`../config/themes/${themeName}.json`, import.meta.url).pathname;
-        await themeLoader.loadFromFile(themePath);
-      } catch {
-        // Fall back to embedded catppuccin-frappe if available
-        if (defaultThemes['catppuccin-frappe']) {
-          themeLoader.parse(JSON.stringify(defaultThemes['catppuccin-frappe']));
-        }
-      }
+    
+    // Update sidebar width if visible
+    if (layoutManager.isSidebarVisible()) {
+      layoutManager.setSidebarWidth(settings.get('ultra.sidebar.width') || 30);
     }
   }
 
@@ -1171,6 +1152,24 @@ export class App {
             await this.openFile(path);
             renderer.scheduleRender();
           });
+          renderer.scheduleRender();
+        }
+      },
+      {
+        id: 'ultra.openSettings',
+        title: 'Open Settings (JSON)',
+        category: 'Preferences',
+        handler: async () => {
+          await this.openFile(userConfigManager.getSettingsPath());
+          renderer.scheduleRender();
+        }
+      },
+      {
+        id: 'ultra.openKeybindings',
+        title: 'Open Keyboard Shortcuts (JSON)',
+        category: 'Preferences',
+        handler: async () => {
+          await this.openFile(userConfigManager.getKeybindingsPath());
           renderer.scheduleRender();
         }
       },
