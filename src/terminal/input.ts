@@ -148,12 +148,20 @@ export class InputHandler {
     // Set raw mode to get individual keypresses
     if (process.stdin.isTTY) {
       process.stdin.setRawMode(true);
+    } else {
+      // Log to stderr for debugging
+      process.stderr.write('WARNING: stdin is not a TTY\n');
     }
     process.stdin.resume();
     process.stdin.setEncoding('utf8');
 
-    process.stdin.on('data', (data: string) => {
-      this.processInput(data);
+    // Use 'readable' event with read() for more reliable input handling
+    // This works better with Bun's compiled binaries
+    process.stdin.on('readable', () => {
+      let chunk: string | null;
+      while ((chunk = process.stdin.read() as string | null) !== null) {
+        this.processInput(chunk);
+      }
     });
 
     // Handle resize
