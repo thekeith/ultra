@@ -135,27 +135,27 @@ export class App {
 
       // Handle file picker input first if it's open
       if (filePicker.isOpen()) {
-        if (event.key === 'Escape') {
+        if (event.key === 'ESCAPE') {
           filePicker.hide();
           renderer.scheduleRender();
           return;
         }
-        if (event.key === 'Enter') {
+        if (event.key === 'ENTER') {
           filePicker.confirm();
           renderer.scheduleRender();
           return;
         }
-        if (event.key === 'ArrowUp' || (event.ctrl && event.key === 'p')) {
+        if (event.key === 'UP' || (event.ctrl && event.key === 'P')) {
           filePicker.selectPrevious();
           renderer.scheduleRender();
           return;
         }
-        if (event.key === 'ArrowDown' || (event.ctrl && event.key === 'n')) {
+        if (event.key === 'DOWN' || (event.ctrl && event.key === 'N')) {
           filePicker.selectNext();
           renderer.scheduleRender();
           return;
         }
-        if (event.key === 'Backspace') {
+        if (event.key === 'BACKSPACE') {
           filePicker.backspaceQuery();
           renderer.scheduleRender();
           return;
@@ -167,10 +167,12 @@ export class App {
           return;
         }
         if (event.key.length === 1 && !event.ctrl && !event.meta && !event.alt) {
-          filePicker.appendToQuery(event.key);
+          filePicker.appendToQuery(event.key.toLowerCase());
           renderer.scheduleRender();
           return;
         }
+        // Consume all other keys while picker is open
+        renderer.scheduleRender();
         return;
       }
 
