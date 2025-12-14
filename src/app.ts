@@ -1023,8 +1023,9 @@ export class App {
         handler: async () => {
           const workspaceRoot = process.cwd();
           await filePicker.show(workspaceRoot, renderer.width, renderer.height);
-          filePicker.onSelect((path) => {
-            this.openFile(path);
+          filePicker.onSelect(async (path) => {
+            await this.openFile(path);
+            renderer.scheduleRender();
           });
           renderer.scheduleRender();
         }
@@ -1166,8 +1167,9 @@ export class App {
         handler: async () => {
           const workspaceRoot = process.cwd();
           await filePicker.show(workspaceRoot, renderer.width, renderer.height);
-          filePicker.onSelect((path) => {
-            this.openFile(path);
+          filePicker.onSelect(async (path) => {
+            await this.openFile(path);
+            renderer.scheduleRender();
           });
           renderer.scheduleRender();
         }
