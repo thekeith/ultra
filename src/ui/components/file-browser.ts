@@ -13,6 +13,7 @@ interface FileEntry {
   name: string;
   path: string;
   isDirectory: boolean;
+  isHidden: boolean;
 }
 
 export class FileBrowser implements MouseHandler {
@@ -103,15 +104,17 @@ export class FileBrowser implements MouseHandler {
       const files: FileEntry[] = [];
 
       for (const item of items) {
-        // Skip hidden files unless showHidden is true
-        if (!this.showHidden && item.name.startsWith('.')) {
+        // Skip .DS_Store
+        if (item.name === '.DS_Store') {
           continue;
         }
 
+        const isHidden = item.name.startsWith('.');
         const entry: FileEntry = {
           name: item.name,
           path: path.join(this.currentPath, item.name),
-          isDirectory: item.isDirectory()
+          isDirectory: item.isDirectory(),
+          isHidden
         };
 
         if (item.isDirectory()) {
@@ -302,12 +305,18 @@ export class FileBrowser implements MouseHandler {
         // Background
         ctx.fill(this.x + 1, itemY, this.width - 2, 1, ' ', undefined, bgColor);
 
-        // Icon
+        // Icon (dimmer for hidden files)
         const icon = entry.isDirectory ? '📁' : this.getFileIcon(entry.name);
-        ctx.drawStyled(this.x + 2, itemY, icon, '#888888', bgColor);
+        const iconColor = entry.isHidden ? '#555555' : '#888888';
+        ctx.drawStyled(this.x + 2, itemY, icon, iconColor, bgColor);
 
-        // Name
-        const nameColor = isSelected ? '#ffffff' : (entry.isDirectory ? '#61afef' : '#d4d4d4');
+        // Name (dimmer for hidden files)
+        let nameColor: string;
+        if (entry.isHidden) {
+          nameColor = isSelected ? '#a0a0a0' : (entry.isDirectory ? '#4a7a9a' : '#707070');
+        } else {
+          nameColor = isSelected ? '#ffffff' : (entry.isDirectory ? '#61afef' : '#d4d4d4');
+        }
         const maxNameLen = this.width - 8;
         let displayName = entry.name;
         if (entry.isDirectory) displayName += '/';

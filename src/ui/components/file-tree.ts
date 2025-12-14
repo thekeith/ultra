@@ -19,6 +19,7 @@ export interface FileTreeNode {
   expanded: boolean;
   children: FileTreeNode[] | null;  // null = not loaded yet
   depth: number;
+  isHidden: boolean;
 }
 
 // File type icons (nerd font compatible, with fallbacks)
@@ -146,6 +147,7 @@ export class FileTree implements MouseHandler {
         expanded: false,
         children: stat.isDirectory() ? null : undefined,
         depth,
+        isHidden: name.startsWith('.'),
       };
     } catch {
       return null;
@@ -508,6 +510,18 @@ export class FileTree implements MouseHandler {
     // Draw file list
     const visibleCount = this.getVisibleCount();
     
+    // Calculate dimmed colors for hidden files
+    const dimFg = { 
+      r: Math.floor(sidebarFg.r * 0.5), 
+      g: Math.floor(sidebarFg.g * 0.5), 
+      b: Math.floor(sidebarFg.b * 0.5) 
+    };
+    const dimSelectionFg = { 
+      r: Math.floor(selectionFg.r * 0.7), 
+      g: Math.floor(selectionFg.g * 0.7), 
+      b: Math.floor(selectionFg.b * 0.7) 
+    };
+    
     for (let i = 0; i < visibleCount; i++) {
       const nodeIndex = this.scrollTop + i;
       const screenY = this.rect.y + 1 + i;
@@ -518,16 +532,24 @@ export class FileTree implements MouseHandler {
         const node = this.flatList[nodeIndex]!;
         const isSelected = nodeIndex === this.selectedIndex;
         
-        // Background
+        // Determine foreground color based on hidden status
+        let fg = sidebarFg;
+        if (node.isHidden) {
+          fg = dimFg;
+        }
+        
+        // Background and foreground
         if (isSelected && this.isFocused) {
           output += bgRgb(selectionBg.r, selectionBg.g, selectionBg.b);
-          output += fgRgb(selectionFg.r, selectionFg.g, selectionFg.b);
+          output += fgRgb(node.isHidden ? dimSelectionFg.r : selectionFg.r, 
+                         node.isHidden ? dimSelectionFg.g : selectionFg.g, 
+                         node.isHidden ? dimSelectionFg.b : selectionFg.b);
         } else if (isSelected) {
           output += bgRgb(hoverBg.r, hoverBg.g, hoverBg.b);
-          output += fgRgb(sidebarFg.r, sidebarFg.g, sidebarFg.b);
+          output += fgRgb(fg.r, fg.g, fg.b);
         } else {
           output += bgRgb(sidebarBg.r, sidebarBg.g, sidebarBg.b);
-          output += fgRgb(sidebarFg.r, sidebarFg.g, sidebarFg.b);
+          output += fgRgb(fg.r, fg.g, fg.b);
         }
         
         // Indent (depth - 1 because root children are depth 1)
