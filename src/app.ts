@@ -18,6 +18,7 @@ import { keymap, type ParsedKey } from './input/keymap.ts';
 import { keybindingsLoader } from './input/keybindings-loader.ts';
 import { settings } from './config/settings.ts';
 import { settingsLoader } from './config/settings-loader.ts';
+import { defaultKeybindings, defaultSettings } from './config/defaults.ts';
 import { type KeyEvent, type MouseEventData } from './terminal/index.ts';
 
 interface OpenDocument {
@@ -94,17 +95,34 @@ export class App {
    * Load configuration files
    */
   private async loadConfiguration(): Promise<void> {
-    // Load default keybindings
-    const defaultBindings = await keybindingsLoader.loadFromFile(
-      new URL('../config/default-keybindings.json', import.meta.url).pathname
-    );
-    keymap.loadBindings(defaultBindings);
+    // Load embedded default keybindings
+    keymap.loadBindings(defaultKeybindings);
 
-    // Load default settings
-    const defaultSettings = await settingsLoader.loadFromFile(
-      new URL('../config/default-settings.json', import.meta.url).pathname
-    );
+    // Load embedded default settings
     settings.update(defaultSettings);
+
+    // Try to load user overrides from config files (optional, won't fail if missing)
+    try {
+      const userBindings = await keybindingsLoader.loadFromFile(
+        new URL('../config/default-keybindings.json', import.meta.url).pathname
+      );
+      if (userBindings.length > 0) {
+        keymap.loadBindings(userBindings);
+      }
+    } catch {
+      // Use embedded defaults
+    }
+
+    try {
+      const userSettings = await settingsLoader.loadFromFile(
+        new URL('../config/default-settings.json', import.meta.url).pathname
+      );
+      if (userSettings && Object.keys(userSettings).length > 0) {
+        settings.update(userSettings);
+      }
+    } catch {
+      // Use embedded defaults
+    }
   }
 
   /**

@@ -1,0 +1,118 @@
+/**
+ * Default Configuration
+ * 
+ * Embedded default keybindings and settings.
+ * These are bundled directly into the binary.
+ */
+
+import type { KeyBinding } from '../input/keymap.ts';
+
+export const defaultKeybindings: KeyBinding[] = [
+  { key: "ctrl+s", command: "ultra.save" },
+  { key: "ctrl+z", command: "ultra.undo" },
+  { key: "ctrl+shift+z", command: "ultra.redo" },
+  { key: "ctrl+y", command: "ultra.redo" },
+  { key: "ctrl+q", command: "ultra.quit" },
+  { key: "ctrl+w", command: "ultra.closeTab" },
+  { key: "ctrl+n", command: "ultra.newFile" },
+  { key: "ctrl+o", command: "ultra.openFile" },
+
+  { key: "home", command: "ultra.cursorLineStart" },
+  { key: "end", command: "ultra.cursorLineEnd" },
+  { key: "ctrl+a", command: "ultra.cursorLineStart" },
+  { key: "ctrl+e", command: "ultra.cursorLineEnd" },
+  { key: "ctrl+home", command: "ultra.cursorFileStart" },
+  { key: "ctrl+end", command: "ultra.cursorFileEnd" },
+  { key: "alt+left", command: "ultra.cursorWordLeft" },
+  { key: "alt+right", command: "ultra.cursorWordRight" },
+  { key: "alt+b", command: "ultra.cursorWordLeft" },
+  { key: "alt+f", command: "ultra.cursorWordRight" },
+
+  { key: "up", command: "ultra.cursorUp" },
+  { key: "down", command: "ultra.cursorDown" },
+  { key: "left", command: "ultra.cursorLeft" },
+  { key: "right", command: "ultra.cursorRight" },
+
+  { key: "shift+up", command: "ultra.selectUp" },
+  { key: "shift+down", command: "ultra.selectDown" },
+  { key: "shift+left", command: "ultra.selectLeft" },
+  { key: "shift+right", command: "ultra.selectRight" },
+  { key: "shift+home", command: "ultra.selectLineStart" },
+  { key: "shift+end", command: "ultra.selectLineEnd" },
+  { key: "alt+shift+left", command: "ultra.selectWordLeft" },
+  { key: "alt+shift+right", command: "ultra.selectWordRight" },
+  { key: "ctrl+k", command: "ultra.selectAll" },
+  { key: "ctrl+l", command: "ultra.selectLine" },
+
+  { key: "ctrl+d", command: "ultra.selectNextOccurrence" },
+  { key: "ctrl+d a", command: "ultra.selectAllOccurrences" },
+  { key: "ctrl+shift+l", command: "ultra.splitSelectionIntoLines" },
+  { key: "ctrl+u", command: "ultra.addCursorAbove" },
+  { key: "ctrl+j", command: "ultra.addCursorBelow" },
+
+  { key: "ctrl+c", command: "ultra.copy" },
+  { key: "ctrl+x", command: "ultra.cut" },
+  { key: "ctrl+v", command: "ultra.paste" },
+
+  { key: "ctrl+f", command: "ultra.find" },
+  { key: "ctrl+g", command: "ultra.goToLine" },
+  { key: "f3", command: "ultra.findNext" },
+  { key: "shift+f3", command: "ultra.findPrevious" },
+  { key: "ctrl+h", command: "ultra.replace" },
+  { key: "ctrl+shift+f", command: "ultra.projectSearch" },
+
+  { key: "ctrl+p", command: "ultra.quickOpen" },
+  { key: "ctrl+shift+p", command: "ultra.commandPalette" },
+
+  { key: "ctrl+b", command: "ultra.toggleSidebar" },
+  { key: "ctrl+\\", command: "ultra.splitVertical" },
+
+  { key: "ctrl+1", command: "ultra.goToTab1" },
+  { key: "ctrl+2", command: "ultra.goToTab2" },
+  { key: "ctrl+3", command: "ultra.goToTab3" },
+  { key: "ctrl+4", command: "ultra.goToTab4" },
+  { key: "ctrl+5", command: "ultra.goToTab5" },
+  { key: "ctrl+6", command: "ultra.goToTab6" },
+  { key: "ctrl+7", command: "ultra.goToTab7" },
+  { key: "ctrl+8", command: "ultra.goToTab8" },
+  { key: "ctrl+9", command: "ultra.goToTab9" },
+  { key: "ctrl+tab", command: "ultra.nextTab" },
+  { key: "ctrl+shift+tab", command: "ultra.previousTab" },
+
+  { key: "ctrl+`", command: "ultra.toggleTerminal" },
+  { key: "ctrl+i", command: "ultra.toggleAIPanel" },
+
+  { key: "f12", command: "ultra.goToDefinition" },
+  { key: "shift+f12", command: "ultra.findReferences" },
+  { key: "f2", command: "ultra.rename" },
+
+  { key: "escape", command: "ultra.escape" },
+  { key: "enter", command: "ultra.enter" },
+  { key: "tab", command: "ultra.tab" },
+  { key: "shift+tab", command: "ultra.outdent" },
+  { key: "backspace", command: "ultra.backspace" },
+  { key: "delete", command: "ultra.delete" },
+  { key: "ctrl+shift+c", command: "ultra.copyStatusMessage" }
+];
+
+export const defaultSettings: Record<string, any> = {
+  "editor.fontSize": 14,
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.wordWrap": "off",
+  "editor.lineNumbers": "on",
+  "editor.minimap.enabled": false,
+  "editor.renderWhitespace": "selection",
+  "editor.mouseWheelScrollSensitivity": 3,
+  "editor.cursorBlinkRate": 500,
+  "editor.scrollBeyondLastLine": true,
+  "files.autoSave": "off",
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/.git": true,
+    "**/.DS_Store": true
+  },
+  "workbench.colorTheme": "One Dark",
+  "ultra.ai.model": "claude-sonnet-4-20250514",
+  "ultra.ai.apiKey": "${env:ANTHROPIC_API_KEY}"
+};
