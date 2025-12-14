@@ -688,8 +688,8 @@ export class EditorPane implements MouseHandler {
     const findMatchBgColor = this.hexToRgb(themeLoader.getColor('editor.findMatchBackground')) || { r: 81, g: 92, b: 106 };
     const findMatchHighlightBgColor = this.hexToRgb(themeLoader.getColor('editor.findMatchHighlightBackground')) || { r: 234, g: 92, b: 0 };
     
-    // Bracket match highlight color
-    const bracketMatchBgColor = this.hexToRgb(themeLoader.getColor('editorBracketMatch.background')) || { r: 70, g: 76, b: 91 };
+    // Bracket match highlight color - subtle highlight
+    const bracketMatchBgColor = this.hexToRgb(themeLoader.getColor('editorBracketMatch.background')) || { r: 50, g: 55, b: 70 };
     
     let output = '';
     
