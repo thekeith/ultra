@@ -218,11 +218,39 @@ export class EditorPane implements MouseHandler {
           isFirstWrap: true
         });
       } else {
-        // Line needs wrapping
+        // Line needs wrapping - break at word boundaries
         let col = 0;
         let isFirst = true;
         while (col < lineLen) {
-          const endCol = Math.min(col + textWidth, lineLen);
+          let endCol = Math.min(col + textWidth, lineLen);
+          
+          // If we're not at the end of the line, try to find a good break point
+          if (endCol < lineLen) {
+            // Look backwards for a break point (space or delimiter)
+            let breakCol = endCol;
+            while (breakCol > col) {
+              const char = line[breakCol - 1];
+              // Break after spaces, or after common delimiters
+              if (char === ' ' || char === '\t') {
+                // Break at this position (include the space in current segment)
+                break;
+              }
+              if (char === '.' || char === ',' || char === ';' || char === ':' ||
+                  char === ')' || char === ']' || char === '}' || char === '>' ||
+                  char === '-' || char === '/' || char === '\\') {
+                // Break after the delimiter
+                break;
+              }
+              breakCol--;
+            }
+            
+            // Only use the break point if it's not too far back (at least 50% of width)
+            if (breakCol > col + Math.floor(textWidth / 2)) {
+              endCol = breakCol;
+            }
+            // Otherwise, just break at the character boundary (original endCol)
+          }
+          
           this.wrappedLines.push({
             bufferLine,
             startColumn: col,
