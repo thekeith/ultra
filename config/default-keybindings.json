@@ -16,6 +16,8 @@
   { "key": "ctrl+end", "command": "ultra.cursorFileEnd" },
   { "key": "alt+left", "command": "ultra.cursorWordLeft" },
   { "key": "alt+right", "command": "ultra.cursorWordRight" },
+  { "key": "alt+b", "command": "ultra.cursorWordLeft" },
+  { "key": "alt+f", "command": "ultra.cursorWordRight" },
 
   { "key": "up", "command": "ultra.cursorUp" },
   { "key": "down", "command": "ultra.cursorDown" },

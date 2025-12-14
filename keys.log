@@ -1,0 +1,135 @@
+key="CTRL_Q" data={"isCharacter":false,"code":{"type":"Buffer","data":[17]}}
+parsed={"ctrl":true,"shift":false,"alt":false,"meta":false,"key":"q"} keyStr=ctrl+q
+
+key="DOWN" data={"isCharacter":false,"code":{"type":"Buffer","data":[27,91,66]}}
+parsed={"ctrl":false,"shift":false,"alt":false,"meta":false,"key":"down"} keyStr=down
+
+key="DOWN" data={"isCharacter":false,"code":{"type":"Buffer","data":[27,91,66]}}
+parsed={"ctrl":false,"shift":false,"alt":false,"meta":false,"key":"down"} keyStr=down
+
+key="DOWN" data={"isCharacter":false,"code":{"type":"Buffer","data":[27,91,66]}}
+parsed={"ctrl":false,"shift":false,"alt":false,"meta":false,"key":"down"} keyStr=down
+
+key="DOWN" data={"isCharacter":false,"code":{"type":"Buffer","data":[27,91,66]}}
+parsed={"ctrl":false,"shift":false,"alt":false,"meta":false,"key":"down"} keyStr=down
+
+key="CTRL_B" data={"isCharacter":false,"code":{"type":"Buffer","data":[2]}}
+parsed={"ctrl":true,"shift":false,"alt":false,"meta":false,"key":"b"} keyStr=ctrl+b
+
+key="CTRL_W" data={"isCharacter":false,"code":{"type":"Buffer","data":[23]}}
+parsed={"ctrl":true,"shift":false,"alt":false,"meta":false,"key":"w"} keyStr=ctrl+w
+
+key="CTRL_W" data={"isCharacter":false,"code":{"type":"Buffer","data":[23]}}
+parsed={"ctrl":true,"shift":false,"alt":false,"meta":false,"key":"w"} keyStr=ctrl+w
+
+key="CTRL_B" data={"isCharacter":false,"code":{"type":"Buffer","data":[2]}}
+parsed={"ctrl":true,"shift":false,"alt":false,"meta":false,"key":"b"} keyStr=ctrl+b
+
+key="CTRL_Q" data={"isCharacter":false,"code":{"type":"Buffer","data":[17]}}
+parsed={"ctrl":true,"shift":false,"alt":false,"meta":false,"key":"q"} keyStr=ctrl+q
+
+key="DOWN" data={"isCharacter":false,"code":{"type":"Buffer","data":[27,91,66]}}
+parsed={"ctrl":false,"shift":false,"alt":false,"meta":false,"key":"down"} keyStr=down
+
+key="DOWN" data={"isCharacter":false,"code":{"type":"Buffer","data":[27,91,66]}}
+parsed={"ctrl":false,"shift":false,"alt":false,"meta":false,"key":"down"} keyStr=down
+
+key="DOWN" data={"isCharacter":false,"code":{"type":"Buffer","data":[27,91,66]}}
+parsed={"ctrl":false,"shift":false,"alt":false,"meta":false,"key":"down"} keyStr=down
+
+key="DOWN" data={"isCharacter":false,"code":{"type":"Buffer","data":[27,91,66]}}
+parsed={"ctrl":false,"shift":false,"alt":false,"meta":false,"key":"down"} keyStr=down
+
+key="∫" data={"isCharacter":true,"codepoint":8747,"code":{"type":"Buffer","data":[226,136,171]}}
+parsed={"ctrl":false,"shift":false,"alt":true,"meta":false,"key":"b"} keyStr=alt+b
+
+key="DOWN" data={"isCharacter":false,"code":{"type":"Buffer","data":[27,91,66]}}
+parsed={"ctrl":false,"shift":false,"alt":false,"meta":false,"key":"down"} keyStr=down
+
+key="DOWN" data={"isCharacter":false,"code":{"type":"Buffer","data":[27,91,66]}}
+parsed={"ctrl":false,"shift":false,"alt":false,"meta":false,"key":"down"} keyStr=down
+
+key="DOWN" data={"isCharacter":false,"code":{"type":"Buffer","data":[27,91,66]}}
+parsed={"ctrl":false,"shift":false,"alt":false,"meta":false,"key":"down"} keyStr=down
+
+key="DOWN" data={"isCharacter":false,"code":{"type":"Buffer","data":[27,91,66]}}
+parsed={"ctrl":false,"shift":false,"alt":false,"meta":false,"key":"down"} keyStr=down
+
+key="DOWN" data={"isCharacter":false,"code":{"type":"Buffer","data":[27,91,66]}}
+parsed={"ctrl":false,"shift":false,"alt":false,"meta":false,"key":"down"} keyStr=down
+
+key="DOWN" data={"isCharacter":false,"code":{"type":"Buffer","data":[27,91,66]}}
+parsed={"ctrl":false,"shift":false,"alt":false,"meta":false,"key":"down"} keyStr=down
+
+key="DOWN" data={"isCharacter":false,"code":{"type":"Buffer","data":[27,91,66]}}
+parsed={"ctrl":false,"shift":false,"alt":false,"meta":false,"key":"down"} keyStr=down
+
+key="DOWN" data={"isCharacter":false,"code":{"type":"Buffer","data":[27,91,66]}}
+parsed={"ctrl":false,"shift":false,"alt":false,"meta":false,"key":"down"} keyStr=down
+
+key="∫" data={"isCharacter":true,"codepoint":8747,"code":{"type":"Buffer","data":[226,136,171]}}
+parsed={"ctrl":false,"shift":false,"alt":true,"meta":false,"key":"b"} keyStr=alt+b
+
+key="∫" data={"isCharacter":true,"codepoint":8747,"code":{"type":"Buffer","data":[226,136,171]}}
+parsed={"ctrl":false,"shift":false,"alt":true,"meta":false,"key":"b"} keyStr=alt+b
+
+key="∫" data={"isCharacter":true,"codepoint":8747,"code":{"type":"Buffer","data":[226,136,171]}}
+parsed={"ctrl":false,"shift":false,"alt":true,"meta":false,"key":"b"} keyStr=alt+b
+
+key="∫" data={"isCharacter":true,"codepoint":8747,"code":{"type":"Buffer","data":[226,136,171]}}
+parsed={"ctrl":false,"shift":false,"alt":true,"meta":false,"key":"b"} keyStr=alt+b
+
+key="∫" data={"isCharacter":true,"codepoint":8747,"code":{"type":"Buffer","data":[226,136,171]}}
+parsed={"ctrl":false,"shift":false,"alt":true,"meta":false,"key":"b"} keyStr=alt+b
+
+key="∫" data={"isCharacter":true,"codepoint":8747,"code":{"type":"Buffer","data":[226,136,171]}}
+parsed={"ctrl":false,"shift":false,"alt":true,"meta":false,"key":"b"} keyStr=alt+b
+
+key="ƒ" data={"isCharacter":true,"codepoint":402,"code":{"type":"Buffer","data":[198,146]}}
+parsed={"ctrl":false,"shift":false,"alt":true,"meta":false,"key":"f"} keyStr=alt+f
+
+key="ƒ" data={"isCharacter":true,"codepoint":402,"code":{"type":"Buffer","data":[198,146]}}
+parsed={"ctrl":false,"shift":false,"alt":true,"meta":false,"key":"f"} keyStr=alt+f
+
+key="ƒ" data={"isCharacter":true,"codepoint":402,"code":{"type":"Buffer","data":[198,146]}}
+parsed={"ctrl":false,"shift":false,"alt":true,"meta":false,"key":"f"} keyStr=alt+f
+
+key="ƒ" data={"isCharacter":true,"codepoint":402,"code":{"type":"Buffer","data":[198,146]}}
+parsed={"ctrl":false,"shift":false,"alt":true,"meta":false,"key":"f"} keyStr=alt+f
+
+key="ƒ" data={"isCharacter":true,"codepoint":402,"code":{"type":"Buffer","data":[198,146]}}
+parsed={"ctrl":false,"shift":false,"alt":true,"meta":false,"key":"f"} keyStr=alt+f
+
+key="ƒ" data={"isCharacter":true,"codepoint":402,"code":{"type":"Buffer","data":[198,146]}}
+parsed={"ctrl":false,"shift":false,"alt":true,"meta":false,"key":"f"} keyStr=alt+f
+
+key="ƒ" data={"isCharacter":true,"codepoint":402,"code":{"type":"Buffer","data":[198,146]}}
+parsed={"ctrl":false,"shift":false,"alt":true,"meta":false,"key":"f"} keyStr=alt+f
+
+key="ƒ" data={"isCharacter":true,"codepoint":402,"code":{"type":"Buffer","data":[198,146]}}
+parsed={"ctrl":false,"shift":false,"alt":true,"meta":false,"key":"f"} keyStr=alt+f
+
+key="ƒ" data={"isCharacter":true,"codepoint":402,"code":{"type":"Buffer","data":[198,146]}}
+parsed={"ctrl":false,"shift":false,"alt":true,"meta":false,"key":"f"} keyStr=alt+f
+
+key="ƒ" data={"isCharacter":true,"codepoint":402,"code":{"type":"Buffer","data":[198,146]}}
+parsed={"ctrl":false,"shift":false,"alt":true,"meta":false,"key":"f"} keyStr=alt+f
+
+key="ƒ" data={"isCharacter":true,"codepoint":402,"code":{"type":"Buffer","data":[198,146]}}
+parsed={"ctrl":false,"shift":false,"alt":true,"meta":false,"key":"f"} keyStr=alt+f
+
+key="ƒ" data={"isCharacter":true,"codepoint":402,"code":{"type":"Buffer","data":[198,146]}}
+parsed={"ctrl":false,"shift":false,"alt":true,"meta":false,"key":"f"} keyStr=alt+f
+
+key="ƒ" data={"isCharacter":true,"codepoint":402,"code":{"type":"Buffer","data":[198,146]}}
+parsed={"ctrl":false,"shift":false,"alt":true,"meta":false,"key":"f"} keyStr=alt+f
+
+key="ƒ" data={"isCharacter":true,"codepoint":402,"code":{"type":"Buffer","data":[198,146]}}
+parsed={"ctrl":false,"shift":false,"alt":true,"meta":false,"key":"f"} keyStr=alt+f
+
+key="ƒ" data={"isCharacter":true,"codepoint":402,"code":{"type":"Buffer","data":[198,146]}}
+parsed={"ctrl":false,"shift":false,"alt":true,"meta":false,"key":"f"} keyStr=alt+f
+
+key="ƒ" data={"isCharacter":true,"codepoint":402,"code":{"type":"Buffer","data":[198,146]}}
+parsed={"ctrl":false,"shift":false,"alt":true,"meta":false,"key":"f"} keyStr=alt+f
+

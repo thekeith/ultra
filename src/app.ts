@@ -4,6 +4,7 @@
  * Coordinates all components and handles the main application lifecycle.
  */
 
+import * as fs from 'fs';
 import { Document } from './core/document.ts';
 import { type Position } from './core/buffer.ts';
 import { clonePosition, hasSelection, getSelectionRange } from './core/cursor.ts';
@@ -113,8 +114,16 @@ export class App {
     renderer.terminal.on('key', async (key: string, matches: unknown, data?: { code?: string; shift?: boolean; ctrl?: boolean; meta?: boolean; alt?: boolean }) => {
       if (!this.isRunning) return;
 
+      // DEBUG: Log key events to file
+      const debugInfo = `key="${key}" data=${JSON.stringify(data)}\n`;
+      fs.appendFileSync('/Users/keith/Development/ultra-editor/keys.log', debugInfo);
+
       // Parse the key
       const parsed = keymap.parseTerminalKey(key, data);
+      
+      // DEBUG: Log parsed key
+      const parsedInfo = `parsed=${JSON.stringify(parsed)} keyStr=${keymap.keyToString(parsed)}\n\n`;
+      fs.appendFileSync('/Users/keith/Development/ultra-editor/keys.log', parsedInfo);
 
       // Check for command binding
       const commandId = keymap.getCommand(parsed);

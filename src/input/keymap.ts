@@ -155,6 +155,55 @@ export class Keymap {
       'F12': 'f12'
     };
 
+    // macOS Option+key produces Unicode characters instead of alt modifier
+    // Map these back to alt+key combinations
+    const macOSOptionChars: Record<string, { alt: boolean; key: string }> = {
+      '∫': { alt: true, key: 'b' },      // Option+B
+      'ƒ': { alt: true, key: 'f' },      // Option+F
+      '©': { alt: true, key: 'g' },      // Option+G  
+      '∂': { alt: true, key: 'd' },      // Option+D
+      '®': { alt: true, key: 'r' },      // Option+R
+      '†': { alt: true, key: 't' },      // Option+T
+      '¥': { alt: true, key: 'y' },      // Option+Y
+      'ˆ': { alt: true, key: 'i' },      // Option+I
+      'ø': { alt: true, key: 'o' },      // Option+O
+      'π': { alt: true, key: 'p' },      // Option+P
+      'å': { alt: true, key: 'a' },      // Option+A
+      'ß': { alt: true, key: 's' },      // Option+S
+      '˙': { alt: true, key: 'h' },      // Option+H
+      '∆': { alt: true, key: 'j' },      // Option+J
+      '˚': { alt: true, key: 'k' },      // Option+K
+      '¬': { alt: true, key: 'l' },      // Option+L
+      'Ω': { alt: true, key: 'z' },      // Option+Z
+      '≈': { alt: true, key: 'x' },      // Option+X
+      'ç': { alt: true, key: 'c' },      // Option+C
+      '√': { alt: true, key: 'v' },      // Option+V
+      '˜': { alt: true, key: 'n' },      // Option+N
+      'µ': { alt: true, key: 'm' },      // Option+M
+      '¡': { alt: true, key: '1' },      // Option+1
+      '™': { alt: true, key: '2' },      // Option+2
+      '£': { alt: true, key: '3' },      // Option+3
+      '¢': { alt: true, key: '4' },      // Option+4
+      '∞': { alt: true, key: '5' },      // Option+5
+      '§': { alt: true, key: '6' },      // Option+6
+      '¶': { alt: true, key: '7' },      // Option+7
+      '•': { alt: true, key: '8' },      // Option+8
+      'ª': { alt: true, key: '9' },      // Option+9
+      'º': { alt: true, key: '0' },      // Option+0
+    };
+
+    // Check for macOS Option+key character first
+    if (macOSOptionChars[keyName]) {
+      const mapped = macOSOptionChars[keyName];
+      return {
+        ctrl: false,
+        shift: data?.shift || false,
+        alt: true,
+        meta: false,
+        key: mapped.key
+      };
+    }
+
     let ctrl = data?.ctrl || false;
     let shift = data?.shift || false;
     let alt = data?.alt || false;
@@ -195,6 +244,23 @@ export class Keymap {
       if (code >= 1 && code <= 26) {
         ctrl = true;
         key = String.fromCharCode(code + 96);  // Convert to a-z
+      }
+    }
+    
+    // Handle macOS Option+Arrow which may come as escape sequences
+    // ESC+b = word left, ESC+f = word right (emacs style)
+    // Or may come as special terminal-kit keys
+    if (originalKeyName === 'b' && !ctrl && !shift) {
+      // Check if this might be ESC+b (word left) - usually alt is set
+      if (alt || data?.alt) {
+        alt = true;
+        key = 'left';
+      }
+    } else if (originalKeyName === 'f' && !ctrl && !shift) {
+      // Check if this might be ESC+f (word right)
+      if (alt || data?.alt) {
+        alt = true;
+        key = 'right';
       }
     }
 
