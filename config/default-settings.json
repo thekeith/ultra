@@ -1,0 +1,21 @@
+{
+  "editor.fontSize": 14,
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.wordWrap": "off",
+  "editor.lineNumbers": "on",
+  "editor.minimap.enabled": false,
+  "editor.renderWhitespace": "selection",
+  "editor.mouseWheelScrollSensitivity": 3,
+  "editor.cursorBlinkRate": 500,
+  "editor.scrollBeyondLastLine": true,
+  "files.autoSave": "off",
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/.git": true,
+    "**/.DS_Store": true
+  },
+  "workbench.colorTheme": "One Dark",
+  "ultra.ai.model": "claude-sonnet-4-20250514",
+  "ultra.ai.apiKey": "${env:ANTHROPIC_API_KEY}"
+}

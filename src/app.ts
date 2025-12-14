@@ -1,0 +1,908 @@
+/**
+ * Main Application Orchestrator
+ * 
+ * Coordinates all components and handles the main application lifecycle.
+ */
+
+import { Document } from './core/document.ts';
+import { type Position } from './core/buffer.ts';
+import { clonePosition, hasSelection, getSelectionRange } from './core/cursor.ts';
+import { renderer, type RenderContext } from './ui/renderer.ts';
+import { layoutManager } from './ui/layout.ts';
+import { mouseManager, type MouseEvent as UltraMouseEvent } from './ui/mouse.ts';
+import { EditorPane } from './ui/components/editor-pane.ts';
+import { statusBar } from './ui/components/status-bar.ts';
+import { tabBar, type Tab } from './ui/components/tab-bar.ts';
+import { commandRegistry } from './input/commands.ts';
+import { keymap, type ParsedKey } from './input/keymap.ts';
+import { keybindingsLoader } from './input/keybindings-loader.ts';
+import { settings } from './config/settings.ts';
+import { settingsLoader } from './config/settings-loader.ts';
+
+interface OpenDocument {
+  id: string;
+  document: Document;
+}
+
+export class App {
+  private documents: OpenDocument[] = [];
+  private activeDocumentId: string | null = null;
+  private editorPane: EditorPane;
+  private isRunning: boolean = false;
+  private clipboard: string = '';
+  private lastClickPosition: Position | null = null;
+  private lastClickTime: number = 0;
+  private clickCount: number = 0;
+
+  constructor() {
+    this.editorPane = new EditorPane();
+    this.setupEditorCallbacks();
+  }
+
+  /**
+   * Initialize and start the application
+   */
+  async start(filePath?: string): Promise<void> {
+    try {
+      // Load configuration
+      await this.loadConfiguration();
+
+      // Initialize renderer
+      await renderer.init();
+
+      // Update layout dimensions
+      layoutManager.updateDimensions(renderer.width, renderer.height);
+
+      // Setup event handlers
+      this.setupKeyboardHandler();
+      this.setupMouseHandler();
+      this.setupRenderCallback();
+
+      // Register commands
+      this.registerCommands();
+
+      // Open file if provided
+      if (filePath) {
+        await this.openFile(filePath);
+      } else {
+        // Create empty document
+        this.newFile();
+      }
+
+      this.isRunning = true;
+
+      // Initial render
+      renderer.scheduleRender();
+
+    } catch (error) {
+      renderer.cleanup();
+      console.error('Failed to start Ultra:', error);
+      process.exit(1);
+    }
+  }
+
+  /**
+   * Stop the application
+   */
+  stop(): void {
+    this.isRunning = false;
+    renderer.cleanup();
+  }
+
+  /**
+   * Load configuration files
+   */
+  private async loadConfiguration(): Promise<void> {
+    // Load default keybindings
+    const defaultBindings = await keybindingsLoader.loadFromFile(
+      new URL('../config/default-keybindings.json', import.meta.url).pathname
+    );
+    keymap.loadBindings(defaultBindings);
+
+    // Load default settings
+    const defaultSettings = await settingsLoader.loadFromFile(
+      new URL('../config/default-settings.json', import.meta.url).pathname
+    );
+    settings.update(defaultSettings);
+  }
+
+  /**
+   * Setup keyboard event handler
+   */
+  private setupKeyboardHandler(): void {
+    renderer.terminal.on('key', (key: string, matches: unknown, data?: { code?: string; shift?: boolean; ctrl?: boolean; meta?: boolean; alt?: boolean }) => {
+      if (!this.isRunning) return;
+
+      // Parse the key
+      const parsed = keymap.parseTerminalKey(key, data);
+
+      // Check for command binding
+      const commandId = keymap.getCommand(parsed);
+      
+      if (commandId) {
+        commandRegistry.execute(commandId);
+        renderer.scheduleRender();
+        return;
+      }
+
+      // Handle character input
+      if (this.shouldInsertKey(parsed)) {
+        this.insertCharacter(key);
+        renderer.scheduleRender();
+      }
+    });
+  }
+
+  /**
+   * Check if a key should be inserted as character
+   */
+  private shouldInsertKey(parsed: ParsedKey): boolean {
+    // Don't insert control characters
+    if (parsed.ctrl || parsed.meta) return false;
+    
+    // Only insert printable characters
+    if (parsed.key.length === 1) return true;
+    
+    return false;
+  }
+
+  /**
+   * Insert a character
+   */
+  private insertCharacter(char: string): void {
+    const doc = this.getActiveDocument();
+    if (!doc) return;
+
+    doc.insert(char);
+    this.editorPane.ensureCursorVisible();
+    this.updateStatusBar();
+  }
+
+  /**
+   * Setup mouse event handler
+   */
+  private setupMouseHandler(): void {
+    renderer.terminal.on('mouse', (name: string, data: { x: number; y: number; shift?: boolean; ctrl?: boolean; meta?: boolean; alt?: boolean }) => {
+      if (!this.isRunning) return;
+
+      mouseManager.processEvent(name, data);
+      renderer.scheduleRender();
+    });
+
+    // Register editor pane as mouse handler
+    mouseManager.registerHandler(this.editorPane);
+    mouseManager.registerHandler(tabBar);
+  }
+
+  /**
+   * Setup editor pane callbacks
+   */
+  private setupEditorCallbacks(): void {
+    this.editorPane.onClick((position, _clickCount, event) => {
+      const doc = this.getActiveDocument();
+      if (!doc) return;
+
+      // Handle click counting for double/triple click
+      const now = Date.now();
+      const isSamePosition = this.lastClickPosition &&
+        this.lastClickPosition.line === position.line &&
+        Math.abs(this.lastClickPosition.column - position.column) <= 1;
+
+      if (now - this.lastClickTime < 300 && isSamePosition) {
+        this.clickCount = (this.clickCount % 3) + 1;
+      } else {
+        this.clickCount = 1;
+      }
+
+      this.lastClickTime = now;
+      this.lastClickPosition = clonePosition(position);
+
+      if (event.meta) {
+        // Cmd+Click adds cursor
+        doc.cursorManager.addCursor(position);
+      } else if (event.shift) {
+        // Shift+Click extends selection
+        doc.cursorManager.setPosition(position, true);
+      } else {
+        // Normal click
+        if (this.clickCount === 1) {
+          doc.cursorManager.setSingle(position);
+        } else if (this.clickCount === 2) {
+          // Double click - select word
+          this.selectWordAt(position);
+        } else if (this.clickCount === 3) {
+          // Triple click - select line
+          doc.selectLine();
+        }
+      }
+
+      this.editorPane.ensureCursorVisible();
+      this.updateStatusBar();
+    });
+
+    this.editorPane.onDrag((position, event) => {
+      const doc = this.getActiveDocument();
+      if (!doc) return;
+
+      // Extend selection while dragging
+      if (event.meta) {
+        // Cmd+Drag adds selection
+        const cursor = doc.primaryCursor;
+        if (!cursor.selection) {
+          doc.cursorManager.addCursorWithSelection(cursor.position, position);
+        }
+      } else {
+        doc.cursorManager.setPosition(position, true);
+      }
+
+      this.editorPane.ensureCursorVisible();
+      this.updateStatusBar();
+    });
+
+    this.editorPane.onScroll(() => {
+      renderer.scheduleRender();
+    });
+
+    // Tab bar callbacks
+    tabBar.onTabClick((tabId) => {
+      this.activateDocument(tabId);
+      renderer.scheduleRender();
+    });
+
+    tabBar.onTabClose((tabId) => {
+      this.closeDocument(tabId);
+      renderer.scheduleRender();
+    });
+  }
+
+  /**
+   * Select word at position
+   */
+  private selectWordAt(position: Position): void {
+    const doc = this.getActiveDocument();
+    if (!doc) return;
+
+    const line = doc.getLine(position.line);
+    let start = position.column;
+    let end = position.column;
+
+    // Find word boundaries
+    while (start > 0 && this.isWordChar(line[start - 1]!)) {
+      start--;
+    }
+    while (end < line.length && this.isWordChar(line[end]!)) {
+      end++;
+    }
+
+    doc.cursorManager.setSelections([{
+      anchor: { line: position.line, column: start },
+      head: { line: position.line, column: end }
+    }]);
+  }
+
+  private isWordChar(char: string): boolean {
+    return /[\w]/.test(char);
+  }
+
+  /**
+   * Setup render callback
+   */
+  private setupRenderCallback(): void {
+    renderer.onRender((ctx) => {
+      this.render(ctx);
+    });
+  }
+
+  /**
+   * Main render function
+   */
+  private render(ctx: RenderContext): void {
+    // Update layout
+    layoutManager.updateDimensions(ctx.width, ctx.height);
+
+    // Get layout rects
+    const tabBarRect = layoutManager.getTabBarRect();
+    const statusBarRect = layoutManager.getStatusBarRect();
+    const editorRect = layoutManager.getEditorAreaRect();
+
+    // Render tab bar
+    tabBar.setRect(tabBarRect);
+    tabBar.setTabs(this.getTabs());
+    tabBar.render(ctx);
+
+    // Render editor pane
+    this.editorPane.setRect(editorRect);
+    this.editorPane.render(ctx);
+
+    // Render status bar
+    statusBar.setRect(statusBarRect);
+    statusBar.render(ctx);
+
+    // Position cursor
+    const doc = this.getActiveDocument();
+    if (doc) {
+      const cursor = doc.primaryCursor;
+      const scrollTop = this.editorPane.getScrollTop();
+      const scrollLeft = this.editorPane.getScrollLeft();
+      const screenLine = cursor.position.line - scrollTop;
+      const screenCol = cursor.position.column - scrollLeft;
+
+      if (screenLine >= 0 && screenLine < editorRect.height) {
+        const gutterWidth = Math.max(3, String(doc.lineCount).length) + 2;
+        const cursorX = editorRect.x + gutterWidth + screenCol;
+        const cursorY = editorRect.y + screenLine;
+        renderer.positionCursor(cursorX, cursorY);
+      } else {
+        renderer.hideCursor();
+      }
+    }
+  }
+
+  /**
+   * Get tabs for tab bar
+   */
+  private getTabs(): Tab[] {
+    return this.documents.map(d => ({
+      id: d.id,
+      fileName: d.document.fileName,
+      filePath: d.document.filePath,
+      isDirty: d.document.isDirty,
+      isActive: d.id === this.activeDocumentId
+    }));
+  }
+
+  /**
+   * Update status bar
+   */
+  private updateStatusBar(): void {
+    const doc = this.getActiveDocument();
+    
+    statusBar.setState({
+      document: doc?.getState() || null,
+      cursorPosition: doc?.primaryCursor.position || { line: 0, column: 0 },
+      cursorCount: doc?.cursorManager.count || 1
+    });
+  }
+
+  /**
+   * Register all commands
+   */
+  private registerCommands(): void {
+    commandRegistry.registerAll([
+      // File commands
+      {
+        id: 'ultra.save',
+        title: 'Save',
+        category: 'File',
+        handler: async () => {
+          const doc = this.getActiveDocument();
+          if (doc) {
+            await doc.save();
+            this.updateStatusBar();
+          }
+        }
+      },
+      {
+        id: 'ultra.newFile',
+        title: 'New File',
+        category: 'File',
+        handler: () => this.newFile()
+      },
+      {
+        id: 'ultra.quit',
+        title: 'Quit',
+        category: 'File',
+        handler: () => this.stop()
+      },
+      {
+        id: 'ultra.closeTab',
+        title: 'Close Tab',
+        category: 'File',
+        handler: () => {
+          if (this.activeDocumentId) {
+            this.closeDocument(this.activeDocumentId);
+          }
+        }
+      },
+
+      // Edit commands
+      {
+        id: 'ultra.undo',
+        title: 'Undo',
+        category: 'Edit',
+        handler: () => {
+          const doc = this.getActiveDocument();
+          if (doc) {
+            doc.undo();
+            this.editorPane.ensureCursorVisible();
+            this.updateStatusBar();
+          }
+        }
+      },
+      {
+        id: 'ultra.redo',
+        title: 'Redo',
+        category: 'Edit',
+        handler: () => {
+          const doc = this.getActiveDocument();
+          if (doc) {
+            doc.redo();
+            this.editorPane.ensureCursorVisible();
+            this.updateStatusBar();
+          }
+        }
+      },
+      {
+        id: 'ultra.copy',
+        title: 'Copy',
+        category: 'Edit',
+        handler: () => {
+          const doc = this.getActiveDocument();
+          if (doc) {
+            const text = doc.getSelectedText();
+            if (text) {
+              this.clipboard = text;
+            }
+          }
+        }
+      },
+      {
+        id: 'ultra.cut',
+        title: 'Cut',
+        category: 'Edit',
+        handler: () => {
+          const doc = this.getActiveDocument();
+          if (doc) {
+            const text = doc.getSelectedText();
+            if (text) {
+              this.clipboard = text;
+              doc.backspace();
+              this.editorPane.ensureCursorVisible();
+              this.updateStatusBar();
+            }
+          }
+        }
+      },
+      {
+        id: 'ultra.paste',
+        title: 'Paste',
+        category: 'Edit',
+        handler: () => {
+          if (this.clipboard) {
+            const doc = this.getActiveDocument();
+            if (doc) {
+              doc.insert(this.clipboard);
+              this.editorPane.ensureCursorVisible();
+              this.updateStatusBar();
+            }
+          }
+        }
+      },
+      {
+        id: 'ultra.selectAll',
+        title: 'Select All',
+        category: 'Edit',
+        handler: () => {
+          const doc = this.getActiveDocument();
+          if (doc) {
+            doc.selectAll();
+            this.updateStatusBar();
+          }
+        }
+      },
+      {
+        id: 'ultra.selectLine',
+        title: 'Select Line',
+        category: 'Edit',
+        handler: () => {
+          const doc = this.getActiveDocument();
+          if (doc) {
+            doc.selectLine();
+            this.updateStatusBar();
+          }
+        }
+      },
+
+      // Navigation commands
+      {
+        id: 'ultra.cursorLeft',
+        title: 'Move Cursor Left',
+        category: 'Navigation',
+        handler: () => this.moveCursor('left')
+      },
+      {
+        id: 'ultra.cursorRight',
+        title: 'Move Cursor Right',
+        category: 'Navigation',
+        handler: () => this.moveCursor('right')
+      },
+      {
+        id: 'ultra.cursorUp',
+        title: 'Move Cursor Up',
+        category: 'Navigation',
+        handler: () => this.moveCursor('up')
+      },
+      {
+        id: 'ultra.cursorDown',
+        title: 'Move Cursor Down',
+        category: 'Navigation',
+        handler: () => this.moveCursor('down')
+      },
+      {
+        id: 'ultra.cursorLineStart',
+        title: 'Move to Line Start',
+        category: 'Navigation',
+        handler: () => this.moveCursor('lineStart')
+      },
+      {
+        id: 'ultra.cursorLineEnd',
+        title: 'Move to Line End',
+        category: 'Navigation',
+        handler: () => this.moveCursor('lineEnd')
+      },
+      {
+        id: 'ultra.cursorFileStart',
+        title: 'Move to File Start',
+        category: 'Navigation',
+        handler: () => this.moveCursor('fileStart')
+      },
+      {
+        id: 'ultra.cursorFileEnd',
+        title: 'Move to File End',
+        category: 'Navigation',
+        handler: () => this.moveCursor('fileEnd')
+      },
+      {
+        id: 'ultra.cursorWordLeft',
+        title: 'Move to Previous Word',
+        category: 'Navigation',
+        handler: () => this.moveCursor('wordLeft')
+      },
+      {
+        id: 'ultra.cursorWordRight',
+        title: 'Move to Next Word',
+        category: 'Navigation',
+        handler: () => this.moveCursor('wordRight')
+      },
+
+      // Selection commands
+      {
+        id: 'ultra.selectLeft',
+        title: 'Select Left',
+        category: 'Selection',
+        handler: () => this.moveCursor('left', true)
+      },
+      {
+        id: 'ultra.selectRight',
+        title: 'Select Right',
+        category: 'Selection',
+        handler: () => this.moveCursor('right', true)
+      },
+      {
+        id: 'ultra.selectUp',
+        title: 'Select Up',
+        category: 'Selection',
+        handler: () => this.moveCursor('up', true)
+      },
+      {
+        id: 'ultra.selectDown',
+        title: 'Select Down',
+        category: 'Selection',
+        handler: () => this.moveCursor('down', true)
+      },
+      {
+        id: 'ultra.selectLineStart',
+        title: 'Select to Line Start',
+        category: 'Selection',
+        handler: () => this.moveCursor('lineStart', true)
+      },
+      {
+        id: 'ultra.selectLineEnd',
+        title: 'Select to Line End',
+        category: 'Selection',
+        handler: () => this.moveCursor('lineEnd', true)
+      },
+      {
+        id: 'ultra.selectWordLeft',
+        title: 'Select Previous Word',
+        category: 'Selection',
+        handler: () => this.moveCursor('wordLeft', true)
+      },
+      {
+        id: 'ultra.selectWordRight',
+        title: 'Select Next Word',
+        category: 'Selection',
+        handler: () => this.moveCursor('wordRight', true)
+      },
+
+      // Input commands
+      {
+        id: 'ultra.enter',
+        title: 'New Line',
+        handler: () => {
+          const doc = this.getActiveDocument();
+          if (doc) {
+            doc.newline();
+            this.editorPane.ensureCursorVisible();
+            this.updateStatusBar();
+          }
+        }
+      },
+      {
+        id: 'ultra.backspace',
+        title: 'Backspace',
+        handler: () => {
+          const doc = this.getActiveDocument();
+          if (doc) {
+            doc.backspace();
+            this.editorPane.ensureCursorVisible();
+            this.updateStatusBar();
+          }
+        }
+      },
+      {
+        id: 'ultra.delete',
+        title: 'Delete',
+        handler: () => {
+          const doc = this.getActiveDocument();
+          if (doc) {
+            doc.delete();
+            this.editorPane.ensureCursorVisible();
+            this.updateStatusBar();
+          }
+        }
+      },
+      {
+        id: 'ultra.tab',
+        title: 'Tab',
+        handler: () => {
+          const doc = this.getActiveDocument();
+          if (doc) {
+            const tabChar = settings.get('editor.insertSpaces') 
+              ? ' '.repeat(settings.get('editor.tabSize'))
+              : '\t';
+            doc.insert(tabChar);
+            this.editorPane.ensureCursorVisible();
+            this.updateStatusBar();
+          }
+        }
+      },
+      {
+        id: 'ultra.escape',
+        title: 'Escape',
+        handler: () => {
+          const doc = this.getActiveDocument();
+          if (doc) {
+            // Clear secondary cursors and selection
+            doc.cursorManager.clearSecondary();
+            doc.cursorManager.clearSelections();
+            this.updateStatusBar();
+          }
+        }
+      },
+
+      // View commands
+      {
+        id: 'ultra.toggleSidebar',
+        title: 'Toggle Sidebar',
+        category: 'View',
+        handler: () => layoutManager.toggleSidebar()
+      },
+      {
+        id: 'ultra.toggleTerminal',
+        title: 'Toggle Terminal',
+        category: 'View',
+        handler: () => layoutManager.toggleTerminal()
+      },
+      {
+        id: 'ultra.toggleAIPanel',
+        title: 'Toggle AI Panel',
+        category: 'View',
+        handler: () => layoutManager.toggleAIPanel()
+      },
+
+      // Tab commands
+      {
+        id: 'ultra.nextTab',
+        title: 'Next Tab',
+        category: 'Tabs',
+        handler: () => this.switchTab(1)
+      },
+      {
+        id: 'ultra.previousTab',
+        title: 'Previous Tab',
+        category: 'Tabs',
+        handler: () => this.switchTab(-1)
+      },
+      {
+        id: 'ultra.goToTab1',
+        title: 'Go to Tab 1',
+        category: 'Tabs',
+        handler: () => this.goToTab(0)
+      },
+      {
+        id: 'ultra.goToTab2',
+        title: 'Go to Tab 2',
+        category: 'Tabs',
+        handler: () => this.goToTab(1)
+      },
+      {
+        id: 'ultra.goToTab3',
+        title: 'Go to Tab 3',
+        category: 'Tabs',
+        handler: () => this.goToTab(2)
+      },
+      {
+        id: 'ultra.goToTab4',
+        title: 'Go to Tab 4',
+        category: 'Tabs',
+        handler: () => this.goToTab(3)
+      },
+      {
+        id: 'ultra.goToTab5',
+        title: 'Go to Tab 5',
+        category: 'Tabs',
+        handler: () => this.goToTab(4)
+      },
+      {
+        id: 'ultra.goToTab6',
+        title: 'Go to Tab 6',
+        category: 'Tabs',
+        handler: () => this.goToTab(5)
+      },
+      {
+        id: 'ultra.goToTab7',
+        title: 'Go to Tab 7',
+        category: 'Tabs',
+        handler: () => this.goToTab(6)
+      },
+      {
+        id: 'ultra.goToTab8',
+        title: 'Go to Tab 8',
+        category: 'Tabs',
+        handler: () => this.goToTab(7)
+      },
+      {
+        id: 'ultra.goToTab9',
+        title: 'Go to Tab 9',
+        category: 'Tabs',
+        handler: () => this.goToTab(8)
+      }
+    ]);
+  }
+
+  /**
+   * Move cursor helper
+   */
+  private moveCursor(
+    direction: 'left' | 'right' | 'up' | 'down' | 'lineStart' | 'lineEnd' | 'fileStart' | 'fileEnd' | 'wordLeft' | 'wordRight',
+    selecting: boolean = false
+  ): void {
+    const doc = this.getActiveDocument();
+    if (!doc) return;
+
+    switch (direction) {
+      case 'left': doc.moveLeft(selecting); break;
+      case 'right': doc.moveRight(selecting); break;
+      case 'up': doc.moveUp(selecting); break;
+      case 'down': doc.moveDown(selecting); break;
+      case 'lineStart': doc.moveToLineStart(selecting); break;
+      case 'lineEnd': doc.moveToLineEnd(selecting); break;
+      case 'fileStart': doc.moveToDocumentStart(selecting); break;
+      case 'fileEnd': doc.moveToDocumentEnd(selecting); break;
+      case 'wordLeft': doc.moveWordLeft(selecting); break;
+      case 'wordRight': doc.moveWordRight(selecting); break;
+    }
+
+    this.editorPane.ensureCursorVisible();
+    this.updateStatusBar();
+  }
+
+  /**
+   * Open a file
+   */
+  async openFile(filePath: string): Promise<void> {
+    try {
+      // Check if already open
+      const existing = this.documents.find(d => d.document.filePath === filePath);
+      if (existing) {
+        this.activateDocument(existing.id);
+        return;
+      }
+
+      const document = await Document.fromFile(filePath);
+      const id = this.generateId();
+      
+      this.documents.push({ id, document });
+      this.activateDocument(id);
+    } catch (error) {
+      console.error('Failed to open file:', error);
+    }
+  }
+
+  /**
+   * Create a new file
+   */
+  newFile(): void {
+    const document = new Document();
+    const id = this.generateId();
+    
+    this.documents.push({ id, document });
+    this.activateDocument(id);
+  }
+
+  /**
+   * Activate a document
+   */
+  activateDocument(id: string): void {
+    const doc = this.documents.find(d => d.id === id);
+    if (!doc) return;
+
+    this.activeDocumentId = id;
+    this.editorPane.setDocument(doc.document);
+    this.updateStatusBar();
+  }
+
+  /**
+   * Close a document
+   */
+  closeDocument(id: string): void {
+    const index = this.documents.findIndex(d => d.id === id);
+    if (index < 0) return;
+
+    this.documents.splice(index, 1);
+
+    if (this.activeDocumentId === id) {
+      if (this.documents.length > 0) {
+        const newIndex = Math.min(index, this.documents.length - 1);
+        this.activateDocument(this.documents[newIndex]!.id);
+      } else {
+        this.activeDocumentId = null;
+        this.editorPane.setDocument(null);
+        this.updateStatusBar();
+      }
+    }
+  }
+
+  /**
+   * Get active document
+   */
+  getActiveDocument(): Document | null {
+    if (!this.activeDocumentId) return null;
+    const doc = this.documents.find(d => d.id === this.activeDocumentId);
+    return doc?.document || null;
+  }
+
+  /**
+   * Switch tabs
+   */
+  private switchTab(delta: number): void {
+    if (this.documents.length === 0) return;
+    
+    const currentIndex = this.documents.findIndex(d => d.id === this.activeDocumentId);
+    let newIndex = (currentIndex + delta) % this.documents.length;
+    if (newIndex < 0) newIndex += this.documents.length;
+    
+    this.activateDocument(this.documents[newIndex]!.id);
+  }
+
+  /**
+   * Go to specific tab
+   */
+  private goToTab(index: number): void {
+    if (index >= 0 && index < this.documents.length) {
+      this.activateDocument(this.documents[index]!.id);
+    }
+  }
+
+  /**
+   * Generate unique ID
+   */
+  private generateId(): string {
+    return `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+}
+
+export const app = new App();
+
+export default app;

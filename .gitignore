@@ -1,2 +1,7 @@
 .dev.vars
+.envnode_modules/
+bun.lockb
 .env
+.dev.vars
+dist/
+ultra

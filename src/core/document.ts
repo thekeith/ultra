@@ -1,0 +1,643 @@
+/**
+ * Document Model
+ * 
+ * Represents a file in the editor, combining buffer with metadata
+ * and cursor state. Handles file I/O operations.
+ */
+
+import { Buffer, type Position, type Range } from './buffer.ts';
+import { CursorManager, type Cursor, type Selection, clonePosition } from './cursor.ts';
+import { UndoManager, type EditOperation } from './undo.ts';
+
+export interface DocumentState {
+  filePath: string | null;
+  fileName: string;
+  language: string;
+  isDirty: boolean;
+  encoding: string;
+  lineEnding: 'lf' | 'crlf';
+}
+
+export class Document {
+  private _buffer: Buffer;
+  private _cursorManager: CursorManager;
+  private _undoManager: UndoManager;
+  private _filePath: string | null;
+  private _fileName: string;
+  private _language: string;
+  private _isDirty: boolean = false;
+  private _encoding: string = 'utf-8';
+  private _lineEnding: 'lf' | 'crlf' = 'lf';
+  private _savedContent: string = '';
+
+  constructor(content: string = '', filePath: string | null = null) {
+    // Normalize line endings
+    const normalized = content.replace(/\r\n/g, '\n');
+    if (content !== normalized) {
+      this._lineEnding = 'crlf';
+    }
+    
+    this._buffer = new Buffer(normalized);
+    this._cursorManager = new CursorManager();
+    this._undoManager = new UndoManager();
+    this._filePath = filePath;
+    this._fileName = filePath ? this.extractFileName(filePath) : 'Untitled';
+    this._language = filePath ? this.detectLanguage(filePath) : 'plaintext';
+    this._savedContent = normalized;
+  }
+
+  /**
+   * Static method to load a document from a file
+   */
+  static async fromFile(filePath: string): Promise<Document> {
+    try {
+      const file = Bun.file(filePath);
+      const content = await file.text();
+      return new Document(content, filePath);
+    } catch (error) {
+      throw new Error(`Failed to read file: ${filePath}`);
+    }
+  }
+
+  /**
+   * Save the document to its file path
+   */
+  async save(): Promise<void> {
+    if (!this._filePath) {
+      throw new Error('No file path set for document');
+    }
+    
+    let content = this._buffer.getContent();
+    
+    // Convert line endings if needed
+    if (this._lineEnding === 'crlf') {
+      content = content.replace(/\n/g, '\r\n');
+    }
+    
+    await Bun.write(this._filePath, content);
+    this._savedContent = this._buffer.getContent();
+    this._isDirty = false;
+  }
+
+  /**
+   * Save the document to a new file path
+   */
+  async saveAs(filePath: string): Promise<void> {
+    this._filePath = filePath;
+    this._fileName = this.extractFileName(filePath);
+    this._language = this.detectLanguage(filePath);
+    await this.save();
+  }
+
+  // Buffer accessors
+  get buffer(): Buffer {
+    return this._buffer;
+  }
+
+  get content(): string {
+    return this._buffer.getContent();
+  }
+
+  get lineCount(): number {
+    return this._buffer.lineCount;
+  }
+
+  get length(): number {
+    return this._buffer.length;
+  }
+
+  getLine(lineNumber: number): string {
+    return this._buffer.getLine(lineNumber);
+  }
+
+  getLineLength(lineNumber: number): number {
+    return this._buffer.getLineLength(lineNumber);
+  }
+
+  // Cursor accessors
+  get cursorManager(): CursorManager {
+    return this._cursorManager;
+  }
+
+  get cursors(): readonly Cursor[] {
+    return this._cursorManager.getCursors();
+  }
+
+  get primaryCursor(): Cursor {
+    return this._cursorManager.getPrimaryCursor();
+  }
+
+  // Document state
+  get filePath(): string | null {
+    return this._filePath;
+  }
+
+  get fileName(): string {
+    return this._fileName;
+  }
+
+  get language(): string {
+    return this._language;
+  }
+
+  get isDirty(): boolean {
+    return this._isDirty;
+  }
+
+  get encoding(): string {
+    return this._encoding;
+  }
+
+  get lineEnding(): 'lf' | 'crlf' {
+    return this._lineEnding;
+  }
+
+  getState(): DocumentState {
+    return {
+      filePath: this._filePath,
+      fileName: this._fileName,
+      language: this._language,
+      isDirty: this._isDirty,
+      encoding: this._encoding,
+      lineEnding: this._lineEnding
+    };
+  }
+
+  // Editing operations
+  
+  /**
+   * Insert text at all cursor positions
+   */
+  insert(text: string): void {
+    const cursors = [...this.cursors].sort((a, b) => {
+      // Sort in reverse order so we can insert from bottom to top
+      const aOffset = this._buffer.positionToOffset(a.position);
+      const bOffset = this._buffer.positionToOffset(b.position);
+      return bOffset - aOffset;
+    });
+
+    const operations: EditOperation[] = [];
+
+    for (const cursor of cursors) {
+      const position = cursor.position;
+      
+      // If there's a selection, delete it first
+      if (cursor.selection) {
+        const range = this.getOrderedSelection(cursor.selection);
+        const deleted = this._buffer.deleteRange(range.start, range.end);
+        operations.push({
+          type: 'delete',
+          position: clonePosition(range.start),
+          text: deleted
+        });
+        // Update cursor position to start of selection
+        cursor.position = clonePosition(range.start);
+        cursor.selection = null;
+      }
+
+      // Insert the text
+      this._buffer.insertAt(cursor.position, text);
+      operations.push({
+        type: 'insert',
+        position: clonePosition(cursor.position),
+        text
+      });
+
+      // Move cursor after inserted text
+      const newPosition = this._buffer.offsetToPosition(
+        this._buffer.positionToOffset(cursor.position) + text.length
+      );
+      cursor.position = newPosition;
+      cursor.desiredColumn = newPosition.column;
+    }
+
+    this._undoManager.push({
+      operations,
+      cursorsBefore: this._cursorManager.getSnapshot(),
+      cursorsAfter: this._cursorManager.getSnapshot()
+    });
+
+    this.markDirty();
+  }
+
+  /**
+   * Delete text (backspace behavior)
+   */
+  backspace(): void {
+    const cursors = [...this.cursors].sort((a, b) => {
+      const aOffset = this._buffer.positionToOffset(a.position);
+      const bOffset = this._buffer.positionToOffset(b.position);
+      return bOffset - aOffset;
+    });
+
+    const operations: EditOperation[] = [];
+
+    for (const cursor of cursors) {
+      if (cursor.selection) {
+        // Delete selection
+        const range = this.getOrderedSelection(cursor.selection);
+        const deleted = this._buffer.deleteRange(range.start, range.end);
+        operations.push({
+          type: 'delete',
+          position: clonePosition(range.start),
+          text: deleted
+        });
+        cursor.position = clonePosition(range.start);
+        cursor.selection = null;
+      } else {
+        // Delete character before cursor
+        const offset = this._buffer.positionToOffset(cursor.position);
+        if (offset > 0) {
+          const startOffset = offset - 1;
+          const startPos = this._buffer.offsetToPosition(startOffset);
+          const deleted = this._buffer.delete(startOffset, offset);
+          operations.push({
+            type: 'delete',
+            position: clonePosition(startPos),
+            text: deleted
+          });
+          cursor.position = clonePosition(startPos);
+        }
+      }
+      cursor.desiredColumn = cursor.position.column;
+    }
+
+    if (operations.length > 0) {
+      this._undoManager.push({
+        operations,
+        cursorsBefore: this._cursorManager.getSnapshot(),
+        cursorsAfter: this._cursorManager.getSnapshot()
+      });
+      this.markDirty();
+    }
+  }
+
+  /**
+   * Delete text (delete key behavior)
+   */
+  delete(): void {
+    const cursors = [...this.cursors].sort((a, b) => {
+      const aOffset = this._buffer.positionToOffset(a.position);
+      const bOffset = this._buffer.positionToOffset(b.position);
+      return bOffset - aOffset;
+    });
+
+    const operations: EditOperation[] = [];
+
+    for (const cursor of cursors) {
+      if (cursor.selection) {
+        // Delete selection
+        const range = this.getOrderedSelection(cursor.selection);
+        const deleted = this._buffer.deleteRange(range.start, range.end);
+        operations.push({
+          type: 'delete',
+          position: clonePosition(range.start),
+          text: deleted
+        });
+        cursor.position = clonePosition(range.start);
+        cursor.selection = null;
+      } else {
+        // Delete character after cursor
+        const offset = this._buffer.positionToOffset(cursor.position);
+        if (offset < this._buffer.length) {
+          const deleted = this._buffer.delete(offset, offset + 1);
+          operations.push({
+            type: 'delete',
+            position: clonePosition(cursor.position),
+            text: deleted
+          });
+        }
+      }
+      cursor.desiredColumn = cursor.position.column;
+    }
+
+    if (operations.length > 0) {
+      this._undoManager.push({
+        operations,
+        cursorsBefore: this._cursorManager.getSnapshot(),
+        cursorsAfter: this._cursorManager.getSnapshot()
+      });
+      this.markDirty();
+    }
+  }
+
+  /**
+   * Insert a newline
+   */
+  newline(): void {
+    this.insert('\n');
+  }
+
+  /**
+   * Get selected text from primary cursor
+   */
+  getSelectedText(): string {
+    const cursor = this.primaryCursor;
+    if (!cursor.selection) return '';
+    
+    const range = this.getOrderedSelection(cursor.selection);
+    return this._buffer.getRangeByPosition(range.start, range.end);
+  }
+
+  /**
+   * Get all selected texts
+   */
+  getAllSelectedTexts(): string[] {
+    return this.cursors
+      .filter(c => c.selection)
+      .map(c => {
+        const range = this.getOrderedSelection(c.selection!);
+        return this._buffer.getRangeByPosition(range.start, range.end);
+      });
+  }
+
+  // Undo/Redo
+
+  undo(): void {
+    const action = this._undoManager.undo();
+    if (!action) return;
+
+    // Apply operations in reverse
+    for (let i = action.operations.length - 1; i >= 0; i--) {
+      const op = action.operations[i]!;
+      if (op.type === 'insert') {
+        // Undo insert by deleting
+        const startOffset = this._buffer.positionToOffset(op.position);
+        this._buffer.delete(startOffset, startOffset + op.text.length);
+      } else {
+        // Undo delete by inserting
+        this._buffer.insertAt(op.position, op.text);
+      }
+    }
+
+    this._cursorManager.restoreSnapshot(action.cursorsBefore);
+    this.updateDirtyState();
+  }
+
+  redo(): void {
+    const action = this._undoManager.redo();
+    if (!action) return;
+
+    // Apply operations forward
+    for (const op of action.operations) {
+      if (op.type === 'insert') {
+        this._buffer.insertAt(op.position, op.text);
+      } else {
+        const startOffset = this._buffer.positionToOffset(op.position);
+        this._buffer.delete(startOffset, startOffset + op.text.length);
+      }
+    }
+
+    this._cursorManager.restoreSnapshot(action.cursorsAfter);
+    this.updateDirtyState();
+  }
+
+  // Cursor movement helpers
+
+  /**
+   * Move cursor left
+   */
+  moveLeft(selecting: boolean = false): void {
+    this._cursorManager.moveCursors((cursor) => {
+      const offset = this._buffer.positionToOffset(cursor.position);
+      if (offset > 0) {
+        return this._buffer.offsetToPosition(offset - 1);
+      }
+      return cursor.position;
+    }, selecting);
+    this._cursorManager.updateDesiredColumn();
+  }
+
+  /**
+   * Move cursor right
+   */
+  moveRight(selecting: boolean = false): void {
+    this._cursorManager.moveCursors((cursor) => {
+      const offset = this._buffer.positionToOffset(cursor.position);
+      if (offset < this._buffer.length) {
+        return this._buffer.offsetToPosition(offset + 1);
+      }
+      return cursor.position;
+    }, selecting);
+    this._cursorManager.updateDesiredColumn();
+  }
+
+  /**
+   * Move cursor up
+   */
+  moveUp(selecting: boolean = false): void {
+    this._cursorManager.moveCursors((cursor) => {
+      if (cursor.position.line > 0) {
+        const newLine = cursor.position.line - 1;
+        const lineLength = this._buffer.getLineLength(newLine);
+        return {
+          line: newLine,
+          column: Math.min(cursor.desiredColumn, lineLength)
+        };
+      }
+      return cursor.position;
+    }, selecting);
+  }
+
+  /**
+   * Move cursor down
+   */
+  moveDown(selecting: boolean = false): void {
+    this._cursorManager.moveCursors((cursor) => {
+      if (cursor.position.line < this._buffer.lineCount - 1) {
+        const newLine = cursor.position.line + 1;
+        const lineLength = this._buffer.getLineLength(newLine);
+        return {
+          line: newLine,
+          column: Math.min(cursor.desiredColumn, lineLength)
+        };
+      }
+      return cursor.position;
+    }, selecting);
+  }
+
+  /**
+   * Move cursor to line start
+   */
+  moveToLineStart(selecting: boolean = false): void {
+    this._cursorManager.moveCursors((cursor) => ({
+      line: cursor.position.line,
+      column: 0
+    }), selecting);
+    this._cursorManager.updateDesiredColumn();
+  }
+
+  /**
+   * Move cursor to line end
+   */
+  moveToLineEnd(selecting: boolean = false): void {
+    this._cursorManager.moveCursors((cursor) => ({
+      line: cursor.position.line,
+      column: this._buffer.getLineLength(cursor.position.line)
+    }), selecting);
+    this._cursorManager.updateDesiredColumn();
+  }
+
+  /**
+   * Move cursor to document start
+   */
+  moveToDocumentStart(selecting: boolean = false): void {
+    this._cursorManager.moveCursors(() => ({ line: 0, column: 0 }), selecting);
+    this._cursorManager.updateDesiredColumn();
+  }
+
+  /**
+   * Move cursor to document end
+   */
+  moveToDocumentEnd(selecting: boolean = false): void {
+    this._cursorManager.moveCursors(() => {
+      const lastLine = Math.max(0, this._buffer.lineCount - 1);
+      return {
+        line: lastLine,
+        column: this._buffer.getLineLength(lastLine)
+      };
+    }, selecting);
+    this._cursorManager.updateDesiredColumn();
+  }
+
+  /**
+   * Move cursor to next word
+   */
+  moveWordRight(selecting: boolean = false): void {
+    this._cursorManager.moveCursors((cursor) => {
+      const content = this._buffer.getContent();
+      let offset = this._buffer.positionToOffset(cursor.position);
+      
+      // Skip current word characters
+      while (offset < content.length && this.isWordChar(content[offset]!)) {
+        offset++;
+      }
+      // Skip whitespace
+      while (offset < content.length && !this.isWordChar(content[offset]!)) {
+        offset++;
+      }
+      
+      return this._buffer.offsetToPosition(offset);
+    }, selecting);
+    this._cursorManager.updateDesiredColumn();
+  }
+
+  /**
+   * Move cursor to previous word
+   */
+  moveWordLeft(selecting: boolean = false): void {
+    this._cursorManager.moveCursors((cursor) => {
+      const content = this._buffer.getContent();
+      let offset = this._buffer.positionToOffset(cursor.position);
+      
+      if (offset > 0) offset--;
+      
+      // Skip whitespace
+      while (offset > 0 && !this.isWordChar(content[offset]!)) {
+        offset--;
+      }
+      // Skip word characters
+      while (offset > 0 && this.isWordChar(content[offset - 1]!)) {
+        offset--;
+      }
+      
+      return this._buffer.offsetToPosition(offset);
+    }, selecting);
+    this._cursorManager.updateDesiredColumn();
+  }
+
+  /**
+   * Select all content
+   */
+  selectAll(): void {
+    const lastLine = Math.max(0, this._buffer.lineCount - 1);
+    const endPosition = {
+      line: lastLine,
+      column: this._buffer.getLineLength(lastLine)
+    };
+    this._cursorManager.selectAll(endPosition);
+  }
+
+  /**
+   * Select current line
+   */
+  selectLine(): void {
+    const cursor = this.primaryCursor;
+    const lineStart: Position = { line: cursor.position.line, column: 0 };
+    const lineEnd: Position = {
+      line: cursor.position.line,
+      column: this._buffer.getLineLength(cursor.position.line)
+    };
+    
+    this._cursorManager.setSelections([{
+      anchor: lineStart,
+      head: lineEnd
+    }]);
+  }
+
+  // Private helpers
+
+  private getOrderedSelection(selection: Selection): Range {
+    const { anchor, head } = selection;
+    const anchorOffset = this._buffer.positionToOffset(anchor);
+    const headOffset = this._buffer.positionToOffset(head);
+    
+    if (anchorOffset <= headOffset) {
+      return { start: anchor, end: head };
+    } else {
+      return { start: head, end: anchor };
+    }
+  }
+
+  private markDirty(): void {
+    this._isDirty = true;
+  }
+
+  private updateDirtyState(): void {
+    this._isDirty = this._buffer.getContent() !== this._savedContent;
+  }
+
+  private isWordChar(char: string): boolean {
+    return /[\w]/.test(char);
+  }
+
+  private extractFileName(path: string): string {
+    const parts = path.split('/');
+    return parts[parts.length - 1] || 'Untitled';
+  }
+
+  private detectLanguage(path: string): string {
+    const ext = path.split('.').pop()?.toLowerCase();
+    
+    const languageMap: Record<string, string> = {
+      'ts': 'typescript',
+      'tsx': 'typescriptreact',
+      'js': 'javascript',
+      'jsx': 'javascriptreact',
+      'json': 'json',
+      'md': 'markdown',
+      'py': 'python',
+      'rb': 'ruby',
+      'rs': 'rust',
+      'go': 'go',
+      'c': 'c',
+      'cpp': 'cpp',
+      'h': 'c',
+      'hpp': 'cpp',
+      'java': 'java',
+      'html': 'html',
+      'css': 'css',
+      'scss': 'scss',
+      'yaml': 'yaml',
+      'yml': 'yaml',
+      'toml': 'toml',
+      'sh': 'shellscript',
+      'bash': 'shellscript',
+      'zsh': 'shellscript'
+    };
+
+    return ext ? languageMap[ext] || 'plaintext' : 'plaintext';
+  }
+}
+
+export default Document;
