@@ -77,6 +77,11 @@ export class App {
         renderer.scheduleRender();
       });
 
+      // Show sidebar if setting enabled
+      if (settings.get('workbench.sideBar.visible')) {
+        layoutManager.toggleSidebar(settings.get('ultra.sidebar.width') || 30);
+      }
+
       // Open file if provided
       if (filePath) {
         await this.openFile(filePath);
@@ -1055,6 +1060,14 @@ export class App {
           }
           fileTree.setVisible(true);
           fileTree.setFocused(true);
+        }
+      },
+      {
+        id: 'ultra.focusEditor',
+        title: 'Focus Editor',
+        category: 'View',
+        handler: () => {
+          fileTree.setFocused(false);
         }
       },
       {

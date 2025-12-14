@@ -20,6 +20,10 @@
     "command": "ultra.focusSidebar"
   },
   {
+    "key": "ctrl+shift+down",
+    "command": "ultra.focusEditor"
+  },
+  {
     "key": "ctrl+shift+m",
     "command": "ultra.toggleMinimap"
   },

@@ -59,6 +59,10 @@ export const defaultKeybindings: KeyBinding[] = [
     "command": "ultra.focusSidebar"
   },
   {
+    "key": "ctrl+shift+down",
+    "command": "ultra.focusEditor"
+  },
+  {
     "key": "ctrl+shift+m",
     "command": "ultra.toggleMinimap"
   },
@@ -338,6 +342,7 @@ export const defaultSettings: Record<string, any> = {
     "**/.DS_Store": true
   },
   "workbench.colorTheme": "catppuccin-frappe",
+  "workbench.sideBar.visible": true,
   "workbench.sideBar.location": "left",
   "ultra.sidebar.width": 30,
   "ultra.ai.model": "claude-sonnet-4-20250514",

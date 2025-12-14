@@ -22,6 +22,7 @@ export interface EditorSettings {
   'files.autoSave': 'off' | 'afterDelay' | 'onFocusChange' | 'onWindowChange';
   'files.exclude': Record<string, boolean>;
   'workbench.colorTheme': string;
+  'workbench.sideBar.visible': boolean;
   'workbench.sideBar.location': 'left' | 'right';
   'ultra.sidebar.width': number;
   'ultra.ai.model': string;
@@ -50,6 +51,7 @@ const defaultSettings: EditorSettings = {
     '**/.DS_Store': true
   },
   'workbench.colorTheme': 'One Dark',
+  'workbench.sideBar.visible': true,
   'workbench.sideBar.location': 'left',
   'ultra.sidebar.width': 30,
   'ultra.ai.model': 'claude-sonnet-4-20250514',
