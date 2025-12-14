@@ -4,7 +4,7 @@
  * Handles terminal initialization, screen management, and rendering loop.
  */
 
-import termkit from 'terminal-kit';
+import termkit from '../terminal-shim.ts';
 
 const { terminal: term } = termkit;
 
