@@ -14,6 +14,7 @@ import { EditorPane } from './ui/components/editor-pane.ts';
 import { statusBar } from './ui/components/status-bar.ts';
 import { tabBar, type Tab } from './ui/components/tab-bar.ts';
 import { filePicker } from './ui/components/file-picker.ts';
+import { commandPalette } from './ui/components/command-palette.ts';
 import { commandRegistry } from './input/commands.ts';
 import { keymap, type ParsedKey } from './input/keymap.ts';
 import { keybindingsLoader } from './input/keybindings-loader.ts';
@@ -176,6 +177,49 @@ export class App {
         return;
       }
 
+      // Handle command palette input if it's open
+      if (commandPalette.isOpen()) {
+        if (event.key === 'ESCAPE') {
+          commandPalette.hide();
+          renderer.scheduleRender();
+          return;
+        }
+        if (event.key === 'ENTER') {
+          commandPalette.confirm();
+          renderer.scheduleRender();
+          return;
+        }
+        if (event.key === 'UP' || (event.ctrl && event.key === 'P')) {
+          commandPalette.selectPrevious();
+          renderer.scheduleRender();
+          return;
+        }
+        if (event.key === 'DOWN' || (event.ctrl && event.key === 'N')) {
+          commandPalette.selectNext();
+          renderer.scheduleRender();
+          return;
+        }
+        if (event.key === 'BACKSPACE') {
+          commandPalette.backspaceQuery();
+          renderer.scheduleRender();
+          return;
+        }
+        // Type into search
+        if (event.char && event.char.length === 1 && !event.ctrl && !event.meta) {
+          commandPalette.appendToQuery(event.char);
+          renderer.scheduleRender();
+          return;
+        }
+        if (event.key.length === 1 && !event.ctrl && !event.meta && !event.alt) {
+          commandPalette.appendToQuery(event.key.toLowerCase());
+          renderer.scheduleRender();
+          return;
+        }
+        // Consume all other keys while palette is open
+        renderer.scheduleRender();
+        return;
+      }
+
       // Convert our KeyEvent to ParsedKey format
       const parsed: ParsedKey = {
         ctrl: event.ctrl,
@@ -295,6 +339,7 @@ export class App {
     });
 
     // Register editor pane as mouse handler
+    mouseManager.registerHandler(commandPalette);
     mouseManager.registerHandler(filePicker);
     mouseManager.registerHandler(this.editorPane);
     mouseManager.registerHandler(tabBar);
@@ -509,6 +554,9 @@ export class App {
 
     // Render file picker (on top of everything)
     filePicker.render(ctx);
+
+    // Render command palette (on top of file picker)
+    commandPalette.render(ctx);
 
     // Position cursor at the very end (after all rendering is done)
     // We render our own block cursor in the editor pane, so we just
@@ -1129,7 +1177,12 @@ export class App {
         title: 'Command Palette',
         category: 'View',
         handler: () => {
-          // TODO: Implement command palette UI
+          const commands = commandRegistry.getAll();
+          commandPalette.show(commands, renderer.width, renderer.height);
+          commandPalette.onSelect(async (command) => {
+            await commandRegistry.execute(command.id);
+          });
+          renderer.scheduleRender();
         }
       },
       {
