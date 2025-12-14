@@ -44,38 +44,26 @@ export class StatusBar {
    */
   render(ctx: RenderContext): void {
     const { x, y, width } = this.rect;
-
-    // Background
-    ctx.term.moveTo(x, y);
-    ctx.term.bgColor256(236);  // Dark gray background
-    ctx.term(' '.repeat(width));
-    ctx.term.moveTo(x, y);
-
-    // Build left side content
-    let left = '';
     
-    // File name with dirty indicator
+    if (width <= 0) return;
+
+    // Background - single call
+    ctx.term.moveTo(x, y).bgColor256(236)(' '.repeat(width));
+    ctx.term.moveTo(x, y).bgColor256(236);
+
+    // Build and render left side
     if (this.state.document) {
       if (this.state.document.isDirty) {
-        ctx.term.color256(203);  // Red for dirty
-        left += '● ';
-        ctx.term(left);
-        left = '';
+        ctx.term.color256(203)('● ');
       }
-      ctx.term.color256(252);  // Bright white
-      left += this.state.document.fileName;
+      ctx.term.color256(252)(this.state.document.fileName);
     } else {
-      ctx.term.color256(245);  // Gray
-      left += 'No file';
+      ctx.term.color256(245)('No file');
     }
-    ctx.term(left);
 
     // Git branch (if available)
     if (this.state.gitBranch) {
-      ctx.term.color256(245);
-      ctx.term('  ');
-      ctx.term.color256(141);  // Purple
-      ctx.term('⎇ ' + this.state.gitBranch);
+      ctx.term.color256(245)('  ').color256(141)('⎇ ' + this.state.gitBranch);
     }
 
     // Build right side content
@@ -110,11 +98,9 @@ export class StatusBar {
     
     // Position and render right side
     const rightX = x + width - right.length - 1;
-    ctx.term.moveTo(rightX, y);
-    ctx.term.color256(245);  // Gray
-    ctx.term(right);
-
-    ctx.term.styleReset();
+    if (rightX > x) {
+      ctx.term.moveTo(rightX, y).bgColor256(236).color256(245)(right);
+    }
   }
 
   /**

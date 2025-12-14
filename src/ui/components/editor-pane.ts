@@ -212,23 +212,18 @@ export class EditorPane implements MouseHandler {
    * Render empty state (no document)
    */
   private renderEmptyState(ctx: RenderContext): void {
-    // Fill with background
+    // Fill with background - chain calls
+    const emptyLine = ' '.repeat(Math.max(0, this.rect.width));
     for (let y = 0; y < this.rect.height; y++) {
       const screenY = this.rect.y + y;
-      ctx.term.moveTo(this.rect.x, screenY);
-      ctx.term.bgColor256(236);  // Dark gray
-      ctx.term(' '.repeat(this.rect.width));
-      ctx.term.styleReset();
+      ctx.term.moveTo(this.rect.x, screenY).bgColor256(236)(emptyLine);
     }
 
     // Center message
     const message = 'No file open';
     const msgX = this.rect.x + Math.floor((this.rect.width - message.length) / 2);
     const msgY = this.rect.y + Math.floor(this.rect.height / 2);
-    ctx.term.moveTo(msgX, msgY);
-    ctx.term.color256(245);  // Gray
-    ctx.term(message);
-    ctx.term.styleReset();
+    ctx.term.moveTo(msgX, msgY).color256(245)(message);
   }
 
   /**
@@ -236,32 +231,26 @@ export class EditorPane implements MouseHandler {
    */
   private renderGutter(ctx: RenderContext, screenY: number, lineNum: number): void {
     ctx.term.moveTo(this.rect.x, screenY);
-    ctx.term.bgColor256(236);  // Gutter background
     
     if (lineNum >= 0) {
       const isCursorLine = this.document?.cursors.some(c => c.position.line === lineNum);
+      const numStr = String(lineNum + 1).padStart(this.gutterWidth - 1, ' ') + ' ';
+      // Use string formatting to set colors inline
       if (isCursorLine) {
-        ctx.term.color256(252);  // Bright for cursor line
+        ctx.term.bgColor256(236).color256(252)(numStr);
       } else {
-        ctx.term.color256(241);  // Dim for other lines
+        ctx.term.bgColor256(236).color256(241)(numStr);
       }
-      const numStr = String(lineNum + 1).padStart(this.gutterWidth - 1, ' ');
-      ctx.term(numStr + ' ');
     } else {
-      ctx.term(' '.repeat(this.gutterWidth));
+      ctx.term.bgColor256(236)(' '.repeat(this.gutterWidth));
     }
-    
-    ctx.term.styleReset();
   }
 
   /**
    * Render an empty line
    */
   private renderEmptyLine(ctx: RenderContext, x: number, y: number, width: number): void {
-    ctx.term.moveTo(x, y);
-    ctx.term.bgColor256(235);  // Editor background
-    ctx.term(' '.repeat(width));
-    ctx.term.styleReset();
+    ctx.term.moveTo(x, y).bgColor256(235)(' '.repeat(Math.max(0, width)));
   }
 
   /**
@@ -279,20 +268,20 @@ export class EditorPane implements MouseHandler {
   ): void {
     ctx.term.moveTo(x, y);
     
-    // Background color
-    if (isCursorLine && this.isFocused) {
-      ctx.term.bgColor256(237);  // Slightly lighter for cursor line
-    } else {
-      ctx.term.bgColor256(235);  // Editor background
-    }
+    // Determine base background color
+    const baseBg = isCursorLine && this.isFocused ? 237 : 235;
+    const selectionBg = 24;  // Dark blue for selection
 
     // Get visible portion of line
     const visibleStart = this.scrollLeft;
     const visibleEnd = this.scrollLeft + width;
     
-    // Build the line character by character to handle selection
+    // Build the line, grouping characters by background color to minimize escape sequences
+    let currentBg = baseBg;
     let output = '';
-    let currentBg = isCursorLine && this.isFocused ? 237 : 235;
+    
+    // Start with base style
+    ctx.term.bgColor256(baseBg).color256(252);
 
     for (let col = visibleStart; col < visibleEnd; col++) {
       const char = col < line.length ? line[col]! : ' ';
@@ -308,12 +297,14 @@ export class EditorPane implements MouseHandler {
         return true;
       });
 
-      const newBg = isSelected ? 24 : (isCursorLine && this.isFocused ? 237 : 235);  // 24 = dark blue for selection
+      const newBg = isSelected ? selectionBg : baseBg;
       
       if (newBg !== currentBg) {
-        // Flush current output
-        ctx.term(output);
-        output = '';
+        // Flush current output and change background
+        if (output) {
+          ctx.term(output);
+          output = '';
+        }
         currentBg = newBg;
         ctx.term.bgColor256(currentBg);
       }
@@ -321,9 +312,10 @@ export class EditorPane implements MouseHandler {
       output += char === '\t' ? '  ' : char;  // Simple tab handling
     }
     
-    ctx.term.color256(252);  // Text color
-    ctx.term(output);
-    ctx.term.styleReset();
+    // Flush remaining output
+    if (output) {
+      ctx.term(output);
+    }
   }
 
   /**
@@ -342,16 +334,12 @@ export class EditorPane implements MouseHandler {
       const cursorX = textStartX + screenCol;
       const cursorY = this.rect.y + screenLine;
 
-      // Draw cursor (block style)
-      ctx.term.moveTo(cursorX, cursorY);
-      ctx.term.bgColor256(75);  // Blue cursor
-      
       // Get character under cursor
       const line = this.document.getLine(cursor.position.line);
       const char = cursor.position.column < line.length ? line[cursor.position.column]! : ' ';
-      ctx.term.color256(235);  // Dark text on cursor
-      ctx.term(char);
-      ctx.term.styleReset();
+      
+      // Draw cursor (block style) - chain calls to minimize escape sequences
+      ctx.term.moveTo(cursorX, cursorY).bgColor256(75).color256(235)(char);
     }
   }
 

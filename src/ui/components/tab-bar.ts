@@ -75,10 +75,8 @@ export class TabBar implements MouseHandler {
     // Guard against invalid dimensions
     if (width <= 0) return;
 
-    // Background
-    ctx.term.moveTo(x, y);
-    ctx.term.bgColor256(234);  // Very dark gray
-    ctx.term(' '.repeat(Math.max(0, width)));
+    // Background - single call with chaining
+    ctx.term.moveTo(x, y).bgColor256(234)(' '.repeat(width));
     ctx.term.moveTo(x, y);
 
     let currentX = x;
@@ -98,41 +96,29 @@ export class TabBar implements MouseHandler {
       });
 
       // Tab background
-      ctx.term.moveTo(currentX, y);
-      if (tab.isActive) {
-        ctx.term.bgColor256(235);  // Slightly lighter for active
-      } else {
-        ctx.term.bgColor256(234);
-      }
+      const tabBg = tab.isActive ? 235 : 234;
+      ctx.term.moveTo(currentX, y).bgColor256(tabBg);
 
       // Dirty indicator or space
       if (tab.isDirty) {
-        ctx.term.color256(203);  // Red
-        ctx.term(' ●');
+        ctx.term.color256(203)(' ●');
       } else {
         ctx.term('  ');
       }
 
       // Tab name
-      ctx.term.color256(tab.isActive ? 252 : 245);  // Brighter for active
-      ctx.term(tabContent);
+      ctx.term.color256(tab.isActive ? 252 : 245)(tabContent);
 
       // Close button
-      ctx.term.color256(241);
-      ctx.term(' ×');
+      ctx.term.color256(241)(' ×');
 
       // Tab separator
       currentX += tabWidth;
       if (currentX < x + width) {
-        ctx.term.moveTo(currentX, y);
-        ctx.term.bgColor256(234);
-        ctx.term.color256(238);
-        ctx.term('│');
+        ctx.term.moveTo(currentX, y).bgColor256(234).color256(238)('│');
         currentX += 1;
       }
     }
-
-    ctx.term.styleReset();
   }
 
   /**
