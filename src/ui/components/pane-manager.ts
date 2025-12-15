@@ -178,7 +178,11 @@ export class PaneManager implements MouseHandler {
    * Split active pane vertically (side by side)
    */
   splitVertical(): Pane | null {
-    return this.splitPane(this.activePaneId, 'horizontal'); // horizontal container = side by side
+    const fs = require('fs');
+    fs.appendFileSync('debug.log', `[PaneManager] splitVertical called, activePaneId=${this.activePaneId}\n`);
+    const result = this.splitPane(this.activePaneId, 'horizontal'); // horizontal container = side by side
+    fs.appendFileSync('debug.log', `[PaneManager] splitVertical result=${result?.id ?? 'null'}\n`);
+    return result;
   }
 
   /**
@@ -192,12 +196,23 @@ export class PaneManager implements MouseHandler {
    * Split a specific pane
    */
   private splitPane(paneId: string, direction: 'horizontal' | 'vertical'): Pane | null {
+    const fs = require('fs');
+    fs.appendFileSync('debug.log', `[PaneManager] splitPane(${paneId}, ${direction})\n`);
+    
     const pane = this.panes.get(paneId);
-    if (!pane) return null;
+    if (!pane) {
+      fs.appendFileSync('debug.log', `[PaneManager] splitPane: pane not found\n`);
+      return null;
+    }
     
     // Find the node containing this pane
     const nodeInfo = this.findNodeWithPane(this.root, paneId);
-    if (!nodeInfo) return null;
+    if (!nodeInfo) {
+      fs.appendFileSync('debug.log', `[PaneManager] splitPane: node not found\n`);
+      return null;
+    }
+    
+    fs.appendFileSync('debug.log', `[PaneManager] splitPane: found node, creating new pane\n`);
     
     const { node, parent, childIndex } = nodeInfo;
     

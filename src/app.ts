@@ -1929,7 +1929,9 @@ export class App {
         title: 'Split Editor Vertically',
         category: 'View',
         handler: () => {
-          paneManager.splitVertical();
+          this.debugLog('ultra.splitVertical command handler called');
+          const result = paneManager.splitVertical();
+          this.debugLog(`splitVertical returned: ${result?.id ?? 'null'}`);
           renderer.scheduleRender();
         }
       },
@@ -2305,14 +2307,6 @@ export class App {
             await commandRegistry.execute(command.id);
           });
           renderer.scheduleRender();
-        }
-      },
-      {
-        id: 'ultra.splitVertical',
-        title: 'Split Editor Vertical',
-        category: 'View',
-        handler: () => {
-          // TODO: Implement split view
         }
       },
 
