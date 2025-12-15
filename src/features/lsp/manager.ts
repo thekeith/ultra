@@ -7,6 +7,8 @@
 
 import { LSPClient, type LSPDiagnostic, type LSPPosition, type LSPCompletionItem, type LSPHover, type LSPLocation } from './client.ts';
 import { settings } from '../../config/settings.ts';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // Language server configurations
 interface ServerConfig {
@@ -14,12 +16,44 @@ interface ServerConfig {
   args: string[];
 }
 
+/**
+ * Get the path to the bundled ultra-tsserver if available.
+ * It should be in the same directory as the ultra binary.
+ */
+function getBundledTsServer(): string | null {
+  // Check if we're running from a compiled binary
+  const execPath = process.execPath;
+  const execDir = path.dirname(execPath);
+  const bundledPath = path.join(execDir, 'ultra-tsserver');
+  
+  try {
+    if (fs.existsSync(bundledPath)) {
+      // Verify it's executable
+      fs.accessSync(bundledPath, fs.constants.X_OK);
+      return bundledPath;
+    }
+  } catch {
+    // Not found or not executable
+  }
+  
+  return null;
+}
+
+// Get the TypeScript server command - prefer bundled, fallback to system
+function getTsServerConfig(): ServerConfig {
+  const bundled = getBundledTsServer();
+  if (bundled) {
+    return { command: bundled, args: ['--stdio'] };
+  }
+  return { command: 'typescript-language-server', args: ['--stdio'] };
+}
+
 // Default server configurations
 const DEFAULT_SERVERS: Record<string, ServerConfig> = {
-  typescript: { command: 'typescript-language-server', args: ['--stdio'] },
-  javascript: { command: 'typescript-language-server', args: ['--stdio'] },
-  typescriptreact: { command: 'typescript-language-server', args: ['--stdio'] },
-  javascriptreact: { command: 'typescript-language-server', args: ['--stdio'] },
+  typescript: getTsServerConfig(),
+  javascript: getTsServerConfig(),
+  typescriptreact: getTsServerConfig(),
+  javascriptreact: getTsServerConfig(),
   rust: { command: 'rust-analyzer', args: [] },
   python: { command: 'pylsp', args: [] },
   go: { command: 'gopls', args: [] },
