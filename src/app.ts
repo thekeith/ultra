@@ -62,7 +62,8 @@ export class App {
     isOpen: boolean;
     documentId: string | null;
     fileName: string;
-  } = { isOpen: false, documentId: null, fileName: '' };
+    paneId: string | null;  // Track which pane initiated the close (null = close from all panes)
+  } = { isOpen: false, documentId: null, fileName: '', paneId: null };
 
   constructor() {
     this.editorPane = paneManager.getPane('main');
@@ -1251,12 +1252,22 @@ export class App {
 
     // Tab bar callbacks
     tabBar.onTabClick((tabId) => {
-      this.activateDocument(tabId);
+      // Switch to this document within the active pane
+      const activePaneId = paneManager.getActivePaneId();
+      paneManager.setActivePaneDocument(activePaneId, tabId);
+      
+      // Also update the editorPane reference and activeDocumentId
+      this.activeDocumentId = tabId;
+      const doc = this.documents.find(d => d.id === tabId);
+      if (doc) {
+        this.editorPane.setDocument(doc.document);
+      }
+      this.updateStatusBar();
       renderer.scheduleRender();
     });
 
     tabBar.onTabClose((tabId) => {
-      this.requestCloseDocument(tabId);
+      this.requestCloseDocumentFromPane(tabId);
       renderer.scheduleRender();
     });
   }
@@ -1416,16 +1427,26 @@ export class App {
   }
 
   /**
-   * Get tabs for tab bar
+   * Get tabs for tab bar (returns tabs for the active pane only)
    */
   private getTabs(): Tab[] {
-    return this.documents.map(d => ({
-      id: d.id,
-      fileName: d.document.fileName,
-      filePath: d.document.filePath,
-      isDirty: d.document.isDirty,
-      isActive: d.id === this.activeDocumentId
-    }));
+    const activePaneId = paneManager.getActivePaneId();
+    const paneDocIds = paneManager.getPaneDocumentIds(activePaneId);
+    const activeDocId = paneManager.getPaneActiveDocumentId(activePaneId);
+    
+    return paneDocIds
+      .map(docId => {
+        const docEntry = this.documents.find(d => d.id === docId);
+        if (!docEntry) return null;
+        return {
+          id: docEntry.id,
+          fileName: docEntry.document.fileName,
+          filePath: docEntry.document.filePath,
+          isDirty: docEntry.document.isDirty,
+          isActive: docEntry.id === activeDocId
+        };
+      })
+      .filter((tab): tab is Tab => tab !== null);
   }
 
   /**
@@ -1513,7 +1534,7 @@ export class App {
         category: 'File',
         handler: () => {
           if (this.activeDocumentId) {
-            this.requestCloseDocument(this.activeDocumentId);
+            this.requestCloseDocumentFromPane(this.activeDocumentId);
           }
         }
       },
@@ -2501,6 +2522,67 @@ export class App {
   }
 
   /**
+   * Request to close a document from the current pane only
+   * If the document is only open in this pane and is dirty, show confirmation
+   */
+  requestCloseDocumentFromPane(id: string): void {
+    const activePaneId = paneManager.getActivePaneId();
+    const docEntry = this.documents.find(d => d.id === id);
+    if (!docEntry) return;
+    
+    // Check if this document is open in other panes
+    const allPaneIds = layoutManager.getAllPaneIds();
+    const panesWithDoc = allPaneIds.filter(paneId => {
+      const docIds = paneManager.getPaneDocumentIds(paneId);
+      return docIds.includes(id);
+    });
+    
+    if (panesWithDoc.length === 1 && docEntry.document.isDirty) {
+      // This is the only pane with this doc and it's dirty - show confirmation
+      this.closeConfirmDialog = {
+        isOpen: true,
+        documentId: id,
+        fileName: docEntry.document.fileName,
+        paneId: activePaneId  // Track the pane for closing
+      };
+      renderer.scheduleRender();
+    } else {
+      // Either not dirty, or open in other panes - safe to close from this pane
+      this.closeDocumentFromPane(activePaneId, id);
+    }
+  }
+
+  /**
+   * Close a document from a specific pane
+   */
+  closeDocumentFromPane(paneId: string, documentId: string): void {
+    // Remove from this pane
+    paneManager.removeDocumentFromPane(paneId, documentId);
+    
+    // Update activeDocumentId to the pane's new active document
+    const newActiveDocId = paneManager.getPaneActiveDocumentId(paneId);
+    if (paneId === paneManager.getActivePaneId()) {
+      this.activeDocumentId = newActiveDocId;
+      if (newActiveDocId) {
+        const doc = this.documents.find(d => d.id === newActiveDocId);
+        if (doc) {
+          this.editorPane.setDocument(doc.document);
+        }
+      } else {
+        this.editorPane.setDocument(null);
+      }
+    }
+    
+    // Check if document is still open in any pane
+    if (!paneManager.isDocumentOpen(documentId)) {
+      // Document is not open anywhere - fully close it
+      this.closeDocument(documentId);
+    }
+    
+    this.updateStatusBar();
+  }
+
+  /**
    * Request to close a document (may show confirmation dialog)
    */
   requestCloseDocument(id: string): void {
@@ -2513,6 +2595,7 @@ export class App {
       this.closeConfirmDialog = {
         isOpen: true,
         documentId: id,
+        paneId: null, // Close from all panes
         fileName: doc.fileName
       };
       renderer.scheduleRender();
@@ -2524,6 +2607,7 @@ export class App {
 
   /**
    * Close a document (internal - no confirmation)
+   * This removes the document from all panes and from the document list
    */
   closeDocument(id: string): void {
     const index = this.documents.findIndex(d => d.id === id);
@@ -2531,6 +2615,9 @@ export class App {
 
     const docEntry = this.documents[index]!;
     const doc = docEntry.document;
+
+    // Remove from all panes
+    paneManager.removeDocumentFromAllPanes(id);
 
     // Notify LSP of document close
     if (this.lspEnabled && doc.filePath) {
@@ -2541,16 +2628,20 @@ export class App {
 
     this.documents.splice(index, 1);
 
-    if (this.activeDocumentId === id) {
-      if (this.documents.length > 0) {
-        const newIndex = Math.min(index, this.documents.length - 1);
-        this.activateDocument(this.documents[newIndex]!.id);
-      } else {
-        this.activeDocumentId = null;
-        this.editorPane.setDocument(null);
-        this.updateStatusBar();
+    // Update activeDocumentId from the current pane
+    const newActiveDocId = paneManager.getActiveDocumentId();
+    this.activeDocumentId = newActiveDocId;
+    
+    if (newActiveDocId) {
+      const newDoc = this.documents.find(d => d.id === newActiveDocId);
+      if (newDoc) {
+        this.editorPane.setDocument(newDoc.document);
       }
+    } else {
+      this.editorPane.setDocument(null);
     }
+    
+    this.updateStatusBar();
   }
   
   /**
@@ -2558,9 +2649,21 @@ export class App {
    */
   private async handleCloseConfirmResponse(response: 'save' | 'discard' | 'cancel'): Promise<void> {
     const docId = this.closeConfirmDialog.documentId;
-    this.closeConfirmDialog = { isOpen: false, documentId: null, fileName: '' };
+    const paneId = this.closeConfirmDialog.paneId;
+    this.closeConfirmDialog = { isOpen: false, documentId: null, paneId: null, fileName: '' };
     
     if (!docId) return;
+    
+    // Helper to close document from correct context
+    const closeDoc = () => {
+      if (paneId) {
+        // Close from specific pane only
+        this.closeDocumentFromPane(docId, paneId);
+      } else {
+        // Close from all panes
+        this.closeDocument(docId);
+      }
+    };
     
     switch (response) {
       case 'save':
@@ -2570,7 +2673,7 @@ export class App {
           const doc = docEntry.document;
           if (doc.filePath) {
             await doc.save();
-            this.closeDocument(docId);
+            closeDoc();
           } else {
             // No file path, need save-as first
             saveBrowser.show({
@@ -2580,7 +2683,7 @@ export class App {
               screenHeight: renderer.height,
               onSave: async (filePath: string) => {
                 await doc.saveAs(filePath);
-                this.closeDocument(docId);
+                closeDoc();
                 renderer.scheduleRender();
               },
               onCancel: () => {
@@ -2592,7 +2695,7 @@ export class App {
         break;
       case 'discard':
         // Close without saving
-        this.closeDocument(docId);
+        closeDoc();
         break;
       case 'cancel':
         // Do nothing

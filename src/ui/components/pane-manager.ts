@@ -14,7 +14,8 @@ import type { Position } from '../../core/buffer.ts';
 
 interface PaneState {
   pane: EditorPane;
-  documentId: string | null;  // References the document in App's document list
+  documentIds: string[];       // List of document IDs open in this pane (tabs)
+  activeDocumentId: string | null;  // Currently active document in this pane
 }
 
 export class PaneManager implements MouseHandler {
@@ -58,7 +59,7 @@ export class PaneManager implements MouseHandler {
       }
     });
     
-    this.panes.set(paneId, { pane, documentId: null });
+    this.panes.set(paneId, { pane, documentIds: [], activeDocumentId: null });
     return pane;
   }
 
@@ -121,28 +122,70 @@ export class PaneManager implements MouseHandler {
   }
 
   /**
-   * Unregister a document
+   * Unregister a document from manager (but not from panes)
    */
   unregisterDocument(documentId: string): void {
     this.documents.delete(documentId);
+  }
+
+  /**
+   * Add a document to a pane's tab list and make it active
+   */
+  addDocumentToPane(paneId: string, documentId: string): void {
+    const state = this.panes.get(paneId);
+    if (!state) return;
     
-    // Clear from any panes that have this document
-    for (const [paneId, state] of this.panes) {
-      if (state.documentId === documentId) {
+    // Add to tab list if not already there
+    if (!state.documentIds.includes(documentId)) {
+      state.documentIds.push(documentId);
+    }
+    
+    // Make it the active document
+    this.setActivePaneDocument(paneId, documentId);
+  }
+
+  /**
+   * Remove a document from a pane's tab list
+   */
+  removeDocumentFromPane(paneId: string, documentId: string): void {
+    const state = this.panes.get(paneId);
+    if (!state) return;
+    
+    const index = state.documentIds.indexOf(documentId);
+    if (index === -1) return;
+    
+    state.documentIds.splice(index, 1);
+    
+    // If this was the active document, switch to another
+    if (state.activeDocumentId === documentId) {
+      if (state.documentIds.length > 0) {
+        const newIndex = Math.min(index, state.documentIds.length - 1);
+        this.setActivePaneDocument(paneId, state.documentIds[newIndex]!);
+      } else {
+        state.activeDocumentId = null;
         state.pane.setDocument(null);
-        state.documentId = null;
       }
     }
   }
 
   /**
-   * Set document for a pane
+   * Remove a document from all panes
    */
-  setPaneDocument(paneId: string, documentId: string | null): void {
+  removeDocumentFromAllPanes(documentId: string): void {
+    for (const [paneId] of this.panes) {
+      this.removeDocumentFromPane(paneId, documentId);
+    }
+    this.unregisterDocument(documentId);
+  }
+
+  /**
+   * Set the active document for a pane
+   */
+  setActivePaneDocument(paneId: string, documentId: string | null): void {
     const state = this.panes.get(paneId);
     if (!state) return;
     
-    state.documentId = documentId;
+    state.activeDocumentId = documentId;
     
     if (documentId) {
       const document = this.documents.get(documentId);
@@ -153,18 +196,32 @@ export class PaneManager implements MouseHandler {
   }
 
   /**
-   * Get the document ID for a pane
+   * Get the active document ID for a pane
    */
-  getPaneDocumentId(paneId: string): string | null {
-    return this.panes.get(paneId)?.documentId || null;
+  getPaneActiveDocumentId(paneId: string): string | null {
+    return this.panes.get(paneId)?.activeDocumentId || null;
   }
 
   /**
-   * Get the document for a pane
+   * Get all document IDs (tabs) for a pane
+   */
+  getPaneDocumentIds(paneId: string): string[] {
+    return this.panes.get(paneId)?.documentIds || [];
+  }
+
+  /**
+   * Get the document for a pane's active document
    */
   getPaneDocument(paneId: string): Document | null {
-    const documentId = this.getPaneDocumentId(paneId);
+    const documentId = this.getPaneActiveDocumentId(paneId);
     if (!documentId) return null;
+    return this.documents.get(documentId) || null;
+  }
+
+  /**
+   * Get a document by ID
+   */
+  getDocument(documentId: string): Document | null {
     return this.documents.get(documentId) || null;
   }
 
@@ -179,16 +236,50 @@ export class PaneManager implements MouseHandler {
    * Get the document ID for the active pane
    */
   getActiveDocumentId(): string | null {
-    return this.getPaneDocumentId(this.getActivePaneId());
+    return this.getPaneActiveDocumentId(this.getActivePaneId());
+  }
+
+  /**
+   * Check if a document is open in any pane
+   */
+  isDocumentOpen(documentId: string): boolean {
+    for (const [, state] of this.panes) {
+      if (state.documentIds.includes(documentId)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Find which pane has a document open (returns first match)
+   */
+  findPaneWithDocument(documentId: string): string | null {
+    for (const [paneId, state] of this.panes) {
+      if (state.documentIds.includes(documentId)) {
+        return paneId;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Set document for a pane (legacy compatibility - use addDocumentToPane instead)
+   * @deprecated Use addDocumentToPane instead
+   */
+  setPaneDocument(paneId: string, documentId: string | null): void {
+    if (documentId) {
+      this.addDocumentToPane(paneId, documentId);
+    }
   }
 
   /**
    * Split the active pane vertically (side by side)
-   * Returns the new pane ID and copies the current document
+   * Returns the new pane ID and copies the current document tabs
    */
   splitVertical(): string | null {
     const currentPaneId = this.getActivePaneId();
-    const currentDocId = this.getPaneDocumentId(currentPaneId);
+    const currentState = this.panes.get(currentPaneId);
     
     const newPaneId = layoutManager.splitVertical(currentPaneId);
     if (!newPaneId) return null;
@@ -196,9 +287,17 @@ export class PaneManager implements MouseHandler {
     // Create the new pane
     this.createPane(newPaneId);
     
-    // Clone the document view to the new pane
-    if (currentDocId) {
-      this.setPaneDocument(newPaneId, currentDocId);
+    // Copy document tabs from current pane to new pane
+    if (currentState) {
+      const newState = this.panes.get(newPaneId);
+      if (newState) {
+        // Copy all document IDs
+        newState.documentIds = [...currentState.documentIds];
+        // Set the same active document
+        if (currentState.activeDocumentId) {
+          this.setActivePaneDocument(newPaneId, currentState.activeDocumentId);
+        }
+      }
     }
     
     // Focus the new pane
@@ -209,11 +308,11 @@ export class PaneManager implements MouseHandler {
 
   /**
    * Split the active pane horizontally (stacked)
-   * Returns the new pane ID and copies the current document
+   * Returns the new pane ID and copies the current document tabs
    */
   splitHorizontal(): string | null {
     const currentPaneId = this.getActivePaneId();
-    const currentDocId = this.getPaneDocumentId(currentPaneId);
+    const currentState = this.panes.get(currentPaneId);
     
     const newPaneId = layoutManager.splitHorizontal(currentPaneId);
     if (!newPaneId) return null;
@@ -221,9 +320,17 @@ export class PaneManager implements MouseHandler {
     // Create the new pane
     this.createPane(newPaneId);
     
-    // Clone the document view to the new pane
-    if (currentDocId) {
-      this.setPaneDocument(newPaneId, currentDocId);
+    // Copy document tabs from current pane to new pane
+    if (currentState) {
+      const newState = this.panes.get(newPaneId);
+      if (newState) {
+        // Copy all document IDs
+        newState.documentIds = [...currentState.documentIds];
+        // Set the same active document
+        if (currentState.activeDocumentId) {
+          this.setActivePaneDocument(newPaneId, currentState.activeDocumentId);
+        }
+      }
     }
     
     // Focus the new pane
