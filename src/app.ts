@@ -347,7 +347,7 @@ export class App {
 
       // Handle file tree input if it's focused
       if (fileTree.getFocused()) {
-        const handled = await fileTree.handleKey(event.key, event.ctrl, event.shift);
+        const handled = await fileTree.handleKey(event.key, event.ctrl, event.shift, event.char);
         if (handled) {
           renderer.scheduleRender();
           return;

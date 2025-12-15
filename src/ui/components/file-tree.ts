@@ -76,6 +76,11 @@ export class FileTree implements MouseHandler {
   
   // Callbacks
   private onFileSelectCallback?: (path: string) => void;
+  
+  // Dialog state
+  private dialogMode: 'none' | 'new-file' | 'rename' | 'delete-confirm' = 'none';
+  private dialogInput: string = '';
+  private dialogTarget: FileTreeNode | null = null;
 
   /**
    * Set the rect for the file tree
@@ -145,7 +150,7 @@ export class FileTree implements MouseHandler {
         path: nodePath,
         type: stat.isDirectory() ? 'directory' : 'file',
         expanded: false,
-        children: stat.isDirectory() ? null : undefined,
+        children: null,  // null = not loaded yet, empty array = loaded but empty
         depth,
         isHidden: name.startsWith('.'),
       };
@@ -507,8 +512,11 @@ export class FileTree implements MouseHandler {
     const title = ' EXPLORER';
     output += title.padEnd(this.rect.width, ' ');
     
+    // Reserve space for help hint when focused (2 lines for dialog mode)
+    const helpHeight = this.isFocused ? (this.dialogMode !== 'none' ? 2 : 1) : 0;
+    
     // Draw file list
-    const visibleCount = this.getVisibleCount();
+    const visibleCount = this.getVisibleCount() - helpHeight;
     
     // Calculate dimmed colors for hidden files
     const dimFg = { 
@@ -571,6 +579,64 @@ export class FileTree implements MouseHandler {
         // Empty line
         output += bgRgb(sidebarBg.r, sidebarBg.g, sidebarBg.b);
         output += ' '.repeat(this.rect.width);
+      }
+    }
+    
+    // Draw help hint at bottom when focused
+    if (this.isFocused) {
+      const hintY = this.rect.y + this.rect.height - helpHeight;
+      const hintBg = { r: 45, g: 45, b: 48 }; // Slightly lighter than sidebar
+      const hintFg = { r: 150, g: 150, b: 150 };
+      const accentFg = { r: 100, g: 180, b: 255 };
+      
+      if (this.dialogMode !== 'none') {
+        // Draw dialog
+        output += moveTo(this.rect.x, hintY);
+        output += bgRgb(hintBg.r, hintBg.g, hintBg.b);
+        output += fgRgb(hintFg.r, hintFg.g, hintFg.b);
+        
+        let dialogLabel = '';
+        if (this.dialogMode === 'new-file') {
+          dialogLabel = ' New: ';
+        } else if (this.dialogMode === 'rename') {
+          dialogLabel = ' Rename: ';
+        } else if (this.dialogMode === 'delete-confirm') {
+          dialogLabel = ' Delete? ';
+        }
+        
+        output += dialogLabel;
+        
+        if (this.dialogMode === 'delete-confirm') {
+          // Show Y/N prompt
+          const targetName = this.dialogTarget?.name || '';
+          const prompt = `${targetName} (y/n)`;
+          const truncated = prompt.length > this.rect.width - dialogLabel.length ? 
+            prompt.substring(0, this.rect.width - dialogLabel.length - 1) + '…' : prompt;
+          output += fgRgb(accentFg.r, accentFg.g, accentFg.b);
+          output += truncated.padEnd(this.rect.width - dialogLabel.length, ' ');
+        } else {
+          // Show text input
+          const inputWidth = this.rect.width - dialogLabel.length;
+          const displayInput = this.dialogInput.length > inputWidth - 1 ? 
+            this.dialogInput.substring(this.dialogInput.length - inputWidth + 1) : this.dialogInput;
+          output += fgRgb(accentFg.r, accentFg.g, accentFg.b);
+          output += displayInput.padEnd(inputWidth, ' ');
+        }
+        
+        // Second line - keyboard hints
+        output += moveTo(this.rect.x, hintY + 1);
+        output += bgRgb(hintBg.r, hintBg.g, hintBg.b);
+        output += fgRgb(hintFg.r, hintFg.g, hintFg.b);
+        const hint2 = ' Enter:confirm Esc:cancel';
+        output += hint2.substring(0, this.rect.width).padEnd(this.rect.width, ' ');
+      } else {
+        // Draw navigation help hint
+        output += moveTo(this.rect.x, hintY);
+        output += bgRgb(hintBg.r, hintBg.g, hintBg.b);
+        output += fgRgb(hintFg.r, hintFg.g, hintFg.b);
+        
+        const hint = ' n:new r:rename d:del';
+        output += hint.substring(0, this.rect.width).padEnd(this.rect.width, ' ');
       }
     }
     
@@ -660,17 +726,22 @@ export class FileTree implements MouseHandler {
   /**
    * Handle keyboard input when focused
    */
-  async handleKey(key: string, ctrl: boolean, shift: boolean): Promise<boolean> {
+  async handleKey(key: string, ctrl: boolean, shift: boolean, char?: string): Promise<boolean> {
     if (!this.isFocused) return false;
+    
+    // Handle dialog input first
+    if (this.dialogMode !== 'none') {
+      return await this.handleDialogKey(key, char);
+    }
     
     switch (key) {
       case 'UP':
-      case 'k':
+      case 'K':
         this.selectPrevious();
         return true;
         
       case 'DOWN':
-      case 'j':
+      case 'J':
         this.selectNext();
         return true;
         
@@ -679,12 +750,13 @@ export class FileTree implements MouseHandler {
         return true;
         
       case 'RIGHT':
-      case 'l':
+      case 'L':
         await this.expandSelected();
         return true;
         
       case 'LEFT':
-      case 'h':
+      case 'H':
+        if (ctrl) return false;  // Don't capture Ctrl+H
         this.collapseSelected();
         return true;
         
@@ -697,8 +769,8 @@ export class FileTree implements MouseHandler {
         return true;
         
       case 'HOME':
-      case 'g':
-        if (key === 'g' && !shift) {
+      case 'G':
+        if (key === 'G' && !shift) {
           this.goToFirst();
           return true;
         }
@@ -706,11 +778,33 @@ export class FileTree implements MouseHandler {
           this.goToFirst();
           return true;
         }
+        if (key === 'G' && shift) {
+          this.goToLast();
+          return true;
+        }
         return false;
         
       case 'END':
-      case 'G':
         this.goToLast();
+        return true;
+        
+      case 'N':
+        if (shift) return false;  // Don't capture Shift+N
+        // New file
+        this.startNewFile();
+        return true;
+        
+      case 'R':
+        if (shift) return false;  // Don't capture Shift+R
+        // Rename
+        this.startRename();
+        return true;
+        
+      case 'D':
+      case 'DELETE':
+        if (shift) return false;  // Don't capture Shift+D
+        // Delete
+        this.startDelete();
         return true;
         
       case 'ESCAPE':
@@ -719,6 +813,244 @@ export class FileTree implements MouseHandler {
     }
     
     return false;
+  }
+
+  /**
+   * Handle keyboard input in dialog mode
+   */
+  private async handleDialogKey(key: string, char?: string): Promise<boolean> {
+    switch (key) {
+      case 'ESCAPE':
+        this.cancelDialog();
+        return true;
+        
+      case 'ENTER':
+        await this.confirmDialog();
+        return true;
+        
+      case 'BACKSPACE':
+        if (this.dialogInput.length > 0) {
+          this.dialogInput = this.dialogInput.slice(0, -1);
+        }
+        return true;
+        
+      case 'Y':
+        if (this.dialogMode === 'delete-confirm') {
+          await this.confirmDialog();
+          return true;
+        }
+        // Fall through for regular input
+        if (char) {
+          this.dialogInput += char;
+        }
+        return true;
+        
+      case 'N':
+        if (this.dialogMode === 'delete-confirm') {
+          this.cancelDialog();
+          return true;
+        }
+        // Fall through for regular input
+        if (char) {
+          this.dialogInput += char;
+        }
+        return true;
+        
+      default:
+        // Add printable characters to input
+        if (char && char.length === 1 && char.charCodeAt(0) >= 32) {
+          this.dialogInput += char;
+        }
+        return true;
+    }
+  }
+
+  /**
+   * Start new file dialog
+   */
+  private startNewFile(): void {
+    const selected = this.getSelectedNode();
+    if (selected) {
+      // If a file is selected, create new file in its parent directory
+      // If a directory is selected, create new file in that directory
+      this.dialogTarget = selected;
+    } else {
+      // Create in root
+      this.dialogTarget = null;
+    }
+    this.dialogMode = 'new-file';
+    this.dialogInput = '';
+  }
+
+  /**
+   * Start rename dialog
+   */
+  private startRename(): void {
+    const selected = this.getSelectedNode();
+    if (selected) {
+      this.dialogTarget = selected;
+      this.dialogMode = 'rename';
+      this.dialogInput = selected.name;
+    }
+  }
+
+  /**
+   * Start delete confirmation
+   */
+  private startDelete(): void {
+    const selected = this.getSelectedNode();
+    if (selected) {
+      this.dialogTarget = selected;
+      this.dialogMode = 'delete-confirm';
+      this.dialogInput = '';
+    }
+  }
+
+  /**
+   * Cancel dialog
+   */
+  private cancelDialog(): void {
+    this.dialogMode = 'none';
+    this.dialogInput = '';
+    this.dialogTarget = null;
+  }
+
+  /**
+   * Confirm dialog action
+   */
+  private async confirmDialog(): Promise<void> {
+    switch (this.dialogMode) {
+      case 'new-file':
+        await this.createNewFile();
+        break;
+      case 'rename':
+        await this.renameTarget();
+        break;
+      case 'delete-confirm':
+        await this.deleteTarget();
+        break;
+    }
+    this.cancelDialog();
+  }
+
+  /**
+   * Create a new file
+   */
+  private async createNewFile(): Promise<void> {
+    if (!this.dialogInput.trim()) return;
+    
+    let targetDir: string;
+    if (this.dialogTarget) {
+      if (this.dialogTarget.type === 'directory') {
+        targetDir = this.dialogTarget.path;
+      } else {
+        targetDir = path.dirname(this.dialogTarget.path);
+      }
+    } else {
+      targetDir = this.rootPath || process.cwd();
+    }
+    
+    const newPath = path.join(targetDir, this.dialogInput.trim());
+    
+    try {
+      // Check if file already exists
+      const exists = await fs.promises.access(newPath).then(() => true).catch(() => false);
+      if (exists) {
+        // TODO: Show error message
+        return;
+      }
+      
+      // Create the file
+      await fs.promises.writeFile(newPath, '');
+      
+      // Make sure the parent directory is expanded so we can see the new file
+      const parentNode = this.findNodeByPath(targetDir);
+      if (parentNode && parentNode.type === 'directory') {
+        parentNode.expanded = true;
+        await this.loadChildren(parentNode);
+        this.rebuildFlatList();
+      }
+      
+      // Select the new file
+      const index = this.flatList.findIndex((node: FileTreeNode) => node.path === newPath);
+      if (index >= 0) {
+        this.selectedIndex = index;
+      }
+      
+      // Open the new file directly via callback (and unfocus tree)
+      if (this.onFileSelectCallback) {
+        this.onFileSelectCallback(newPath);
+      }
+    } catch (error) {
+      // TODO: Show error message
+    }
+  }
+
+  /**
+   * Rename the target file or directory
+   */
+  private async renameTarget(): Promise<void> {
+    if (!this.dialogTarget || !this.dialogInput.trim()) return;
+    
+    const newName = this.dialogInput.trim();
+    const oldPath = this.dialogTarget.path;
+    const parentDir = path.dirname(oldPath);
+    const newPath = path.join(parentDir, newName);
+    
+    if (oldPath === newPath) return;
+    
+    try {
+      // Check if target already exists
+      const exists = await fs.promises.access(newPath).then(() => true).catch(() => false);
+      if (exists) {
+        // TODO: Show error message
+        return;
+      }
+      
+      // Rename
+      await fs.promises.rename(oldPath, newPath);
+      
+      // Refresh to show changes
+      await this.refreshDirectory(parentDir);
+      
+      // Select the renamed item
+      const index = this.flatList.findIndex((node: FileTreeNode) => node.path === newPath);
+      if (index >= 0) {
+        this.selectedIndex = index;
+      }
+    } catch (error) {
+      // TODO: Show error message
+    }
+  }
+
+  /**
+   * Delete the target file or directory
+   */
+  private async deleteTarget(): Promise<void> {
+    if (!this.dialogTarget) return;
+    
+    try {
+      const targetPath = this.dialogTarget.path;
+      const parentDir = path.dirname(targetPath);
+      
+      if (this.dialogTarget.type === 'directory') {
+        // Recursively delete directory
+        await fs.promises.rm(targetPath, { recursive: true });
+      } else {
+        // Delete file
+        await fs.promises.unlink(targetPath);
+      }
+      
+      // Refresh to show changes
+      await this.refreshDirectory(parentDir);
+      
+      // Adjust selection if needed
+      if (this.selectedIndex >= this.flatList.length) {
+        this.selectedIndex = Math.max(0, this.flatList.length - 1);
+      }
+    } catch (error) {
+      // TODO: Show error message
+    }
   }
 
   /**
