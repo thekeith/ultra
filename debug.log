@@ -119,3 +119,51 @@
 [2025-12-15T04:31:45.093Z] [LSP] openDocument: file:///Users/keith/Development/ultra-editor/README.md, language: markdown
 [2025-12-15T04:31:45.093Z] [LSP] No server config for markdown
 [2025-12-15T04:31:45.093Z] [LSP] No client for language markdown
+[2025-12-15T04:51:25.052Z] [showHover] showHover called
+[2025-12-15T04:51:25.053Z] [showHover] Document: /Users/keith/Development/ultra/README.md, language: markdown
+[2025-12-15T04:51:25.053Z] [showHover] Cursor: line 0, col 0
+[2025-12-15T04:51:25.053Z] [showHover] Calling lspManager.getHover...
+[2025-12-15T04:51:25.053Z] [showHover] Hover result: null
+[2025-12-15T04:51:25.053Z] [showHover] Symbols count: 0
+[2025-12-15T04:52:08.424Z] [showHover] showHover called
+[2025-12-15T04:52:08.424Z] [showHover] Document: /Users/keith/Development/ultra/src/app.ts, language: typescript
+[2025-12-15T04:52:08.425Z] [showHover] Cursor: line 25, col 11
+[2025-12-15T04:52:08.425Z] [showHover] Calling lspManager.getHover...
+[2025-12-15T04:52:08.498Z] [showHover] Hover result: {"contents":{"kind":"markdown","value":"\n```typescript\n(alias) const settings: Settings\nimport settings\n```\n"},"range":{"start":{"line":25,"character":9},"end":{"line":25,"character":17}}}
+[2025-12-15T04:52:08.498Z] [showHover] Symbols count: 767
+[2025-12-15T04:52:13.912Z] [showHover] showHover called
+[2025-12-15T04:52:13.913Z] [showHover] Document: /Users/keith/Development/ultra/src/app.ts, language: typescript
+[2025-12-15T04:52:13.913Z] [showHover] Cursor: line 37, col 13
+[2025-12-15T04:52:13.913Z] [showHover] Calling lspManager.getHover...
+[2025-12-15T04:52:13.930Z] [showHover] Hover result: {"contents":{"kind":"markdown","value":"\n```typescript\nclass App\n```\n"},"range":{"start":{"line":37,"character":13},"end":{"line":37,"character":16}}}
+[2025-12-15T04:52:13.930Z] [showHover] Symbols count: 767
+[2025-12-15T04:52:16.922Z] [showHover] showHover called
+[2025-12-15T04:52:16.923Z] [showHover] Document: /Users/keith/Development/ultra/src/app.ts, language: typescript
+[2025-12-15T04:52:16.923Z] [showHover] Cursor: line 37, col 13
+[2025-12-15T04:52:16.924Z] [showHover] Calling lspManager.getHover...
+[2025-12-15T04:52:16.933Z] [showHover] Hover result: {"contents":{"kind":"markdown","value":"\n```typescript\nclass App\n```\n"},"range":{"start":{"line":37,"character":13},"end":{"line":37,"character":16}}}
+[2025-12-15T04:52:16.933Z] [showHover] Symbols count: 767
+[2025-12-15T04:52:22.808Z] [showHover] showHover called
+[2025-12-15T04:52:22.808Z] [showHover] Document: /Users/keith/Development/ultra/src/app.ts, language: typescript
+[2025-12-15T04:52:22.809Z] [showHover] Cursor: line 67, col 13
+[2025-12-15T04:52:22.809Z] [showHover] Calling lspManager.getHover...
+[2025-12-15T04:52:22.817Z] [showHover] Hover result: {"contents":{"kind":"markdown","value":"\n```typescript\n(method) App.setupEditorCallbacks(): void\n```\nSetup editor pane callbacks"},"range":{"start":{"line":67,"character":9},"end":{"line":67,"char
+[2025-12-15T04:52:22.817Z] [showHover] Symbols count: 767
+[2025-12-15T04:53:15.553Z] [showHover] showHover called
+[2025-12-15T04:53:15.553Z] [showHover] Document: /Users/keith/Development/ultra/src/app.ts, language: typescript
+[2025-12-15T04:53:15.553Z] [showHover] Cursor: line 73, col 18
+[2025-12-15T04:53:15.554Z] [showHover] Calling lspManager.getHover...
+[2025-12-15T04:53:15.562Z] [showHover] Hover result: {"contents":{"kind":"markdown","value":"\n```typescript\n(parameter) filePath: string | undefined\n```\n"},"range":{"start":{"line":73,"character":14},"end":{"line":73,"character":22}}}
+[2025-12-15T04:53:15.562Z] [showHover] Symbols count: 767
+[2025-12-15T04:53:19.231Z] [showHover] showHover called
+[2025-12-15T04:53:19.233Z] [showHover] Document: /Users/keith/Development/ultra/src/app.ts, language: typescript
+[2025-12-15T04:53:19.233Z] [showHover] Cursor: line 77, col 21
+[2025-12-15T04:53:19.233Z] [showHover] Calling lspManager.getHover...
+[2025-12-15T04:53:19.246Z] [showHover] Hover result: {"contents":{"kind":"markdown","value":"\n```typescript\n(method) LSPManager.setDebugEnabled(enabled: boolean): void\n```\nEnable debug logging"},"range":{"start":{"line":77,"character":19},"end":{"li
+[2025-12-15T04:53:19.247Z] [showHover] Symbols count: 767
+[2025-12-15T04:55:39.637Z] [showHover] showHover called
+[2025-12-15T04:55:39.637Z] [showHover] Document: /Users/keith/Development/ultra/README.md, language: markdown
+[2025-12-15T04:55:39.638Z] [showHover] Cursor: line 6, col 11
+[2025-12-15T04:55:39.638Z] [showHover] Calling lspManager.getHover...
+[2025-12-15T04:55:39.638Z] [showHover] Hover result: null
+[2025-12-15T04:55:39.638Z] [showHover] Symbols count: 0

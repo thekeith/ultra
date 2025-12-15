@@ -95,11 +95,36 @@ export class App {
       // Register commands
       this.registerCommands();
       
+      // Determine workspace root and file to open based on argument
+      let workspaceRoot = process.cwd();
+      let fileToOpen: string | undefined;
+      
+      if (filePath) {
+        const absolutePath = path.resolve(filePath);
+        const fs = await import('fs');
+        
+        try {
+          const stat = fs.statSync(absolutePath);
+          if (stat.isDirectory()) {
+            // Argument is a directory - use it as workspace root
+            workspaceRoot = absolutePath;
+          } else if (stat.isFile()) {
+            // Argument is a file - use its parent as workspace root
+            workspaceRoot = path.dirname(absolutePath);
+            fileToOpen = absolutePath;
+          }
+        } catch {
+          // Path doesn't exist yet - treat as new file
+          // Use parent directory as workspace root
+          workspaceRoot = path.dirname(absolutePath);
+          fileToOpen = absolutePath;
+        }
+      }
+      
       // Initialize file tree with workspace root
-      const workspaceRoot = process.cwd();
       await fileTree.loadDirectory(workspaceRoot);
-      fileTree.onFileSelect(async (path) => {
-        await this.openFile(path);
+      fileTree.onFileSelect(async (filePath) => {
+        await this.openFile(filePath);
         fileTree.setFocused(false);
         renderer.scheduleRender();
       });
@@ -114,9 +139,9 @@ export class App {
       // Start file watcher
       this.startFileWatcher();
 
-      // Open file if provided
-      if (filePath) {
-        await this.openFile(filePath);
+      // Open file if provided, otherwise create empty document
+      if (fileToOpen) {
+        await this.openFile(fileToOpen);
       } else {
         // Create empty document
         this.newFile();
