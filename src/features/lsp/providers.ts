@@ -4,7 +4,7 @@
  * Completion, hover, and other LSP feature providers.
  */
 
-import type { Position, Range } from './client.ts';
+import type { LSPPosition as Position, LSPRange as Range } from './client.ts';
 
 export interface CompletionItem {
   label: string;

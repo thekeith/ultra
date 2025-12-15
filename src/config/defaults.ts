@@ -315,6 +315,14 @@ export const defaultKeybindings: KeyBinding[] = [
     "command": "ultra.rename"
   },
   {
+    "key": "ctrl+space",
+    "command": "ultra.triggerCompletion"
+  },
+  {
+    "key": "ctrl+k ctrl+i",
+    "command": "ultra.showHover"
+  },
+  {
     "key": "escape",
     "command": "ultra.escape"
   },

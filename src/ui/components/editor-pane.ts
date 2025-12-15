@@ -299,9 +299,9 @@ export class EditorPane implements MouseHandler {
   }
 
   /**
-   * Convert screen position to buffer position
+   * Convert wrapped screen position to buffer position (internal use)
    */
-  private screenToBufferPosition(screenLine: number, screenColumn: number): Position {
+  private wrappedToBufferPosition(screenLine: number, screenColumn: number): Position {
     if (!this.isWordWrapEnabled() || screenLine >= this.wrappedLines.length) {
       return { line: screenLine, column: screenColumn };
     }

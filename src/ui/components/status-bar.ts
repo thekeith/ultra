@@ -16,6 +16,11 @@ export interface StatusBarState {
   cursorCount: number;
   gitBranch?: string;
   mode?: string;  // For future vim modes etc.
+  diagnostics?: {
+    errors: number;
+    warnings: number;
+  };
+  lspStatus?: 'starting' | 'ready' | 'error' | 'inactive';
 }
 
 export class StatusBar {
@@ -110,6 +115,22 @@ export class StatusBar {
       output += fgRgb(dimFg.r, dimFg.g, dimFg.b) + '  ' + fgRgb(accentColor.r, accentColor.g, accentColor.b) + '⎇ ' + this.state.gitBranch;
     }
 
+    // Diagnostics (errors/warnings)
+    if (this.state.diagnostics) {
+      const { errors, warnings } = this.state.diagnostics;
+      if (errors > 0 || warnings > 0) {
+        output += fgRgb(dimFg.r, dimFg.g, dimFg.b) + '  ';
+        if (errors > 0) {
+          output += fgRgb(warningColor.r, warningColor.g, warningColor.b) + `● ${errors}`;
+        }
+        if (warnings > 0) {
+          const warningYellow = { r: 239, g: 159, b: 118 };  // Orange for warnings
+          if (errors > 0) output += ' ';
+          output += fgRgb(warningYellow.r, warningYellow.g, warningYellow.b) + `▲ ${warnings}`;
+        }
+      }
+    }
+
     // Build right side content
     const rightParts: string[] = [];
 
@@ -126,6 +147,13 @@ export class StatusBar {
     // Language
     if (this.state.document) {
       rightParts.push(this.formatLanguage(this.state.document.language));
+    }
+
+    // LSP status
+    if (this.state.lspStatus && this.state.lspStatus !== 'inactive') {
+      const lspIcon = this.state.lspStatus === 'ready' ? '◉' : 
+                      this.state.lspStatus === 'starting' ? '○' : '✗';
+      rightParts.push(`LSP ${lspIcon}`);
     }
 
     // Encoding

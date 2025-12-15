@@ -169,16 +169,21 @@ function findNearestUnmatchedOpening(
     }
     
     while (col >= 0) {
-      const char = lineText[col];
+      const lineStr = lines[line];
+      if (!lineStr) break;
+      const char = lineStr[col];
       
       if (char && CLOSING_BRACKETS.has(char)) {
         // Found a closing bracket - push to track it
-        const openChar = CLOSING_TO_OPENING[char]!;
-        depths[openChar]++;
+        const openChar = CLOSING_TO_OPENING[char];
+        if (openChar && depths[openChar] !== undefined) {
+          depths[openChar] = (depths[openChar] || 0) + 1;
+        }
       } else if (char && OPENING_BRACKETS.has(char)) {
-        if (depths[char]! > 0) {
+        const depth = depths[char];
+        if (depth !== undefined && depth > 0) {
           // This opening bracket matches a closing bracket we passed
-          depths[char]--;
+          depths[char] = (depths[char] || 0) - 1;
         } else {
           // This is an unmatched opening bracket - our enclosing bracket!
           return { line, column: col };
@@ -190,7 +195,8 @@ function findNearestUnmatchedOpening(
     
     line--;
     if (line >= 0) {
-      col = lines[line]!.length - 1;
+      const prevLine = lines[line];
+      col = prevLine ? prevLine.length - 1 : -1;
     }
   }
   

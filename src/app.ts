@@ -28,6 +28,7 @@ import { userConfigManager } from './config/user-config.ts';
 import { type KeyEvent, type MouseEventData } from './terminal/index.ts';
 import { themeLoader } from './ui/themes/theme-loader.ts';
 import { shouldAutoPair, shouldSkipClosing, shouldDeletePair } from './core/auto-pair.ts';
+import { lspManager, autocompletePopup, hoverTooltip, diagnosticsRenderer } from './features/lsp/index.ts';
 
 interface OpenDocument {
   id: string;
@@ -40,6 +41,9 @@ export class App {
   private editorPane: EditorPane;
   private isRunning: boolean = false;
   private clipboard: string = '';
+  private lspEnabled: boolean = true;
+  private completionTriggerTimer: ReturnType<typeof setTimeout> | null = null;
+  private hoverTimer: ReturnType<typeof setTimeout> | null = null;
   
   // Close confirmation dialog state
   private closeConfirmDialog: {
@@ -87,6 +91,9 @@ export class App {
       // Apply initial settings (sidebar visibility, etc.)
       this.applySettings();
 
+      // Initialize LSP manager
+      await this.initializeLSP();
+
       // Open file if provided
       if (filePath) {
         await this.openFile(filePath);
@@ -114,7 +121,44 @@ export class App {
     this.isRunning = false;
     userConfigManager.destroy();
     fileTree.destroy();
+    
+    // Shutdown LSP servers
+    lspManager.shutdown();
+    
     renderer.cleanup();
+  }
+
+  /**
+   * Initialize LSP support
+   */
+  private async initializeLSP(): Promise<void> {
+    // Set up diagnostic callback
+    lspManager.onDiagnostics((uri, diagnostics) => {
+      diagnosticsRenderer.setDiagnostics(uri, diagnostics);
+      this.updateStatusBar();
+      renderer.scheduleRender();
+    });
+
+    // Set up autocomplete callbacks
+    autocompletePopup.onSelect(async (item) => {
+      const doc = this.getActiveDocument();
+      if (!doc) return;
+
+      // Insert the completion text
+      // TODO: Handle more complex completions (snippets, additional edits)
+      const textToInsert = item.insertText || item.label;
+      
+      // Delete the prefix that triggered completion
+      // For now, just insert the text
+      doc.insert(textToInsert);
+      this.editorPane.ensureCursorVisible();
+      this.updateStatusBar();
+      renderer.scheduleRender();
+    });
+
+    autocompletePopup.onDismiss(() => {
+      renderer.scheduleRender();
+    });
   }
 
   /**
@@ -187,6 +231,28 @@ export class App {
         // Consume all other keys while dialog is open
         renderer.scheduleRender();
         return;
+      }
+
+      // Handle autocomplete popup
+      if (autocompletePopup.isVisible()) {
+        if (autocompletePopup.handleKey(event.key, event.ctrl)) {
+          renderer.scheduleRender();
+          return;
+        }
+        // Any other key dismisses autocomplete
+        autocompletePopup.hide();
+      }
+
+      // Handle hover tooltip
+      if (hoverTooltip.isVisible()) {
+        if (hoverTooltip.handleKey(event.key)) {
+          renderer.scheduleRender();
+          return;
+        }
+        // Any movement key hides hover
+        if (['UP', 'DOWN', 'LEFT', 'RIGHT', 'ESCAPE'].includes(event.key)) {
+          hoverTooltip.hide();
+        }
       }
 
       // Handle input dialog first if it's open
@@ -438,6 +504,7 @@ export class App {
       doc.insertWithAutoDedent(char);
       this.editorPane.ensureCursorVisible();
       this.updateStatusBar();
+      this.notifyDocumentChange(doc);
       return;
     }
 
@@ -461,6 +528,299 @@ export class App {
     
     this.editorPane.ensureCursorVisible();
     this.updateStatusBar();
+    this.notifyDocumentChange(doc);
+    
+    // Trigger completion on certain characters
+    if (char === '.' || char === ':' || char === '<' || char === '/' || char === '@') {
+      this.triggerCompletion();
+    }
+  }
+
+  /**
+   * Notify LSP of document change
+   */
+  private notifyDocumentChange(doc: Document): void {
+    if (!this.lspEnabled || !doc.filePath) return;
+    
+    const uri = `file://${doc.filePath}`;
+    lspManager.changeDocument(uri, doc.content);
+  }
+
+  /**
+   * Trigger completion popup
+   */
+  private async triggerCompletion(): Promise<void> {
+    const doc = this.getActiveDocument();
+    if (!doc || !doc.filePath) return;
+
+    // Clear any pending trigger
+    if (this.completionTriggerTimer) {
+      clearTimeout(this.completionTriggerTimer);
+    }
+
+    // Small delay to allow typing to settle
+    this.completionTriggerTimer = setTimeout(async () => {
+      const uri = `file://${doc.filePath}`;
+      const cursor = doc.primaryCursor;
+      
+      try {
+        const completions = await lspManager.getCompletions(
+          uri,
+          cursor.position.line,
+          cursor.position.column
+        );
+
+        if (completions && completions.length > 0) {
+          // Calculate screen position for popup
+          const editorRect = layoutManager.getEditorAreaRect();
+          const gutterWidth = 5;  // Approximate
+          const screenX = editorRect.x + gutterWidth + cursor.position.column - this.editorPane.getScrollLeft();
+          const screenY = editorRect.y + cursor.position.line - this.editorPane.getScrollTop();
+          
+          autocompletePopup.show(completions, screenX, screenY);
+          renderer.scheduleRender();
+        }
+      } catch (err) {
+        // Silently fail - completion is not critical
+      }
+    }, 100);
+  }
+
+  /**
+   * Go to definition at cursor
+   */
+  private async goToDefinition(): Promise<void> {
+    const doc = this.getActiveDocument();
+    if (!doc || !doc.filePath) return;
+
+    const uri = `file://${doc.filePath}`;
+    const cursor = doc.primaryCursor;
+
+    try {
+      const result = await lspManager.getDefinition(
+        uri,
+        cursor.position.line,
+        cursor.position.column
+      );
+
+      // Normalize to array - LSP can return a single Location or array
+      const locations = result ? (Array.isArray(result) ? result : [result]) : [];
+
+      if (locations.length > 0) {
+        const location = locations[0]!;
+        // Convert URI to file path
+        const targetPath = location.uri.replace('file://', '');
+        
+        // If it's a different file, open it
+        if (targetPath !== doc.filePath) {
+          await this.openFile(targetPath);
+        }
+        
+        // Move to the position
+        const targetDoc = this.getActiveDocument();
+        if (targetDoc) {
+          targetDoc.cursorManager.setPosition({
+            line: location.range.start.line,
+            column: location.range.start.character
+          });
+          this.editorPane.ensureCursorVisible();
+          this.updateStatusBar();
+        }
+        
+        statusBar.setMessage(`Go to definition: ${path.basename(targetPath)}:${location.range.start.line + 1}`, 3000);
+      } else {
+        statusBar.setMessage('No definition found', 2000);
+      }
+    } catch (err) {
+      statusBar.setMessage('Error finding definition', 2000);
+    }
+    
+    renderer.scheduleRender();
+  }
+
+  /**
+   * Find all references at cursor
+   */
+  private async findReferences(): Promise<void> {
+    const doc = this.getActiveDocument();
+    if (!doc || !doc.filePath) return;
+
+    const uri = `file://${doc.filePath}`;
+    const cursor = doc.primaryCursor;
+
+    try {
+      const locations = await lspManager.getReferences(
+        uri,
+        cursor.position.line,
+        cursor.position.column
+      );
+
+      if (locations && locations.length > 0) {
+        // For now, just show count in status bar
+        // TODO: Show in a references panel
+        statusBar.setMessage(`Found ${locations.length} references`, 3000);
+        
+        // If only one reference, go to it
+        if (locations.length === 1) {
+          const location = locations[0]!;
+          const targetPath = location.uri.replace('file://', '');
+          
+          if (targetPath !== doc.filePath) {
+            await this.openFile(targetPath);
+          }
+          
+          const targetDoc = this.getActiveDocument();
+          if (targetDoc) {
+            targetDoc.cursorManager.setPosition({
+              line: location.range.start.line,
+              column: location.range.start.character
+            });
+            this.editorPane.ensureCursorVisible();
+            this.updateStatusBar();
+          }
+        }
+      } else {
+        statusBar.setMessage('No references found', 2000);
+      }
+    } catch (err) {
+      statusBar.setMessage('Error finding references', 2000);
+    }
+    
+    renderer.scheduleRender();
+  }
+
+  /**
+   * Show hover information at cursor
+   */
+  private async showHover(): Promise<void> {
+    const doc = this.getActiveDocument();
+    if (!doc || !doc.filePath) return;
+
+    const uri = `file://${doc.filePath}`;
+    const cursor = doc.primaryCursor;
+
+    try {
+      const hover = await lspManager.getHover(
+        uri,
+        cursor.position.line,
+        cursor.position.column
+      );
+
+      if (hover) {
+        // Calculate screen position for tooltip
+        const editorRect = layoutManager.getEditorAreaRect();
+        const gutterWidth = 5;
+        const screenX = editorRect.x + gutterWidth + cursor.position.column - this.editorPane.getScrollLeft();
+        const screenY = editorRect.y + cursor.position.line - this.editorPane.getScrollTop();
+        
+        hoverTooltip.show(hover, screenX, screenY);
+      } else {
+        statusBar.setMessage('No hover information', 2000);
+      }
+    } catch (err) {
+      statusBar.setMessage('Error getting hover info', 2000);
+    }
+    
+    renderer.scheduleRender();
+  }
+
+  /**
+   * Rename symbol at cursor
+   */
+  private async renameSymbol(): Promise<void> {
+    const doc = this.getActiveDocument();
+    if (!doc || !doc.filePath) return;
+
+    // Get the word under cursor for initial value
+    const cursor = doc.primaryCursor;
+    const line = doc.getLine(cursor.position.line);
+    let start = cursor.position.column;
+    let end = cursor.position.column;
+    
+    // Find word boundaries
+    while (start > 0 && this.isWordChar(line[start - 1]!)) start--;
+    while (end < line.length && this.isWordChar(line[end]!)) end++;
+    
+    const currentWord = line.substring(start, end);
+    if (!currentWord) {
+      statusBar.setMessage('No symbol at cursor', 2000);
+      return;
+    }
+
+    // Show input dialog for new name
+    inputDialog.show({
+      title: 'Rename Symbol',
+      placeholder: `Enter new name for '${currentWord}'`,
+      initialValue: currentWord,
+      screenWidth: renderer.width,
+      screenHeight: renderer.height,
+      onConfirm: async (newName: string) => {
+        if (!newName || newName === currentWord) return;
+        
+        const uri = `file://${doc.filePath}`;
+        
+        try {
+          const workspaceEdit = await lspManager.rename(
+            uri,
+            cursor.position.line,
+            cursor.position.column,
+            newName
+          );
+
+          if (workspaceEdit && workspaceEdit.changes) {
+            // Apply edits to each document
+            let editCount = 0;
+            for (const [editUri, edits] of Object.entries(workspaceEdit.changes)) {
+              const editPath = editUri.replace('file://', '');
+              
+              // Find or open the document
+              let targetDoc = this.documents.find(d => d.document.filePath === editPath)?.document;
+              if (!targetDoc) {
+                await this.openFile(editPath);
+                targetDoc = this.getActiveDocument() || undefined;
+              }
+              
+              if (targetDoc) {
+                // Apply edits in reverse order to maintain positions
+                const sortedEdits = [...edits].sort((a: { range: { start: { line: number; character: number }; end: { line: number; character: number } } }, b: { range: { start: { line: number; character: number }; end: { line: number; character: number } } }) => {
+                  if (a.range.start.line !== b.range.start.line) {
+                    return b.range.start.line - a.range.start.line;
+                  }
+                  return b.range.start.character - a.range.start.character;
+                });
+                
+                for (const edit of sortedEdits) {
+                  // Select the range
+                  targetDoc.cursorManager.setPosition({
+                    line: edit.range.start.line,
+                    column: edit.range.start.character
+                  });
+                  targetDoc.cursorManager.setPosition({
+                    line: edit.range.end.line,
+                    column: edit.range.end.character
+                  }, true);
+                  
+                  // Replace with new text
+                  targetDoc.backspace();  // Delete selection
+                  targetDoc.insert(edit.newText);
+                  editCount++;
+                }
+              }
+            }
+            
+            statusBar.setMessage(`Renamed ${editCount} occurrences`, 3000);
+          } else {
+            statusBar.setMessage('No rename edits returned', 2000);
+          }
+        } catch (err) {
+          statusBar.setMessage('Error renaming symbol', 2000);
+        }
+        
+        renderer.scheduleRender();
+      }
+    });
+    
+    renderer.scheduleRender();
   }
 
   /**
@@ -468,7 +828,8 @@ export class App {
    */
   private smartBackspace(doc: Document): void {
     // If there's a selection, just do normal backspace (delete selection)
-    if (hasSelection(doc.primaryCursor)) {
+    const cursor = doc.primaryCursor;
+    if (cursor.selection && hasSelection(cursor.selection)) {
       doc.backspace();
       return;
     }
@@ -480,7 +841,6 @@ export class App {
     }
     
     // Check if we should delete a pair
-    const cursor = doc.primaryCursor;
     const line = doc.getLine(cursor.position.line);
     const col = cursor.position.column;
     const charBefore = col > 0 ? line[col - 1] : undefined;
@@ -793,6 +1153,10 @@ export class App {
     // Render save browser (on top of everything)
     saveBrowser.render(ctx);
 
+    // Render LSP UI components
+    autocompletePopup.render(ctx, ctx.width, ctx.height);
+    hoverTooltip.render(ctx, ctx.width, ctx.height);
+
     // Render close confirmation dialog (on top of everything)
     this.renderCloseConfirmDialog(ctx);
 
@@ -826,10 +1190,30 @@ export class App {
   private updateStatusBar(): void {
     const doc = this.getActiveDocument();
     
+    // Get diagnostic counts for current document
+    let diagnostics: { errors: number; warnings: number } | undefined;
+    let lspStatus: 'starting' | 'ready' | 'error' | 'inactive' = 'inactive';
+    
+    if (doc && doc.filePath) {
+      const uri = `file://${doc.filePath}`;
+      const counts = diagnosticsRenderer.getCounts(uri);
+      if (counts.errors > 0 || counts.warnings > 0) {
+        diagnostics = { errors: counts.errors, warnings: counts.warnings };
+      }
+      
+      // Check if LSP is available for this language
+      if (this.lspEnabled) {
+        // TODO: Get actual LSP status from lspManager
+        lspStatus = 'ready';
+      }
+    }
+    
     statusBar.setState({
       document: doc?.getState() || null,
       cursorPosition: doc?.primaryCursor.position || { line: 0, column: 0 },
-      cursorCount: doc?.cursorManager.count || 1
+      cursorCount: doc?.cursorManager.count || 1,
+      diagnostics,
+      lspStatus
     });
   }
 
@@ -1597,6 +1981,48 @@ export class App {
         handler: () => {
           // TODO: Implement split view
         }
+      },
+
+      // LSP commands
+      {
+        id: 'ultra.goToDefinition',
+        title: 'Go to Definition',
+        category: 'LSP',
+        handler: async () => {
+          await this.goToDefinition();
+        }
+      },
+      {
+        id: 'ultra.findReferences',
+        title: 'Find All References',
+        category: 'LSP',
+        handler: async () => {
+          await this.findReferences();
+        }
+      },
+      {
+        id: 'ultra.showHover',
+        title: 'Show Hover Information',
+        category: 'LSP',
+        handler: async () => {
+          await this.showHover();
+        }
+      },
+      {
+        id: 'ultra.rename',
+        title: 'Rename Symbol',
+        category: 'LSP',
+        handler: async () => {
+          await this.renameSymbol();
+        }
+      },
+      {
+        id: 'ultra.triggerCompletion',
+        title: 'Trigger Suggest',
+        category: 'LSP',
+        handler: async () => {
+          await this.triggerCompletion();
+        }
       }
     ]);
   }
@@ -1649,6 +2075,12 @@ export class App {
       
       this.documents.push({ id, document });
       this.activateDocument(id);
+
+      // Notify LSP of document open
+      if (this.lspEnabled && document.filePath) {
+        const uri = `file://${document.filePath}`;
+        await lspManager.openDocument(uri, document.language, document.content);
+      }
     } catch (error) {
       console.error('Failed to open file:', error);
     }
@@ -1740,6 +2172,16 @@ export class App {
   closeDocument(id: string): void {
     const index = this.documents.findIndex(d => d.id === id);
     if (index < 0) return;
+
+    const docEntry = this.documents[index]!;
+    const doc = docEntry.document;
+
+    // Notify LSP of document close
+    if (this.lspEnabled && doc.filePath) {
+      const uri = `file://${doc.filePath}`;
+      lspManager.closeDocument(uri);
+      diagnosticsRenderer.clearDiagnostics(uri);
+    }
 
     this.documents.splice(index, 1);
 
