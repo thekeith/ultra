@@ -20,11 +20,13 @@ Usage: ultra [options] [file...]
 Options:
   -h, --help      Show this help message
   -v, --version   Show version number
+  --debug         Enable LSP debug logging to debug.log
 
 Examples:
   ultra                   Open Ultra with no file
   ultra file.ts           Open file.ts
   ultra src/              Open folder
+  ultra --debug file.ts   Open with debug logging
 
 `);
   process.exit(0);
@@ -35,6 +37,9 @@ if (args.includes('--version') || args.includes('-v')) {
   console.log('Ultra v0.1.0');
   process.exit(0);
 }
+
+// Check for debug flag
+const debugMode = args.includes('--debug');
 
 // Filter out any remaining flags and get file paths
 const filePath = args.filter(arg => !arg.startsWith('-'))[0];
@@ -49,7 +54,7 @@ process.on('SIGTERM', () => {
 });
 
 // Start the application
-app.start(filePath).catch((error) => {
+app.start(filePath, { debug: debugMode }).catch((error) => {
   console.error('Fatal error:', error);
   process.exit(1);
 });

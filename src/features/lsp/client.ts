@@ -49,6 +49,23 @@ export interface LSPHover {
   range?: LSPRange;
 }
 
+export interface LSPSignatureHelp {
+  signatures: LSPSignatureInformation[];
+  activeSignature?: number;
+  activeParameter?: number;
+}
+
+export interface LSPSignatureInformation {
+  label: string;
+  documentation?: string | { kind: string; value: string };
+  parameters?: LSPParameterInformation[];
+}
+
+export interface LSPParameterInformation {
+  label: string | [number, number];  // string or [start, end] offsets
+  documentation?: string | { kind: string; value: string };
+}
+
 export interface LSPTextDocumentIdentifier {
   uri: string;
 }
@@ -110,7 +127,7 @@ export class LSPClient {
   private workspaceRoot: string;
   private notificationHandler: NotificationHandler | null = null;
   private serverCapabilities: Record<string, unknown> = {};
-  public debugEnabled = true;  // Enable by default for debugging
+  public debugEnabled = false;  // Enable via --debug flag
   
   constructor(
     private command: string,
@@ -585,6 +602,20 @@ export class LSPClient {
   async getHover(uri: string, position: LSPPosition): Promise<LSPHover | null> {
     try {
       return await this.request<LSPHover | null>('textDocument/hover', {
+        textDocument: { uri },
+        position,
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Get signature help at position
+   */
+  async getSignatureHelp(uri: string, position: LSPPosition): Promise<LSPSignatureHelp | null> {
+    try {
+      return await this.request<LSPSignatureHelp | null>('textDocument/signatureHelp', {
         textDocument: { uri },
         position,
       });

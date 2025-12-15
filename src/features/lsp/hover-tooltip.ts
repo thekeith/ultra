@@ -11,12 +11,13 @@ import { themeLoader } from '../../ui/themes/theme-loader.ts';
 export class HoverTooltip {
   private visible = false;
   private content: string[] = [];
+  private codeLines: Set<number> = new Set();  // Track which lines are code
   private x = 0;
   private y = 0;
   private range: LSPRange | null = null;
   private hideTimeout: ReturnType<typeof setTimeout> | null = null;
-  private maxWidth = 80;
-  private maxHeight = 15;
+  private maxWidth = 100;  // Increased for better readability
+  private maxHeight = 25;  // Increased to show more content
 
   /**
    * Show hover info

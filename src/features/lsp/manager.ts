@@ -5,7 +5,7 @@
  * Handles server detection, lifecycle, and document routing.
  */
 
-import { LSPClient, type LSPDiagnostic, type LSPPosition, type LSPCompletionItem, type LSPHover, type LSPLocation } from './client.ts';
+import { LSPClient, type LSPDiagnostic, type LSPPosition, type LSPCompletionItem, type LSPHover, type LSPLocation, type LSPSignatureHelp } from './client.ts';
 import { settings } from '../../config/settings.ts';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -71,7 +71,7 @@ const DEBUG_LOG_PATH = './debug.log';
 
 // Debug log function - writes to file
 // Enable by default for now to debug LSP issues
-let debugEnabled = true;
+let debugEnabled = false;
 const debugLog = (...args: unknown[]) => {
   if (debugEnabled) {
     const timestamp = new Date().toISOString();
@@ -455,6 +455,21 @@ export class LSPManager {
     const result = await client.getHover(uri, position);
     debugLog(`getHover: Result: ${result ? 'got hover' : 'null'}`);
     return result;
+  }
+
+  /**
+   * Get signature help at position
+   */
+  async getSignatureHelp(filePath: string, line: number, character: number): Promise<LSPSignatureHelp | null> {
+    const uri = `file://${filePath}`;
+    const languageId = this.documentLanguages.get(uri);
+    if (!languageId) return null;
+
+    const client = this.clients.get(languageId);
+    if (!client) return null;
+
+    const position: LSPPosition = { line, character };
+    return client.getSignatureHelp(uri, position);
   }
 
   /**

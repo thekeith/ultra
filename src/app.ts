@@ -28,7 +28,7 @@ import { userConfigManager } from './config/user-config.ts';
 import { type KeyEvent, type MouseEventData } from './terminal/index.ts';
 import { themeLoader } from './ui/themes/theme-loader.ts';
 import { shouldAutoPair, shouldSkipClosing, shouldDeletePair } from './core/auto-pair.ts';
-import { lspManager, autocompletePopup, hoverTooltip, diagnosticsRenderer } from './features/lsp/index.ts';
+import { lspManager, autocompletePopup, hoverTooltip, signatureHelp, diagnosticsRenderer } from './features/lsp/index.ts';
 
 interface OpenDocument {
   id: string;
@@ -60,8 +60,13 @@ export class App {
   /**
    * Initialize and start the application
    */
-  async start(filePath?: string): Promise<void> {
+  async start(filePath?: string, options?: { debug?: boolean }): Promise<void> {
     try {
+      // Enable debug logging if requested
+      if (options?.debug) {
+        lspManager.setDebugEnabled(true);
+      }
+
       // Load configuration
       await this.loadConfiguration();
 
@@ -278,6 +283,18 @@ export class App {
         // Any movement key hides hover
         if (['UP', 'DOWN', 'LEFT', 'RIGHT', 'ESCAPE'].includes(event.key)) {
           hoverTooltip.hide();
+        }
+      }
+
+      // Handle signature help tooltip
+      if (signatureHelp.isVisible()) {
+        if (signatureHelp.handleKey(event.key)) {
+          renderer.scheduleRender();
+          return;
+        }
+        // Certain keys dismiss signature help
+        if (['ESCAPE'].includes(event.key)) {
+          signatureHelp.hide();
         }
       }
 
@@ -556,6 +573,15 @@ export class App {
     this.updateStatusBar();
     this.notifyDocumentChange(doc);
     
+    // Trigger signature help on ( and ,
+    if (char === '(' || char === ',') {
+      this.triggerSignatureHelp();
+    }
+    // Hide signature help on )
+    if (char === ')') {
+      signatureHelp.hide();
+    }
+    
     // Trigger completion on certain characters (immediate)
     if (char === '.' || char === ':' || char === '<' || char === '/' || char === '@') {
       this.triggerCompletion();
@@ -673,6 +699,37 @@ export class App {
         // Silently fail - completion is not critical
       }
     }, 250);
+  }
+
+  /**
+   * Trigger signature help popup
+   */
+  private async triggerSignatureHelp(): Promise<void> {
+    const doc = this.getActiveDocument();
+    if (!doc || !doc.filePath) return;
+
+    const cursor = doc.primaryCursor;
+    
+    try {
+      const help = await lspManager.getSignatureHelp(
+        doc.filePath,
+        cursor.position.line,
+        cursor.position.column
+      );
+
+      if (help && help.signatures && help.signatures.length > 0) {
+        // Calculate screen position
+        const editorRect = layoutManager.getEditorAreaRect();
+        const gutterWidth = 5;
+        const screenX = editorRect.x + gutterWidth + cursor.position.column - this.editorPane.getScrollLeft();
+        const screenY = editorRect.y + cursor.position.line - this.editorPane.getScrollTop();
+        
+        signatureHelp.show(help, screenX, screenY);
+        renderer.scheduleRender();
+      }
+    } catch (err) {
+      // Silently fail
+    }
   }
 
   /**
@@ -1264,6 +1321,7 @@ export class App {
     // Render LSP UI components
     autocompletePopup.render(ctx, ctx.width, ctx.height);
     hoverTooltip.render(ctx, ctx.width, ctx.height);
+    signatureHelp.render(ctx, ctx.width, ctx.height);
 
     // Render close confirmation dialog (on top of everything)
     this.renderCloseConfirmDialog(ctx);
