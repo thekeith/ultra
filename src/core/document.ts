@@ -719,6 +719,10 @@ export class Document {
    * Outdent current line or selection
    */
   outdent(): void {
+    // Capture cursor state BEFORE any modifications
+    const cursorsBefore = this._cursorManager.getSnapshot();
+    const operations: EditOperation[] = [];
+    
     for (const cursor of this._cursorManager.getMutableCursors()) {
       const line = cursor.position.line;
       const lineContent = this._buffer.getLine(line);
@@ -740,15 +744,29 @@ export class Document {
       }
       
       if (removeCount > 0) {
-        this._buffer.deleteRange(
+        const deleted = this._buffer.deleteRange(
           { line, column: 0 },
           { line, column: removeCount }
         );
-        this.markDirty();
+        
+        operations.push({
+          type: 'delete',
+          position: { line, column: 0 },
+          text: deleted
+        });
         
         // Adjust cursor
         cursor.position.column = Math.max(0, cursor.position.column - removeCount);
       }
+    }
+    
+    if (operations.length > 0) {
+      this._undoManager.push({
+        operations,
+        cursorsBefore,
+        cursorsAfter: this._cursorManager.getSnapshot()
+      });
+      this.markDirty();
     }
   }
 
