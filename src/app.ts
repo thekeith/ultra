@@ -2618,16 +2618,8 @@ export class App {
       
       if (newActiveId) {
         this.activeDocumentId = newActiveId;
-      } else if (this.documents.length > 0) {
-        // No document in pane, but we have documents - activate the first one
-        const newIndex = Math.min(index, this.documents.length - 1);
-        const newDoc = this.documents[newIndex]!;
-        this.activeDocumentId = newDoc.id;
-        if (pane) {
-          pane.addDocument(newDoc.id, newDoc.document);
-          pane.setActiveDocument(newDoc.id, newDoc.document);
-        }
       } else {
+        // Pane is now empty - that's fine, just clear activeDocumentId
         this.activeDocumentId = null;
       }
       this.updateStatusBar();
