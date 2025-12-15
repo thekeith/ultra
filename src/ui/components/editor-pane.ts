@@ -1083,8 +1083,19 @@ export class EditorPane implements MouseHandler {
     switch (event.name) {
       case 'MOUSE_LEFT_BUTTON_PRESSED':
         if (this.onClickCallback) {
-          // Click count is handled by MouseManager
           this.onClickCallback(position, 1, event);
+        }
+        return true;
+
+      case 'MOUSE_LEFT_BUTTON_PRESSED_DOUBLE':
+        if (this.onClickCallback) {
+          this.onClickCallback(position, 2, event);
+        }
+        return true;
+
+      case 'MOUSE_LEFT_BUTTON_PRESSED_TRIPLE':
+        if (this.onClickCallback) {
+          this.onClickCallback(position, 3, event);
         }
         return true;
 

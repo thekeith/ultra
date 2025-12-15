@@ -7,7 +7,7 @@
 import * as path from 'path';
 import { Document } from './core/document.ts';
 import { type Position } from './core/buffer.ts';
-import { clonePosition, hasSelection, getSelectionRange } from './core/cursor.ts';
+import { hasSelection } from './core/cursor.ts';
 import { renderer, type RenderContext } from './ui/renderer.ts';
 import { layoutManager } from './ui/layout.ts';
 import { mouseManager, type MouseEvent as UltraMouseEvent } from './ui/mouse.ts';
@@ -40,9 +40,6 @@ export class App {
   private editorPane: EditorPane;
   private isRunning: boolean = false;
   private clipboard: string = '';
-  private lastClickPosition: Position | null = null;
-  private lastClickTime: number = 0;
-  private clickCount: number = 0;
   
   // Close confirmation dialog state
   private closeConfirmDialog: {
@@ -600,24 +597,9 @@ export class App {
    * Setup editor pane callbacks
    */
   private setupEditorCallbacks(): void {
-    this.editorPane.onClick((position, _clickCount, event) => {
+    this.editorPane.onClick((position, clickCount, event) => {
       const doc = this.getActiveDocument();
       if (!doc) return;
-
-      // Handle click counting for double/triple click
-      const now = Date.now();
-      const isSamePosition = this.lastClickPosition &&
-        this.lastClickPosition.line === position.line &&
-        Math.abs(this.lastClickPosition.column - position.column) <= 1;
-
-      if (now - this.lastClickTime < 300 && isSamePosition) {
-        this.clickCount = (this.clickCount % 3) + 1;
-      } else {
-        this.clickCount = 1;
-      }
-
-      this.lastClickTime = now;
-      this.lastClickPosition = clonePosition(position);
 
       if (event.meta) {
         // Cmd+Click adds cursor
@@ -626,13 +608,13 @@ export class App {
         // Shift+Click extends selection
         doc.cursorManager.setPosition(position, true);
       } else {
-        // Normal click
-        if (this.clickCount === 1) {
+        // Normal click - use clickCount from mouse manager
+        if (clickCount === 1) {
           doc.cursorManager.setSingle(position);
-        } else if (this.clickCount === 2) {
+        } else if (clickCount === 2) {
           // Double click - select word
           this.selectWordAt(position);
-        } else if (this.clickCount === 3) {
+        } else if (clickCount === 3) {
           // Triple click - select line
           doc.selectLine();
         }
