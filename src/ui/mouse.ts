@@ -79,8 +79,31 @@ export class MouseManager {
    * Process a raw mouse event from terminal-kit
    */
   processEvent(name: string, data: { x: number; y: number; shift?: boolean; ctrl?: boolean; meta?: boolean; alt?: boolean }): void {
+    let eventName = name;
+    let clickCount = 1;
+
+    // Handle click counting for left button
+    if (name === 'MOUSE_LEFT_BUTTON_PRESSED') {
+      clickCount = this.updateClickCount({
+        name,
+        x: data.x,
+        y: data.y,
+        shift: data.shift || false,
+        ctrl: data.ctrl || false,
+        meta: data.meta || false,
+        alt: data.alt || false
+      });
+      
+      // Change event name based on click count
+      if (clickCount === 2) {
+        eventName = 'MOUSE_LEFT_BUTTON_PRESSED_DOUBLE';
+      } else if (clickCount === 3) {
+        eventName = 'MOUSE_LEFT_BUTTON_PRESSED_TRIPLE';
+      }
+    }
+
     const event: MouseEvent = {
-      name,
+      name: eventName,
       x: data.x,
       y: data.y,
       shift: data.shift || false,
@@ -88,13 +111,6 @@ export class MouseManager {
       meta: data.meta || false,
       alt: data.alt || false
     };
-
-    let clickCount = 1;
-
-    // Handle click counting for left button
-    if (name === 'MOUSE_LEFT_BUTTON_PRESSED') {
-      clickCount = this.updateClickCount(event);
-    }
 
     // Handle drag state
     if (name === 'MOUSE_LEFT_BUTTON_PRESSED') {
@@ -108,7 +124,7 @@ export class MouseManager {
     }
 
     // Emit to event listeners
-    const listeners = this.eventListeners.get(name);
+    const listeners = this.eventListeners.get(eventName);
     if (listeners) {
       for (const listener of listeners) {
         listener(event, clickCount);

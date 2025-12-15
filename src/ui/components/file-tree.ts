@@ -636,7 +636,12 @@ export class FileTree implements MouseHandler {
       case 'MOUSE_DOUBLE_CLICK':
       case 'MOUSE_LEFT_BUTTON_PRESSED_DOUBLE': {
         // Toggle or open on double click
-        this.toggleSelected();
+        this.toggleSelected();  // Fire and forget - will trigger callback
+        return true;
+      }
+
+      case 'MOUSE_LEFT_BUTTON_PRESSED_TRIPLE': {
+        // Ignore triple click
         return true;
       }
 
