@@ -20,6 +20,8 @@ const CLOSING_TO_OPENING: Record<string, string> = {
 };
 
 const ALL_BRACKETS = new Set(['(', ')', '[', ']', '{', '}']);
+const OPENING_BRACKETS = new Set(['(', '[', '{']);
+const CLOSING_BRACKETS = new Set([')', ']', '}']);
 
 export interface BracketMatch {
   open: Position;
@@ -34,12 +36,14 @@ export function isBracket(char: string): boolean {
 }
 
 /**
- * Find matching bracket for the bracket at or near cursor position
+ * Find the enclosing bracket pair for the cursor position.
+ * This highlights the brackets that surround the cursor, not just
+ * brackets immediately adjacent to the cursor.
  * 
  * @param lines - Document lines
  * @param cursorLine - Cursor line number
  * @param cursorColumn - Cursor column number
- * @returns Match positions or null if no match found
+ * @returns Match positions or null if no enclosing brackets found
  */
 export function findMatchingBracket(
   lines: string[],
@@ -51,26 +55,40 @@ export function findMatchingBracket(
   const line = lines[cursorLine];
   if (!line) return null;
   
-  // Check character at cursor position
+  // First, check if cursor is directly on or before a bracket
+  // This gives priority to the bracket the cursor is touching
   let bracketChar = line[cursorColumn];
-  let bracketColumn = cursorColumn;
   
-  // If not on a bracket, check character before cursor
-  if (!bracketChar || !isBracket(bracketChar)) {
-    if (cursorColumn > 0) {
-      bracketChar = line[cursorColumn - 1];
-      bracketColumn = cursorColumn - 1;
-      if (!bracketChar || !isBracket(bracketChar)) {
-        return null;
-      }
-    } else {
-      return null;
+  // Check character at cursor position
+  if (bracketChar && isBracket(bracketChar)) {
+    const match = findMatchForBracket(lines, cursorLine, cursorColumn, bracketChar);
+    if (match) return match;
+  }
+  
+  // Check character before cursor
+  if (cursorColumn > 0) {
+    bracketChar = line[cursorColumn - 1];
+    if (bracketChar && isBracket(bracketChar)) {
+      const match = findMatchForBracket(lines, cursorLine, cursorColumn - 1, bracketChar);
+      if (match) return match;
     }
   }
   
-  const bracketPos: Position = { line: cursorLine, column: bracketColumn };
+  // If not on a bracket, find the innermost enclosing bracket pair
+  return findEnclosingBrackets(lines, cursorLine, cursorColumn);
+}
+
+/**
+ * Find the match for a specific bracket at a position
+ */
+function findMatchForBracket(
+  lines: string[],
+  line: number,
+  column: number,
+  bracketChar: string
+): BracketMatch | null {
+  const bracketPos: Position = { line, column };
   
-  // Determine if opening or closing bracket
   if (BRACKET_PAIRS[bracketChar]) {
     // Opening bracket - search forward
     const closingChar = BRACKET_PAIRS[bracketChar];
@@ -91,6 +109,106 @@ export function findMatchingBracket(
 }
 
 /**
+ * Find the innermost enclosing bracket pair for a position
+ */
+function findEnclosingBrackets(
+  lines: string[],
+  cursorLine: number,
+  cursorColumn: number
+): BracketMatch | null {
+  // Search backward from cursor to find the nearest unmatched opening bracket
+  const openBracket = findNearestUnmatchedOpening(lines, cursorLine, cursorColumn);
+  
+  if (!openBracket) return null;
+  
+  // Now find the matching closing bracket
+  const openChar = lines[openBracket.line]![openBracket.column]!;
+  const closeChar = BRACKET_PAIRS[openChar]!;
+  
+  const closeBracket = findClosingBracket(lines, openBracket, openChar, closeChar);
+  
+  if (!closeBracket) return null;
+  
+  // Make sure the cursor is actually inside these brackets
+  const cursorOffset = positionToOffset(lines, cursorLine, cursorColumn);
+  const closeOffset = positionToOffset(lines, closeBracket.line, closeBracket.column);
+  
+  if (cursorOffset <= closeOffset) {
+    return { open: openBracket, close: closeBracket };
+  }
+  
+  return null;
+}
+
+/**
+ * Find the nearest unmatched opening bracket before the cursor
+ */
+function findNearestUnmatchedOpening(
+  lines: string[],
+  cursorLine: number,
+  cursorColumn: number
+): Position | null {
+  // Track depth for each bracket type
+  const depths: Record<string, number> = { '(': 0, '[': 0, '{': 0 };
+  
+  // Stack to track bracket positions with their types
+  const stack: { pos: Position; char: string }[] = [];
+  
+  // Scan backward from cursor position
+  let line = cursorLine;
+  let col = cursorColumn - 1;
+  
+  while (line >= 0) {
+    const lineText = lines[line];
+    if (lineText === undefined) {
+      line--;
+      if (line >= 0) {
+        col = lines[line]!.length - 1;
+      }
+      continue;
+    }
+    
+    while (col >= 0) {
+      const char = lineText[col];
+      
+      if (char && CLOSING_BRACKETS.has(char)) {
+        // Found a closing bracket - push to track it
+        const openChar = CLOSING_TO_OPENING[char]!;
+        depths[openChar]++;
+      } else if (char && OPENING_BRACKETS.has(char)) {
+        if (depths[char]! > 0) {
+          // This opening bracket matches a closing bracket we passed
+          depths[char]--;
+        } else {
+          // This is an unmatched opening bracket - our enclosing bracket!
+          return { line, column: col };
+        }
+      }
+      
+      col--;
+    }
+    
+    line--;
+    if (line >= 0) {
+      col = lines[line]!.length - 1;
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Simple position to offset calculation for comparison
+ */
+function positionToOffset(lines: string[], line: number, column: number): number {
+  let offset = 0;
+  for (let i = 0; i < line && i < lines.length; i++) {
+    offset += (lines[i]?.length ?? 0) + 1; // +1 for newline
+  }
+  return offset + column;
+}
+
+/**
  * Search forward for matching closing bracket
  */
 function findClosingBracket(
@@ -105,7 +223,7 @@ function findClosingBracket(
   
   while (line < lines.length) {
     const lineText = lines[line];
-    if (!lineText) {
+    if (lineText === undefined) {
       line++;
       col = 0;
       continue;
@@ -146,7 +264,7 @@ function findOpeningBracket(
   
   while (line >= 0) {
     const lineText = lines[line];
-    if (!lineText) {
+    if (lineText === undefined) {
       line--;
       if (line >= 0) {
         col = lines[line]!.length - 1;

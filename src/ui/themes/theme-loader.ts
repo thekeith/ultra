@@ -64,6 +64,7 @@ const defaultColors: ThemeColors = {
   'editor.selectionBackground': '#264f78',
   'editor.findMatchBackground': '#515c6a',
   'editor.findMatchHighlightBackground': '#ea5c00',
+  'editorBracketMatch.background': '#2a2d2e',
   'editorCursor.foreground': '#aeafad',
   'editorLineNumber.foreground': '#858585',
   'editorLineNumber.activeForeground': '#c6c6c6',

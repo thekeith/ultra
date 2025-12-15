@@ -539,7 +539,7 @@ export class EditorPane implements MouseHandler {
     const defaultFgColor = this.hexToRgb(themeLoader.getColor('editor.foreground')) || { r: 171, g: 178, b: 191 };
     const findMatchBgColor = this.hexToRgb(themeLoader.getColor('editor.findMatchBackground')) || { r: 81, g: 92, b: 106 };
     const findMatchHighlightBgColor = this.hexToRgb(themeLoader.getColor('editor.findMatchHighlightBackground')) || { r: 234, g: 92, b: 0 };
-    const bracketMatchBgColor = this.hexToRgb(themeLoader.getColor('editorBracketMatch.background')) || { r: 70, g: 76, b: 91 };
+    const bracketMatchBgColor = this.hexToRgb(themeLoader.getColor('editorBracketMatch.background')) || lineHighlightColor;
     
     let output = '';
     const lineNum = wrap.bufferLine;
@@ -688,8 +688,8 @@ export class EditorPane implements MouseHandler {
     const findMatchBgColor = this.hexToRgb(themeLoader.getColor('editor.findMatchBackground')) || { r: 81, g: 92, b: 106 };
     const findMatchHighlightBgColor = this.hexToRgb(themeLoader.getColor('editor.findMatchHighlightBackground')) || { r: 234, g: 92, b: 0 };
     
-    // Bracket match highlight color - subtle highlight
-    const bracketMatchBgColor = this.hexToRgb(themeLoader.getColor('editorBracketMatch.background')) || { r: 50, g: 55, b: 70 };
+    // Bracket match highlight color - use line highlight as fallback
+    const bracketMatchBgColor = this.hexToRgb(themeLoader.getColor('editorBracketMatch.background')) || lineHighlightColor;
     
     let output = '';
     
