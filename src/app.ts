@@ -2023,6 +2023,17 @@ export class App {
         handler: async () => {
           await this.triggerCompletion();
         }
+      },
+      {
+        id: 'ultra.lspDebug',
+        title: 'LSP: Show Debug Info',
+        category: 'LSP',
+        handler: () => {
+          lspManager.setDebug(true);
+          const info = lspManager.getDebugInfo();
+          statusBar.setMessage('LSP debug info in console', 3000);
+          console.error('\n=== LSP Debug Info ===\n' + info + '\n=====================\n');
+        }
       }
     ]);
   }

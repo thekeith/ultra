@@ -179,7 +179,7 @@ export const defaultKeybindings: KeyBinding[] = [
     "command": "ultra.selectPageDown"
   },
   {
-    "key": "ctrl+k",
+    "key": "ctrl+shift+a",
     "command": "ultra.selectAll"
   },
   {
@@ -319,8 +319,12 @@ export const defaultKeybindings: KeyBinding[] = [
     "command": "ultra.triggerCompletion"
   },
   {
-    "key": "ctrl+k ctrl+i",
+    "key": "ctrl+shift+k",
     "command": "ultra.showHover"
+  },
+  {
+    "key": "ctrl+shift+d",
+    "command": "ultra.lspDebug"
   },
   {
     "key": "escape",

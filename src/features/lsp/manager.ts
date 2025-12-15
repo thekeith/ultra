@@ -61,6 +61,14 @@ const EXTENSION_TO_LANGUAGE: Record<string, string> = {
 // Diagnostics callback type
 export type DiagnosticsCallback = (uri: string, diagnostics: LSPDiagnostic[]) => void;
 
+// Debug log function
+let debugEnabled = false;
+const debugLog = (...args: unknown[]) => {
+  if (debugEnabled) {
+    console.error('[LSP]', ...args);
+  }
+};
+
 /**
  * LSP Manager - singleton that manages all language servers
  */
@@ -73,6 +81,47 @@ export class LSPManager {
   private failedServers = new Set<string>();  // Servers we failed to start
   private diagnosticsCallback: DiagnosticsCallback | null = null;
   private diagnosticsStore = new Map<string, LSPDiagnostic[]>();  // uri -> diagnostics
+  private startupErrors: string[] = [];  // Track startup errors
+
+  /**
+   * Enable debug logging
+   */
+  setDebug(enabled: boolean): void {
+    debugEnabled = enabled;
+    // Also enable on existing clients
+    for (const client of this.clients.values()) {
+      client.debugEnabled = enabled;
+    }
+  }
+
+  /**
+   * Get debug status info
+   */
+  getDebugInfo(): string {
+    const info: string[] = [];
+    info.push(`Workspace: ${this.workspaceRoot}`);
+    info.push(`Enabled: ${this.enabled}`);
+    info.push(`Active clients: ${this.clients.size}`);
+    for (const [lang, client] of this.clients) {
+      info.push(`  - ${lang}: ${client.isInitialized() ? 'ready' : 'initializing'}`);
+    }
+    info.push(`Open documents: ${this.documentLanguages.size}`);
+    for (const [uri, lang] of this.documentLanguages) {
+      const version = this.documentVersions.get(uri) || 0;
+      info.push(`  - ${uri} (${lang}) v${version}`);
+    }
+    info.push(`Failed servers: ${this.failedServers.size}`);
+    for (const server of this.failedServers) {
+      info.push(`  - ${server}`);
+    }
+    if (this.startupErrors.length > 0) {
+      info.push(`Startup errors:`);
+      for (const err of this.startupErrors) {
+        info.push(`  - ${err}`);
+      }
+    }
+    return info.join('\n');
+  }
 
   /**
    * Set the workspace root directory
@@ -161,32 +210,45 @@ export class LSPManager {
    * Get or start a client for a language
    */
   private async getClient(languageId: string): Promise<LSPClient | null> {
-    if (!this.enabled) return null;
+    if (!this.enabled) {
+      debugLog('LSP disabled');
+      return null;
+    }
 
     // Already have a running client
     if (this.clients.has(languageId)) {
+      debugLog(`Using existing client for ${languageId}`);
       return this.clients.get(languageId)!;
     }
 
     // Already tried and failed
     if (this.failedServers.has(languageId)) {
+      debugLog(`Server previously failed for ${languageId}`);
       return null;
     }
 
     // Get server config
     const config = this.getServerConfig(languageId);
     if (!config) {
+      debugLog(`No server config for ${languageId}`);
       return null;
     }
 
+    debugLog(`Checking if ${config.command} exists...`);
+    
     // Check if command exists
     if (!(await this.commandExists(config.command))) {
+      debugLog(`Command not found: ${config.command}`);
       this.failedServers.add(languageId);
+      this.startupErrors.push(`${languageId}: command not found: ${config.command}`);
       return null;
     }
 
+    debugLog(`Starting ${config.command} for ${languageId}...`);
+    
     // Start the client
     const client = new LSPClient(config.command, config.args, this.workspaceRoot);
+    client.debugEnabled = debugEnabled;
     
     // Set up notification handler
     client.onNotification((method, params) => {
@@ -196,10 +258,13 @@ export class LSPManager {
     // Try to start
     const started = await client.start();
     if (!started) {
+      debugLog(`Failed to start ${config.command}`);
       this.failedServers.add(languageId);
+      this.startupErrors.push(`${languageId}: failed to start ${config.command}`);
       return null;
     }
 
+    debugLog(`Successfully started ${config.command} for ${languageId}`);
     this.clients.set(languageId, client);
     return client;
   }
@@ -208,8 +273,10 @@ export class LSPManager {
    * Handle notifications from language servers
    */
   private handleNotification(languageId: string, method: string, params: unknown): void {
+    debugLog(`Notification from ${languageId}: ${method}`);
     if (method === 'textDocument/publishDiagnostics') {
       const { uri, diagnostics } = params as { uri: string; diagnostics: LSPDiagnostic[] };
+      debugLog(`Diagnostics for ${uri}: ${diagnostics.length} items`);
       this.diagnosticsStore.set(uri, diagnostics);
       if (this.diagnosticsCallback) {
         this.diagnosticsCallback(uri, diagnostics);
@@ -254,11 +321,19 @@ export class LSPManager {
    * Notify that a document was opened
    */
   async documentOpened(filePath: string, content: string): Promise<void> {
+    debugLog(`documentOpened: ${filePath}`);
     const languageId = this.getLanguageId(filePath);
-    if (!languageId) return;
+    if (!languageId) {
+      debugLog(`No language ID for ${filePath}`);
+      return;
+    }
+    debugLog(`Language ID: ${languageId}`);
 
     const client = await this.getClient(languageId);
-    if (!client) return;
+    if (!client) {
+      debugLog(`No client available for ${languageId}`);
+      return;
+    }
 
     const uri = `file://${filePath}`;
     const version = 1;
@@ -266,6 +341,7 @@ export class LSPManager {
     this.documentVersions.set(uri, version);
     this.documentLanguages.set(uri, languageId);
     
+    debugLog(`Sending didOpen for ${uri}`);
     client.didOpen(uri, languageId, version, content);
   }
 
@@ -429,12 +505,26 @@ export class LSPManager {
   // ============ Convenience Aliases ============
 
   /**
-   * Alias for documentOpened
+   * Alias for documentOpened - uses provided languageId instead of detecting from path
    */
   async openDocument(uri: string, languageId: string, content: string): Promise<void> {
+    debugLog(`openDocument: ${uri}, language: ${languageId}`);
     // Extract file path from URI
     const filePath = uri.replace('file://', '');
-    await this.documentOpened(filePath, content);
+    
+    // Use provided languageId to get client
+    const client = await this.getClient(languageId);
+    if (!client) {
+      debugLog(`No client for language ${languageId}`);
+      return;
+    }
+
+    const version = 1;
+    this.documentVersions.set(uri, version);
+    this.documentLanguages.set(uri, languageId);
+    
+    debugLog(`Sending didOpen for ${uri}`);
+    client.didOpen(uri, languageId, version, content);
   }
 
   /**

@@ -105,6 +105,7 @@ export class LSPClient {
   private workspaceRoot: string;
   private notificationHandler: NotificationHandler | null = null;
   private serverCapabilities: Record<string, unknown> = {};
+  public debugEnabled = false;
   
   constructor(
     private command: string,
@@ -112,6 +113,12 @@ export class LSPClient {
     workspaceRoot: string
   ) {
     this.workspaceRoot = workspaceRoot;
+  }
+
+  private debugLog(msg: string): void {
+    if (this.debugEnabled) {
+      console.log(`[LSPClient ${this.command}] ${msg}`);
+    }
   }
 
   /**
@@ -126,16 +133,25 @@ export class LSPClient {
    */
   async start(): Promise<boolean> {
     try {
+      this.debugLog(`Starting: ${this.command} ${this.args.join(' ')}`);
+      this.debugLog(`Workspace root: ${this.workspaceRoot}`);
+      
       this.process = Bun.spawn([this.command, ...this.args], {
         stdin: 'pipe',
         stdout: 'pipe',
         stderr: 'pipe',
       });
 
+      this.debugLog(`Process spawned, PID: ${this.process.pid}`);
+
       // Start reading stdout
       this.readLoop();
+      
+      // Also read stderr for debugging
+      this.readStderr();
 
       // Initialize the server
+      this.debugLog('Sending initialize request...');
       const result = await this.request<{
         capabilities: Record<string, unknown>;
       }>('initialize', {
@@ -176,15 +192,45 @@ export class LSPClient {
       });
 
       this.serverCapabilities = result.capabilities;
+      this.debugLog(`Server initialized with capabilities: ${Object.keys(result.capabilities).join(', ')}`);
 
       // Send initialized notification
       this.notify('initialized', {});
       this.initialized = true;
+      this.debugLog('Initialization complete');
 
       return true;
     } catch (error) {
+      this.debugLog(`Failed to start: ${error}`);
       console.error('LSP: Failed to start server:', error);
       return false;
+    }
+  }
+
+  /**
+   * Read stderr for debugging
+   */
+  private async readStderr(): Promise<void> {
+    if (!this.process?.stderr) return;
+
+    const stderr = this.process.stderr;
+    if (typeof stderr === 'number') return;
+    
+    const reader = (stderr as ReadableStream<Uint8Array>).getReader();
+    const decoder = new TextDecoder();
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const text = decoder.decode(value, { stream: true });
+        if (text.trim()) {
+          this.debugLog(`stderr: ${text.trim()}`);
+        }
+      }
+    } catch (error) {
+      // Server closed or error
     }
   }
 
