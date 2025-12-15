@@ -518,8 +518,6 @@ export class InputHandler {
       default:
         // Ctrl+letter
         if (CTRL_CHARS[code]) {
-          const fs = require('fs');
-          fs.appendFileSync('debug.log', `[InputHandler] ctrl char code=${code} -> key=${CTRL_CHARS[code]}\n`);
           return {
             key: CTRL_CHARS[code]!.toUpperCase(),
             ctrl: true,

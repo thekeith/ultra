@@ -18,6 +18,7 @@ import { themeLoader } from '../themes/theme-loader.ts';
 import { inFileSearch, type SearchMatch } from '../../features/search/in-file-search.ts';
 import { settings } from '../../config/settings.ts';
 import { findMatchingBracket, type BracketMatch } from '../../core/bracket-match.ts';
+import { debugLog } from '../../debug.ts';
 
 // Represents a wrapped line segment
 interface WrappedLine {
@@ -379,21 +380,18 @@ export class Pane implements MouseHandler {
    * Set pane rect
    */
   setRect(rect: Rect): void {
-    const fs = require('fs');
-    const debug = (msg: string) => fs.appendFileSync('debug.log', `[Pane ${this.id}] ${msg}\n`);
-    
-    debug(`setRect(${JSON.stringify(rect)})`);
+    debugLog(`[Pane ${this.id}] setRect(${JSON.stringify(rect)})`);
     this.rect = rect;
     
     // Tab bar takes top row
-    debug('setting tabBar rect...');
+    debugLog(`[Pane ${this.id}] setting tabBar rect...`);
     this.tabBar.setRect({
       x: rect.x,
       y: rect.y,
       width: rect.width,
       height: this.tabBarHeight
     });
-    debug('tabBar rect set');
+    debugLog(`[Pane ${this.id}] tabBar rect set`);
     
     // Calculate editor area (below tab bar)
     const editorY = rect.y + this.tabBarHeight;
@@ -404,7 +402,7 @@ export class Pane implements MouseHandler {
     const editorWidth = rect.width - minimapWidth;
     
     if (this.minimapEnabled) {
-      debug('setting minimap rect...');
+      debugLog(`[Pane ${this.id}] setting minimap rect...`);
       this.minimap.setRect({
         x: rect.x + editorWidth,
         y: editorY,
@@ -412,9 +410,9 @@ export class Pane implements MouseHandler {
         height: editorHeight
       });
       this.minimap.setEditorScroll(this.scrollTop, editorHeight);
-      debug('minimap rect set');
+      debugLog(`[Pane ${this.id}] minimap rect set`);
     }
-    debug('setRect complete');
+    debugLog(`[Pane ${this.id}] setRect complete`);
   }
 
   /**
@@ -498,32 +496,29 @@ export class Pane implements MouseHandler {
    * Render the pane
    */
   render(ctx: RenderContext): void {
-    const fs = require('fs');
-    const debug = (msg: string) => fs.appendFileSync('debug.log', `[Pane ${this.id}] ${msg}\n`);
-    
-    debug(`render() called, rect=${JSON.stringify(this.rect)}, tabs=${this.tabs.length}`);
+    debugLog(`[Pane ${this.id}] render() called, rect=${JSON.stringify(this.rect)}, tabs=${this.tabs.length}`);
     this.updateTheme();
     
     // Render tab bar (with focus-aware styling)
-    debug('rendering tab bar...');
+    debugLog(`[Pane ${this.id}] rendering tab bar...`);
     this.renderTabBar(ctx);
     
     // Render editor content
-    debug('rendering editor...');
+    debugLog(`[Pane ${this.id}] rendering editor...`);
     this.renderEditor(ctx);
     
     // Render minimap
     if (this.minimapEnabled) {
-      debug('rendering minimap...');
+      debugLog(`[Pane ${this.id}] rendering minimap...`);
       this.minimap.render(ctx);
     }
     
     // Render focus indicator border if focused
     if (this.isFocused) {
-      debug('rendering focus border...');
+      debugLog(`[Pane ${this.id}] rendering focus border...`);
       this.renderFocusBorder(ctx);
     }
-    debug('render() complete');
+    debugLog(`[Pane ${this.id}] render() complete`);
   }
 
   private renderTabBar(ctx: RenderContext): void {
@@ -597,13 +592,10 @@ export class Pane implements MouseHandler {
   // ==================== Editor Rendering (simplified from EditorPane) ====================
 
   private renderEditor(ctx: RenderContext): void {
-    const fs = require('fs');
-    const debug = (msg: string) => fs.appendFileSync('debug.log', `[Pane ${this.id}] ${msg}\n`);
-    
     const doc = this.getActiveDocument();
     const editorRect = this.getEditorRect();
     
-    debug(`renderEditor: doc=${doc ? 'exists' : 'null'}, editorRect=${JSON.stringify(editorRect)}`);
+    debugLog(`[Pane ${this.id}] renderEditor: doc=${doc ? 'exists' : 'null'}, editorRect=${JSON.stringify(editorRect)}`);
     
     // Background
     const bgRgb = this.hexToRgb(this.theme.background);
@@ -613,18 +605,18 @@ export class Pane implements MouseHandler {
         ctx.buffer(`\x1b[${y};${editorRect.x}H${bg}${' '.repeat(editorRect.width)}\x1b[0m`);
       }
     }
-    debug('renderEditor: background done');
+    debugLog(`[Pane ${this.id}] renderEditor: background done`);
     
     if (!doc) {
-      debug('renderEditor: no doc, rendering empty state');
+      debugLog(`[Pane ${this.id}] renderEditor: no doc, rendering empty state`);
       this.renderEmptyState(ctx, editorRect);
       return;
     }
     
     // Render line numbers and content
-    debug('renderEditor: rendering content...');
+    debugLog(`[Pane ${this.id}] renderEditor: rendering content...`);
     this.renderContent(ctx, doc, editorRect);
-    debug('renderEditor: content done');
+    debugLog(`[Pane ${this.id}] renderEditor: content done`);
   }
 
   private renderEmptyState(ctx: RenderContext, rect: Rect): void {
@@ -639,26 +631,23 @@ export class Pane implements MouseHandler {
   }
 
   private renderContent(ctx: RenderContext, doc: Document, rect: Rect): void {
-    const fs = require('fs');
-    const debug = (msg: string) => fs.appendFileSync('debug.log', `[Pane ${this.id}] ${msg}\n`);
-    
     const visibleLines = rect.height;
     const startLine = this.scrollTop;
     const endLine = Math.min(startLine + visibleLines, doc.lineCount);
     
-    debug(`renderContent: visibleLines=${visibleLines}, startLine=${startLine}, docLineCount=${doc.lineCount}`);
+    debugLog(`[Pane ${this.id}] renderContent: visibleLines=${visibleLines}, startLine=${startLine}, docLineCount=${doc.lineCount}`);
     
     // Parse content for syntax highlighting
     const content = doc.content;
-    debug(`renderContent: content.length=${content.length}`);
+    debugLog(`[Pane ${this.id}] renderContent: content.length=${content.length}`);
     if (this.highlighterReady && content !== this.lastParsedContent) {
-      debug('renderContent: parsing new content');
+      debugLog(`[Pane ${this.id}] renderContent: parsing new content`);
       shikiHighlighter.parse(content);
       this.lastParsedContent = content;
     }
     
     // Render each visible line
-    debug('renderContent: rendering lines...');
+    debugLog(`[Pane ${this.id}] renderContent: rendering lines...`);
     for (let screenLine = 0; screenLine < visibleLines; screenLine++) {
       const bufferLine = startLine + screenLine;
       const screenY = rect.y + screenLine;
@@ -669,14 +658,14 @@ export class Pane implements MouseHandler {
         this.renderLine(ctx, doc, bufferLine, screenY, rect, lineTokens);
       }
     }
-    debug('renderContent: lines done');
+    debugLog(`[Pane ${this.id}] renderContent: lines done`);
     
     // Render cursor if focused
     if (this.isFocused) {
-      debug('renderContent: rendering cursor');
+      debugLog(`[Pane ${this.id}] renderContent: rendering cursor`);
       this.renderCursor(ctx, doc, rect);
     }
-    debug('renderContent: complete');
+    debugLog(`[Pane ${this.id}] renderContent: complete`);
   }
 
   private renderLine(
@@ -687,16 +676,9 @@ export class Pane implements MouseHandler {
     rect: Rect,
     lineTokens: HighlightToken[]
   ): void {
-    const fs = require('fs');
-    const debug = (msg: string) => fs.appendFileSync('debug.log', `[Pane ${this.id}] renderLine: ${msg}\n`);
-    
-    debug(`lineNum=${lineNum}, screenY=${screenY}`);
     const line = doc.getLine(lineNum);
-    debug(`line=${JSON.stringify(line)}`);
     const cursor = doc.primaryCursor;
-    debug(`cursor=${JSON.stringify(cursor)}`);
     const isCurrentLine = lineNum === cursor.position.line;
-    debug(`isCurrentLine=${isCurrentLine}`);
     
     // Line number
     const lineNumStr = String(lineNum + 1).padStart(this.gutterWidth - 1, ' ');
@@ -710,8 +692,6 @@ export class Pane implements MouseHandler {
     if (lnColor) output += `\x1b[38;2;${lnColor.r};${lnColor.g};${lnColor.b}m`;
     output += lineNumStr + ' \x1b[0m';
     
-    debug('gutter done');
-    
     // Line highlight for current line
     if (isCurrentLine && this.isFocused) {
       const hlBg = this.hexToRgb(this.theme.lineHighlightBackground);
@@ -720,14 +700,10 @@ export class Pane implements MouseHandler {
       }
     }
     
-    debug('line highlight done');
-    
     // Content with syntax highlighting
     const contentWidth = rect.width - this.gutterWidth;
     const startCol = this.scrollLeft;
     const visibleText = line.substring(startCol, startCol + contentWidth);
-    
-    debug(`contentWidth=${contentWidth}, visibleText=${JSON.stringify(visibleText)}`);
     
     // Apply syntax highlighting tokens
     if (lineTokens.length > 0) {
@@ -738,8 +714,6 @@ export class Pane implements MouseHandler {
       output += visibleText;
     }
     
-    debug('content done');
-    
     // Pad rest of line
     const padding = contentWidth - visibleText.length;
     if (padding > 0) {
@@ -748,13 +722,11 @@ export class Pane implements MouseHandler {
     
     output += '\x1b[0m';
     ctx.buffer(output);
-    debug('buffer done');
     
     // Render selection highlight
     if (hasSelection(cursor.selection)) {
       this.renderSelectionForLine(ctx, doc, lineNum, screenY, rect);
     }
-    debug('complete');
   }
 
   private renderHighlightedText(

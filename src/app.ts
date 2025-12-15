@@ -917,27 +917,21 @@ export class App {
    * Show hover information at cursor
    */
   private async showHover(): Promise<void> {
-    const fs = require('fs');
-    const logDebug = (msg: string) => {
-      const timestamp = new Date().toISOString();
-      fs.appendFileSync('./debug.log', `[${timestamp}] [showHover] ${msg}\n`);
-    };
-    
-    logDebug('showHover called');
+    this.debugLog('[showHover] showHover called');
     
     const doc = this.getActiveDocument();
     if (!doc || !doc.filePath) {
-      logDebug('No document or filePath');
+      this.debugLog('[showHover] No document or filePath');
       statusBar.setMessage('No file open', 2000);
       return;
     }
 
-    logDebug(`Document: ${doc.filePath}, language: ${doc.language}`);
+    this.debugLog(`[showHover] Document: ${doc.filePath}, language: ${doc.language}`);
     const cursor = doc.primaryCursor;
-    logDebug(`Cursor: line ${cursor.position.line}, col ${cursor.position.column}`);
+    this.debugLog(`[showHover] Cursor: line ${cursor.position.line}, col ${cursor.position.column}`);
 
     try {
-      logDebug('Calling lspManager.getHover...');
+      this.debugLog('[showHover] Calling lspManager.getHover...');
       // Fetch hover and document symbols in parallel
       const [hover, symbols] = await Promise.all([
         lspManager.getHover(
@@ -947,8 +941,8 @@ export class App {
         ),
         lspManager.getDocumentSymbols(doc.filePath)
       ]);
-      logDebug(`Hover result: ${hover ? JSON.stringify(hover).substring(0, 200) : 'null'}`);
-      logDebug(`Symbols count: ${symbols?.length || 0}`);
+      this.debugLog(`[showHover] Hover result: ${hover ? JSON.stringify(hover).substring(0, 200) : 'null'}`);
+      this.debugLog(`[showHover] Symbols count: ${symbols?.length || 0}`);
 
       if (hover) {
         // Calculate screen position for tooltip
@@ -970,7 +964,7 @@ export class App {
         }
       }
     } catch (err) {
-      logDebug(`Error: ${err}`);
+      this.debugLog(`[showHover] Error: ${err}`);
       statusBar.setMessage(`Hover error: ${err}`, 3000);
     }
     

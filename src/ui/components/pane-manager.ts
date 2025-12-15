@@ -12,6 +12,7 @@ import type { Rect } from '../layout.ts';
 import type { MouseHandler, MouseEvent } from '../mouse.ts';
 import type { Position } from '../../core/buffer.ts';
 import { themeLoader } from '../themes/theme-loader.ts';
+import { debugLog } from '../../debug.ts';
 
 interface LayoutNode {
   type: 'leaf' | 'horizontal' | 'vertical';
@@ -178,10 +179,9 @@ export class PaneManager implements MouseHandler {
    * Split active pane vertically (side by side)
    */
   splitVertical(): Pane | null {
-    const fs = require('fs');
-    fs.appendFileSync('debug.log', `[PaneManager] splitVertical called, activePaneId=${this.activePaneId}\n`);
+    debugLog(`[PaneManager] splitVertical called, activePaneId=${this.activePaneId}`);
     const result = this.splitPane(this.activePaneId, 'horizontal'); // horizontal container = side by side
-    fs.appendFileSync('debug.log', `[PaneManager] splitVertical result=${result?.id ?? 'null'}\n`);
+    debugLog(`[PaneManager] splitVertical result=${result?.id ?? 'null'}`);
     return result;
   }
 
@@ -196,23 +196,22 @@ export class PaneManager implements MouseHandler {
    * Split a specific pane
    */
   private splitPane(paneId: string, direction: 'horizontal' | 'vertical'): Pane | null {
-    const fs = require('fs');
-    fs.appendFileSync('debug.log', `[PaneManager] splitPane(${paneId}, ${direction})\n`);
+    debugLog(`[PaneManager] splitPane(${paneId}, ${direction})`);
     
     const pane = this.panes.get(paneId);
     if (!pane) {
-      fs.appendFileSync('debug.log', `[PaneManager] splitPane: pane not found\n`);
+      debugLog(`[PaneManager] splitPane: pane not found`);
       return null;
     }
     
     // Find the node containing this pane
     const nodeInfo = this.findNodeWithPane(this.root, paneId);
     if (!nodeInfo) {
-      fs.appendFileSync('debug.log', `[PaneManager] splitPane: node not found\n`);
+      debugLog(`[PaneManager] splitPane: node not found`);
       return null;
     }
     
-    fs.appendFileSync('debug.log', `[PaneManager] splitPane: found node, creating new pane\n`);
+    debugLog(`[PaneManager] splitPane: found node, creating new pane`);
     
     const { node, parent, childIndex } = nodeInfo;
     
@@ -366,27 +365,24 @@ export class PaneManager implements MouseHandler {
    * Set the available rect for all panes
    */
   setRect(rect: Rect): void {
-    const fs = require('fs');
-    fs.appendFileSync('debug.log', `[PaneManager] setRect(${JSON.stringify(rect)})\n`);
+    debugLog(`[PaneManager] setRect(${JSON.stringify(rect)})`);
     this.rect = rect;
     this.recalculateLayout();
-    fs.appendFileSync('debug.log', `[PaneManager] setRect complete\n`);
+    debugLog(`[PaneManager] setRect complete`);
   }
 
   /**
    * Recalculate layout for all panes
    */
   private recalculateLayout(): void {
-    const fs = require('fs');
-    fs.appendFileSync('debug.log', `[PaneManager] recalculateLayout, root.type=${this.root.type}\n`);
+    debugLog(`[PaneManager] recalculateLayout, root.type=${this.root.type}`);
     this.calculateNodeRect(this.root, this.rect);
   }
 
   private calculateNodeRect(node: LayoutNode, rect: Rect): void {
-    const fs = require('fs');
-    fs.appendFileSync('debug.log', `[PaneManager] calculateNodeRect type=${node.type}, pane=${node.pane?.id || 'none'}\n`);
+    debugLog(`[PaneManager] calculateNodeRect type=${node.type}, pane=${node.pane?.id || 'none'}`);
     if (node.type === 'leaf' && node.pane) {
-      fs.appendFileSync('debug.log', `[PaneManager] setting pane ${node.pane.id} rect to ${JSON.stringify(rect)}\n`);
+      debugLog(`[PaneManager] setting pane ${node.pane.id} rect to ${JSON.stringify(rect)}`);
       node.pane.setRect(rect);
       return;
     }
