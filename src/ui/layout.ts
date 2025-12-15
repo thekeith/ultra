@@ -25,7 +25,7 @@ export class LayoutManager {
   private _screenHeight: number = 24;
   
   // Reserved areas
-  private tabBarHeight: number = 1;
+  private tabBarHeight: number = 0;  // Each pane has its own tab bar now
   private statusBarHeight: number = 1;
   private sidebarWidth: number = 0;
   private sidebarVisible: boolean = false;
@@ -38,7 +38,7 @@ export class LayoutManager {
   constructor() {
     this.root = {
       type: 'leaf',
-      rect: { x: 1, y: 2, width: 80, height: 22 },
+      rect: { x: 1, y: 1, width: 80, height: 23 },
       id: 'main'
     };
   }
@@ -146,14 +146,14 @@ export class LayoutManager {
   }
 
   /**
-   * Get main editor area rect
+   * Get main editor area rect (where panes live)
    */
   getEditorAreaRect(): Rect {
     const sidebarOnLeft = this.sidebarLocation === 'left';
     const x = (this.sidebarVisible && sidebarOnLeft) ? this.sidebarWidth + 1 : 1;
-    const y = this.tabBarHeight + 1;
+    const y = 1;  // Start at top since panes have their own tab bars
     let width = this._screenWidth - x + 1;
-    let height = this._screenHeight - this.tabBarHeight - this.statusBarHeight;
+    let height = this._screenHeight - this.statusBarHeight;
 
     if (this.aiPanelVisible) {
       width -= this.aiPanelWidth;

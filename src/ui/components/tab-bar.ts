@@ -22,6 +22,7 @@ export class TabBar implements MouseHandler {
   private tabs: Tab[] = [];
   private activeTabId: string | null = null;
   private tabPositions: { id: string; startX: number; endX: number; closeX: number }[] = [];
+  private isFocused: boolean = true;  // Whether this tab bar's pane is focused
 
   // Callbacks
   private onTabClickCallback?: (tabId: string) => void;
@@ -32,6 +33,13 @@ export class TabBar implements MouseHandler {
    */
   setRect(rect: Rect): void {
     this.rect = rect;
+  }
+
+  /**
+   * Set focus state (affects visual styling)
+   */
+  setFocused(focused: boolean): void {
+    this.isFocused = focused;
   }
 
   /**
@@ -83,12 +91,21 @@ export class TabBar implements MouseHandler {
     const moveTo = (px: number, py: number) => `\x1b[${py};${px}H`;
 
     // Get theme colors
-    const inactiveBg = this.hexToRgb(themeLoader.getColor('tab.inactiveBackground')) || { r: 41, g: 44, b: 60 };
-    const activeBg = this.hexToRgb(themeLoader.getColor('tab.activeBackground')) || { r: 48, g: 52, b: 70 };
-    const activeFg = this.hexToRgb(themeLoader.getColor('tab.activeForeground')) || { r: 198, g: 208, b: 245 };
-    const inactiveFg = this.hexToRgb(themeLoader.getColor('tab.inactiveForeground')) || { r: 131, g: 139, b: 167 };
+    let inactiveBg = this.hexToRgb(themeLoader.getColor('tab.inactiveBackground')) || { r: 41, g: 44, b: 60 };
+    let activeBg = this.hexToRgb(themeLoader.getColor('tab.activeBackground')) || { r: 48, g: 52, b: 70 };
+    let activeFg = this.hexToRgb(themeLoader.getColor('tab.activeForeground')) || { r: 198, g: 208, b: 245 };
+    let inactiveFg = this.hexToRgb(themeLoader.getColor('tab.inactiveForeground')) || { r: 131, g: 139, b: 167 };
     const borderColor = this.hexToRgb(themeLoader.getColor('tab.border')) || { r: 35, g: 38, b: 52 };
     const dirtyColor = { r: 231, g: 130, b: 132 }; // Catppuccin red
+
+    // Dim colors for unfocused pane
+    if (!this.isFocused) {
+      const dimFactor = 0.6;
+      inactiveBg = this.dimColor(inactiveBg, dimFactor);
+      activeBg = this.dimColor(activeBg, dimFactor);
+      activeFg = this.dimColor(activeFg, dimFactor);
+      inactiveFg = this.dimColor(inactiveFg, dimFactor);
+    }
 
     // Build entire tab bar as one string
     let output = moveTo(x, y) + bgRgb(inactiveBg.r, inactiveBg.g, inactiveBg.b) + ' '.repeat(width);
@@ -140,6 +157,17 @@ export class TabBar implements MouseHandler {
     
     output += reset;
     ctx.buffer(output);
+  }
+
+  /**
+   * Dim a color by a factor
+   */
+  private dimColor(color: { r: number; g: number; b: number }, factor: number): { r: number; g: number; b: number } {
+    return {
+      r: Math.floor(color.r * factor),
+      g: Math.floor(color.g * factor),
+      b: Math.floor(color.b * factor)
+    };
   }
 
   /**

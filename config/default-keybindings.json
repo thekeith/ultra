@@ -82,6 +82,10 @@
 
   { "key": "ctrl+b", "command": "ultra.toggleSidebar" },
   { "key": "ctrl+\\", "command": "ultra.splitVertical" },
+  { "key": "ctrl+shift+\\", "command": "ultra.splitHorizontal" },
+  { "key": "ctrl+shift+w", "command": "ultra.closePane" },
+  { "key": "alt+]", "command": "ultra.focusNextPane" },
+  { "key": "alt+[", "command": "ultra.focusPreviousPane" },
 
   { "key": "ctrl+1", "command": "ultra.goToTab1" },
   { "key": "ctrl+2", "command": "ultra.goToTab2" },
