@@ -104,7 +104,7 @@ export class LSPManager {
   /**
    * Enable debug logging
    */
-  setDebug(enabled: boolean): void {
+  setDebugEnabled(enabled: boolean): void {
     debugEnabled = enabled;
     // Also enable on existing clients
     for (const client of this.clients.values()) {

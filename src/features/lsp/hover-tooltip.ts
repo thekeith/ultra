@@ -8,6 +8,7 @@ import type { RenderContext } from '../../ui/renderer.ts';
 import type { LSPHover, LSPRange, LSPDocumentSymbol, LSPSymbolInformation } from './client.ts';
 import { SymbolKind } from './client.ts';
 import { themeLoader } from '../../ui/themes/theme-loader.ts';
+import { debugLog } from './manager.ts';
 
 export class HoverTooltip {
   private visible = false;
@@ -131,36 +132,134 @@ export class HoverTooltip {
     // Look for class/interface definitions in hover
     const classMatch = hoverText.match(/(?:class|interface)\s+(\w+)/);
     if (!classMatch || !classMatch[1]) {
-      // Debug: log what we're matching against
-      console.error(`[HoverTooltip] No class/interface match in: ${hoverText.substring(0, 100)}`);
+      debugLog(`[HoverTooltip] No class/interface match in: ${hoverText.substring(0, 100)}`);
       return;
     }
     
     const symbolName = classMatch[1];
-    console.error(`[HoverTooltip] Looking for symbol: ${symbolName}`);
-    console.error(`[HoverTooltip] Symbols count: ${symbols.length}`);
+    debugLog(`[HoverTooltip] Looking for symbol: ${symbolName}`);
+    debugLog(`[HoverTooltip] Symbols count: ${symbols.length}`);
     if (symbols.length > 0) {
       const first = symbols[0];
-      console.error(`[HoverTooltip] First symbol: ${JSON.stringify({ name: first?.name, kind: first?.kind, hasChildren: first && 'children' in first })}`);
+      const isFlat = first && 'location' in first;
+      debugLog(`[HoverTooltip] First symbol: ${JSON.stringify({ name: first?.name, kind: first?.kind, hasChildren: first && 'children' in first, isFlat })}`);
     }
     
-    // Find matching symbol in document symbols
-    const matchingSymbol = this.findSymbol(symbols, symbolName);
-    if (!matchingSymbol) {
-      console.error(`[HoverTooltip] Symbol not found: ${symbolName}`);
-      // List available top-level symbols
-      console.error(`[HoverTooltip] Available symbols: ${symbols.slice(0, 10).map(s => s.name).join(', ')}`);
+    // Check if we have flat SymbolInformation (has location) or hierarchical DocumentSymbol (has children)
+    const firstSymbol = symbols[0];
+    if (firstSymbol && 'location' in firstSymbol) {
+      // Flat SymbolInformation - find members by containerName
+      debugLog(`[HoverTooltip] Using flat SymbolInformation format`);
+      const members = (symbols as LSPSymbolInformation[]).filter(s => s.containerName === symbolName);
+      debugLog(`[HoverTooltip] Found ${members.length} members with containerName=${symbolName}`);
+      if (members.length > 0) {
+        this.addMembersSectionFromSymbolInfo(members);
+      }
       return;
     }
     
-    console.error(`[HoverTooltip] Found symbol: ${matchingSymbol.name}, hasChildren: ${'children' in matchingSymbol}`);
+    // Hierarchical DocumentSymbol - find the class and use its children
+    const matchingSymbol = this.findSymbol(symbols, symbolName);
+    if (!matchingSymbol) {
+      debugLog(`[HoverTooltip] Symbol not found: ${symbolName}`);
+      debugLog(`[HoverTooltip] Available symbols: ${symbols.slice(0, 10).map(s => s.name).join(', ')}`);
+      return;
+    }
+    
+    debugLog(`[HoverTooltip] Found symbol: ${matchingSymbol.name}, hasChildren: ${'children' in matchingSymbol}`);
     
     // Check if it's a DocumentSymbol with children (hierarchical)
     if ('children' in matchingSymbol && matchingSymbol.children && matchingSymbol.children.length > 0) {
-      console.error(`[HoverTooltip] Adding ${matchingSymbol.children.length} children`);
+      debugLog(`[HoverTooltip] Adding ${matchingSymbol.children.length} children`);
       this.addMembersSection(matchingSymbol.children);
     } else {
-      console.error(`[HoverTooltip] No children found`);
+      debugLog(`[HoverTooltip] No children found`);
+    }
+  }
+
+  /**
+   * Add members section from flat SymbolInformation array
+   */
+  private addMembersSectionFromSymbolInfo(members: LSPSymbolInformation[]): void {
+    // Group by kind
+    const constructors: LSPSymbolInformation[] = [];
+    const methods: LSPSymbolInformation[] = [];
+    const properties: LSPSymbolInformation[] = [];
+    const others: LSPSymbolInformation[] = [];
+
+    for (const member of members) {
+      switch (member.kind) {
+        case SymbolKind.Constructor:
+          constructors.push(member);
+          break;
+        case SymbolKind.Method:
+        case SymbolKind.Function:
+          methods.push(member);
+          break;
+        case SymbolKind.Property:
+        case SymbolKind.Field:
+          properties.push(member);
+          break;
+        default:
+          others.push(member);
+      }
+    }
+
+    // Add separator
+    this.content.push('');
+    this.content.push('─── Members ───');
+    this.memberLines.add(this.content.length - 1);
+
+    // Add properties first
+    if (properties.length > 0) {
+      for (const prop of properties.slice(0, 8)) {
+        const icon = this.getSymbolKindIcon(prop.kind);
+        const line = `  ${icon} ${prop.name}`;
+        this.content.push(line.length > this.maxWidth ? line.substring(0, this.maxWidth - 3) + '...' : line);
+        this.memberLines.add(this.content.length - 1);
+      }
+      if (properties.length > 8) {
+        this.content.push(`    ... +${properties.length - 8} more properties`);
+        this.memberLines.add(this.content.length - 1);
+      }
+    }
+
+    // Add constructors
+    if (constructors.length > 0) {
+      for (const ctor of constructors) {
+        const icon = this.getSymbolKindIcon(ctor.kind);
+        const line = `  ${icon} ${ctor.name}`;
+        this.content.push(line.length > this.maxWidth ? line.substring(0, this.maxWidth - 3) + '...' : line);
+        this.memberLines.add(this.content.length - 1);
+      }
+    }
+
+    // Add methods
+    if (methods.length > 0) {
+      for (const method of methods.slice(0, 10)) {
+        const icon = this.getSymbolKindIcon(method.kind);
+        const line = `  ${icon} ${method.name}()`;
+        this.content.push(line.length > this.maxWidth ? line.substring(0, this.maxWidth - 3) + '...' : line);
+        this.memberLines.add(this.content.length - 1);
+      }
+      if (methods.length > 10) {
+        this.content.push(`    ... +${methods.length - 10} more methods`);
+        this.memberLines.add(this.content.length - 1);
+      }
+    }
+
+    // Add others if any
+    if (others.length > 0) {
+      for (const other of others.slice(0, 5)) {
+        const icon = this.getSymbolKindIcon(other.kind);
+        const line = `  ${icon} ${other.name}`;
+        this.content.push(line.length > this.maxWidth ? line.substring(0, this.maxWidth - 3) + '...' : line);
+        this.memberLines.add(this.content.length - 1);
+      }
+      if (others.length > 5) {
+        this.content.push(`    ... +${others.length - 5} more`);
+        this.memberLines.add(this.content.length - 1);
+      }
     }
   }
 
