@@ -61,6 +61,16 @@ export class App {
     fileName: string;
   } = { isOpen: false, documentId: null, fileName: '' };
 
+  // Debug logging
+  private debugEnabled: boolean = false;
+  
+  private debugLog(msg: string): void {
+    if (this.debugEnabled) {
+      const fs = require('fs');
+      fs.appendFileSync('debug.log', `[${new Date().toISOString()}] ${msg}\n`);
+    }
+  }
+
   constructor() {
     this.setupPaneManagerCallbacks();
   }
@@ -72,27 +82,39 @@ export class App {
     try {
       // Enable debug logging if requested
       if (options?.debug) {
+        this.debugEnabled = true;
         lspManager.setDebugEnabled(true);
+        // Clear previous debug log
+        const fs = require('fs');
+        fs.writeFileSync('debug.log', '');
       }
 
+      this.debugLog('Starting Ultra...');
+
       // Load configuration
+      this.debugLog('Loading configuration...');
       await this.loadConfiguration();
 
       // Initialize renderer
+      this.debugLog('Initializing renderer...');
       await renderer.init();
 
       // Update layout dimensions
+      this.debugLog(`Updating layout: ${renderer.width}x${renderer.height}`);
       layoutManager.updateDimensions(renderer.width, renderer.height);
 
       // Setup event handlers
+      this.debugLog('Setting up event handlers...');
       this.setupKeyboardHandler();
       this.setupMouseHandler();
       this.setupRenderCallback();
 
       // Register commands
+      this.debugLog('Registering commands...');
       this.registerCommands();
       
       // Determine workspace root and file to open based on argument
+      this.debugLog('Determining workspace root...');
       let workspaceRoot = process.cwd();
       let fileToOpen: string | undefined;
       
@@ -119,6 +141,7 @@ export class App {
       }
       
       // Initialize file tree with workspace root
+      this.debugLog(`Loading file tree from: ${workspaceRoot}`);
       await fileTree.loadDirectory(workspaceRoot);
       fileTree.onFileSelect(async (filePath) => {
         await this.openFile(filePath);
@@ -127,16 +150,20 @@ export class App {
       });
 
       // Apply initial settings (sidebar visibility, etc.)
+      this.debugLog('Applying settings...');
       this.applySettings();
 
       // Initialize LSP manager with workspace root
+      this.debugLog('Initializing LSP...');
       lspManager.setWorkspaceRoot(workspaceRoot);
       await this.initializeLSP();
 
       // Start file watcher
+      this.debugLog('Starting file watcher...');
       this.startFileWatcher();
 
       // Open file if provided, otherwise create empty document
+      this.debugLog(`Opening: ${fileToOpen || 'new file'}`);
       if (fileToOpen) {
         await this.openFile(fileToOpen);
       } else {
@@ -144,10 +171,14 @@ export class App {
         this.newFile();
       }
 
+      this.debugLog('Setting isRunning = true');
       this.isRunning = true;
 
       // Initial render
+      this.debugLog('Scheduling initial render...');
       renderer.scheduleRender();
+      
+      this.debugLog('Start complete!');
 
     } catch (error) {
       renderer.cleanup();
@@ -212,7 +243,7 @@ export class App {
         
         // Insert the completion
         doc.insert(textToInsert);
-        this.paneManager.ensureCursorVisible();
+        paneManager.ensureCursorVisible();
         this.updateStatusBar();
         this.notifyDocumentChange(doc);
         renderer.scheduleRender();
@@ -594,7 +625,7 @@ export class App {
     // Use auto-dedent for closing brackets
     if (char === '}' || char === ']' || char === ')') {
       doc.insertWithAutoDedent(char);
-      this.paneManager.ensureCursorVisible();
+      paneManager.ensureCursorVisible();
       this.updateStatusBar();
       this.notifyDocumentChange(doc);
       return;
@@ -618,7 +649,7 @@ export class App {
       doc.insert(char);
     }
     
-    this.paneManager.ensureCursorVisible();
+    paneManager.ensureCursorVisible();
     this.updateStatusBar();
     this.notifyDocumentChange(doc);
     
@@ -738,8 +769,8 @@ export class App {
           // Calculate screen position for popup (at start of prefix)
           const editorRect = layoutManager.getEditorAreaRect();
           const gutterWidth = 5;  // Approximate
-          const screenX = editorRect.x + gutterWidth + startColumn - this.paneManager.getScrollLeft();
-          const screenY = editorRect.y + cursor.position.line - this.paneManager.getScrollTop();
+          const screenX = editorRect.x + gutterWidth + startColumn - paneManager.getScrollLeft();
+          const screenY = editorRect.y + cursor.position.line - paneManager.getScrollTop();
           
           autocompletePopup.show(completions, screenX, screenY, prefix, startColumn);
           renderer.scheduleRender();
@@ -770,8 +801,8 @@ export class App {
         // Calculate screen position
         const editorRect = layoutManager.getEditorAreaRect();
         const gutterWidth = 5;
-        const screenX = editorRect.x + gutterWidth + cursor.position.column - this.paneManager.getScrollLeft();
-        const screenY = editorRect.y + cursor.position.line - this.paneManager.getScrollTop();
+        const screenX = editorRect.x + gutterWidth + cursor.position.column - paneManager.getScrollLeft();
+        const screenY = editorRect.y + cursor.position.line - paneManager.getScrollTop();
         
         signatureHelp.show(help, screenX, screenY);
         renderer.scheduleRender();
@@ -817,7 +848,7 @@ export class App {
             line: location.range.start.line,
             column: location.range.start.character
           });
-          this.paneManager.ensureCursorVisible();
+          paneManager.ensureCursorVisible();
           this.updateStatusBar();
         }
         
@@ -868,7 +899,7 @@ export class App {
               line: location.range.start.line,
               column: location.range.start.character
             });
-            this.paneManager.ensureCursorVisible();
+            paneManager.ensureCursorVisible();
             this.updateStatusBar();
           }
         }
@@ -923,8 +954,8 @@ export class App {
         // Calculate screen position for tooltip
         const editorRect = layoutManager.getEditorAreaRect();
         const gutterWidth = 5;
-        const screenX = editorRect.x + gutterWidth + cursor.position.column - this.paneManager.getScrollLeft();
-        const screenY = editorRect.y + cursor.position.line - this.paneManager.getScrollTop();
+        const screenX = editorRect.x + gutterWidth + cursor.position.column - paneManager.getScrollLeft();
+        const screenY = editorRect.y + cursor.position.line - paneManager.getScrollTop();
         
         // Pass symbols for additional context
         hoverTooltip.show(hover, screenX, screenY, symbols);
@@ -1330,6 +1361,8 @@ export class App {
    * Main render function
    */
   private render(ctx: RenderContext): void {
+    this.debugLog('render() called');
+    
     // Hide cursor during render to prevent flickering
     renderer.hideCursor();
     
@@ -1340,6 +1373,8 @@ export class App {
     const statusBarRect = layoutManager.getStatusBarRect();
     const editorRect = layoutManager.getEditorAreaRect();
     const sidebarRect = layoutManager.getSidebarRect();
+    
+    this.debugLog(`render: editorRect=${JSON.stringify(editorRect)}, sidebarRect=${sidebarRect ? JSON.stringify(sidebarRect) : 'null'}`);
 
     // Render file tree sidebar (if visible)
     if (sidebarRect) {
@@ -1351,8 +1386,10 @@ export class App {
     }
 
     // Render panes (each pane has its own tab bar)
+    this.debugLog('render: calling paneManager.setRect and render');
     paneManager.setRect(editorRect);
     paneManager.render(ctx);
+    this.debugLog('render: paneManager rendered');
 
     // Render search widget (positioned in editor area)
     if (searchWidget.visible) {
@@ -1516,7 +1553,7 @@ export class App {
           const doc = this.getActiveDocument();
           if (doc) {
             doc.undo();
-            this.paneManager.ensureCursorVisible();
+            paneManager.ensureCursorVisible();
             this.updateStatusBar();
           }
         }
@@ -1529,7 +1566,7 @@ export class App {
           const doc = this.getActiveDocument();
           if (doc) {
             doc.redo();
-            this.paneManager.ensureCursorVisible();
+            paneManager.ensureCursorVisible();
             this.updateStatusBar();
           }
         }
@@ -1561,7 +1598,7 @@ export class App {
               this.clipboard = text;
               await this.copyToSystemClipboard(text);
               doc.backspace();
-              this.paneManager.ensureCursorVisible();
+              paneManager.ensureCursorVisible();
               this.updateStatusBar();
             }
           }
@@ -1578,7 +1615,7 @@ export class App {
             const text = await this.pasteFromSystemClipboard() || this.clipboard;
             if (text) {
               doc.insert(text);
-              this.paneManager.ensureCursorVisible();
+              paneManager.ensureCursorVisible();
               this.updateStatusBar();
             }
           }
@@ -1753,7 +1790,7 @@ export class App {
           const doc = this.getActiveDocument();
           if (doc) {
             doc.newline();
-            this.paneManager.ensureCursorVisible();
+            paneManager.ensureCursorVisible();
             this.updateStatusBar();
           }
         }
@@ -1765,7 +1802,7 @@ export class App {
           const doc = this.getActiveDocument();
           if (doc) {
             doc.backspace();
-            this.paneManager.ensureCursorVisible();
+            paneManager.ensureCursorVisible();
             this.updateStatusBar();
             this.notifyDocumentChange(doc);
             
@@ -1789,7 +1826,7 @@ export class App {
           const doc = this.getActiveDocument();
           if (doc) {
             doc.delete();
-            this.paneManager.ensureCursorVisible();
+            paneManager.ensureCursorVisible();
             this.updateStatusBar();
           }
         }
@@ -1804,7 +1841,7 @@ export class App {
               ? ' '.repeat(settings.get('editor.tabSize'))
               : '\t';
             doc.insert(tabChar);
-            this.paneManager.ensureCursorVisible();
+            paneManager.ensureCursorVisible();
             this.updateStatusBar();
           }
         }
@@ -1882,7 +1919,7 @@ export class App {
         title: 'Toggle Minimap',
         category: 'View',
         handler: () => {
-          this.paneManager.toggleMinimap();
+          paneManager.toggleMinimap();
         }
       },
 
@@ -1892,7 +1929,7 @@ export class App {
         title: 'Split Editor Vertically',
         category: 'View',
         handler: () => {
-          this.paneManager.splitVertical();
+          paneManager.splitVertical();
           renderer.scheduleRender();
         }
       },
@@ -1901,7 +1938,7 @@ export class App {
         title: 'Split Editor Horizontally',
         category: 'View',
         handler: () => {
-          this.paneManager.splitHorizontal();
+          paneManager.splitHorizontal();
           renderer.scheduleRender();
         }
       },
@@ -1910,7 +1947,7 @@ export class App {
         title: 'Close Editor Pane',
         category: 'View',
         handler: () => {
-          this.paneManager.closeActivePane();
+          paneManager.closeActivePane();
           renderer.scheduleRender();
         }
       },
@@ -1919,8 +1956,8 @@ export class App {
         title: 'Focus Next Pane',
         category: 'View',
         handler: () => {
-          this.paneManager.focusNextPane();
-          this.activeDocumentId = this.paneManager.getActivePane().getActiveDocumentId();
+          paneManager.focusNextPane();
+          this.activeDocumentId = paneManager.getActivePane().getActiveDocumentId();
           this.updateStatusBar();
           renderer.scheduleRender();
         }
@@ -1930,8 +1967,8 @@ export class App {
         title: 'Focus Previous Pane',
         category: 'View',
         handler: () => {
-          this.paneManager.focusPreviousPane();
-          this.activeDocumentId = this.paneManager.getActivePane().getActiveDocumentId();
+          paneManager.focusPreviousPane();
+          this.activeDocumentId = paneManager.getActivePane().getActiveDocumentId();
           this.updateStatusBar();
           renderer.scheduleRender();
         }
@@ -2081,7 +2118,7 @@ export class App {
           const doc = this.getActiveDocument();
           if (doc) {
             doc.outdent();
-            this.paneManager.ensureCursorVisible();
+            paneManager.ensureCursorVisible();
             this.updateStatusBar();
           }
         }
@@ -2094,7 +2131,7 @@ export class App {
           const doc = this.getActiveDocument();
           if (doc) {
             doc.selectNextOccurrence();
-            this.paneManager.ensureCursorVisible();
+            paneManager.ensureCursorVisible();
             this.updateStatusBar();
           }
         }
@@ -2107,7 +2144,7 @@ export class App {
           const doc = this.getActiveDocument();
           if (doc) {
             doc.selectAllOccurrences();
-            this.paneManager.ensureCursorVisible();
+            paneManager.ensureCursorVisible();
             this.updateStatusBar();
           }
         }
@@ -2120,7 +2157,7 @@ export class App {
           const doc = this.getActiveDocument();
           if (doc) {
             doc.addCursorAbove();
-            this.paneManager.ensureCursorVisible();
+            paneManager.ensureCursorVisible();
             this.updateStatusBar();
           }
         }
@@ -2133,7 +2170,7 @@ export class App {
           const doc = this.getActiveDocument();
           if (doc) {
             doc.addCursorBelow();
-            this.paneManager.ensureCursorVisible();
+            paneManager.ensureCursorVisible();
             this.updateStatusBar();
           }
         }
@@ -2146,7 +2183,7 @@ export class App {
           const doc = this.getActiveDocument();
           if (doc) {
             doc.splitSelectionIntoLines();
-            this.paneManager.ensureCursorVisible();
+            paneManager.ensureCursorVisible();
             this.updateStatusBar();
           }
         }
@@ -2168,7 +2205,7 @@ export class App {
             searchWidget.onNavigate((match) => {
               if (match && doc) {
                 doc.cursorManager.setPosition(match.range.start);
-                this.paneManager.ensureCursorVisible();
+                paneManager.ensureCursorVisible();
               }
               renderer.scheduleRender();
             });
@@ -2216,7 +2253,7 @@ export class App {
             searchWidget.onNavigate((match) => {
               if (match && doc) {
                 doc.cursorManager.setPosition(match.range.start);
-                this.paneManager.ensureCursorVisible();
+                paneManager.ensureCursorVisible();
               }
               renderer.scheduleRender();
             });
@@ -2352,7 +2389,7 @@ export class App {
     const doc = this.getActiveDocument();
     if (!doc) return;
 
-    const pageSize = Math.max(1, this.paneManager.getVisibleLineCount() - 2);
+    const pageSize = Math.max(1, paneManager.getVisibleLineCount() - 2);
 
     switch (direction) {
       case 'left': doc.moveLeft(selecting); break;
@@ -2369,7 +2406,7 @@ export class App {
       case 'pageDown': doc.movePageDown(pageSize, selecting); break;
     }
 
-    this.paneManager.ensureCursorVisible();
+    paneManager.ensureCursorVisible();
     this.updateStatusBar();
   }
 
@@ -2448,20 +2485,24 @@ export class App {
    * Create a new file
    */
   newFile(): void {
+    this.debugLog('newFile() called');
     const document = new Document();
     const id = this.generateId();
     
     this.documents.push({ id, document });
     
-    // Add to the appropriate pane (last focused, or create default)
-    const targetPane = this.paneManager.getLastFocusedPane() || this.paneManager.getActivePane();
+    // Add to the appropriate pane (last focused, or active)
+    const targetPane = paneManager.getLastFocusedPane() || paneManager.getActivePane();
+    this.debugLog(`newFile: targetPane=${targetPane?.id || 'null'}`);
     if (targetPane) {
       targetPane.addDocument(id, document);
       targetPane.setActiveDocument(id, document);
       this.activeDocumentId = id;
     }
     
+    this.debugLog('newFile: updating status bar');
     this.updateStatusBar();
+    this.debugLog('newFile() complete');
   }
 
   /**
@@ -2474,7 +2515,7 @@ export class App {
     this.activeDocumentId = id;
     
     // Get active pane and set the document
-    const pane = this.paneManager.getActivePane();
+    const pane = paneManager.getActivePane();
     if (pane) {
       // Check if pane already has this document
       if (!pane.hasDocumentById(id)) {
@@ -2520,16 +2561,16 @@ export class App {
     const doc = docEntry.document;
     
     // Check how many panes have this document open
-    const panesWithDoc = this.paneManager.getAllPanes().filter(p => p.hasDocumentById(id));
+    const panesWithDoc = paneManager.getAllPanes().filter(p => p.hasDocumentById(id));
     
     if (panesWithDoc.length > 1) {
       // Document is in multiple panes - just remove from this pane
-      const pane = this.paneManager.getPane(paneId);
+      const pane = paneManager.getPane(paneId);
       if (pane) {
         pane.removeDocument(id);
         
         // If this was the active pane, update activeDocumentId
-        if (this.paneManager.getActivePane().id === paneId) {
+        if (paneManager.getActivePane().id === paneId) {
           const newActiveId = pane.getActiveDocumentId();
           this.activeDocumentId = newActiveId;
           this.updateStatusBar();
@@ -2572,13 +2613,13 @@ export class App {
     }
 
     // Remove document from all panes that have it
-    this.paneManager.removeDocumentFromAllPanes(id);
+    paneManager.removeDocumentFromAllPanes(id);
 
     this.documents.splice(index, 1);
 
     if (this.activeDocumentId === id) {
       // Get the active pane's current document as the new active
-      const pane = this.paneManager.getActivePane();
+      const pane = paneManager.getActivePane();
       const newActiveId = pane?.getActiveDocumentId() || null;
       
       if (newActiveId) {

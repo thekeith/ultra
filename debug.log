@@ -1,0 +1,2590 @@
+[2025-12-15T05:56:18.050Z] Starting Ultra...
+[2025-12-15T05:56:18.050Z] Loading configuration...
+[2025-12-15T05:56:18.086Z] Initializing renderer...
+[2025-12-15T05:56:18.091Z] Updating layout: 80x30
+[2025-12-15T05:56:18.091Z] Setting up event handlers...
+[2025-12-15T05:56:18.092Z] Registering commands...
+[2025-12-15T05:56:18.092Z] Determining workspace root...
+[2025-12-15T05:56:18.092Z] Loading file tree from: /Users/keith/Development/ultra
+[2025-12-15T05:56:18.095Z] Applying settings...
+[2025-12-15T05:56:18.095Z] Initializing LSP...
+[2025-12-15T05:56:18.095Z] Starting file watcher...
+[2025-12-15T05:56:18.095Z] Opening: new file
+[2025-12-15T05:56:18.095Z] newFile() called
+[2025-12-15T05:56:18.096Z] newFile: targetPane=pane-1
+[2025-12-15T05:56:18.096Z] newFile: updating status bar
+[2025-12-15T05:56:18.096Z] newFile() complete
+[2025-12-15T05:56:18.096Z] Setting isRunning = true
+[2025-12-15T05:56:18.096Z] Scheduling initial render...
+[2025-12-15T05:56:18.096Z] Start complete!
+[2025-12-15T05:56:18.096Z] render() called
+[2025-12-15T05:56:18.096Z] render: editorRect={"x":31,"y":1,"width":50,"height":29}, sidebarRect={"x":1,"y":1,"width":30,"height":29}
+[2025-12-15T05:56:18.097Z] render: calling paneManager.setRect and render
+[PaneManager] setRect({"x":31,"y":1,"width":50,"height":29})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":50,"height":29}
+[Pane pane-1] setRect({"x":31,"y":1,"width":50,"height":29})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":50,"height":29}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":40,"height":28}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=28, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=35, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[2025-12-15T05:56:18.098Z] render: paneManager rendered
+[PaneManager] setRect({"x":1,"y":1,"width":176,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":1,"y":1,"width":176,"height":47}
+[Pane pane-1] setRect({"x":1,"y":1,"width":176,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":1,"y":1,"width":176,"height":47}, tabs=0
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=null, editorRect={"x":1,"y":2,"width":166,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: no doc, rendering empty state
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":45},"selection":null,"desiredColumn":45}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: rendering cursor
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] rendering focus border...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=2
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=39
+[Pane pane-1] renderContent: content.length=621
+[Pane pane-1] renderContent: getting new tokens
+[PaneManager] setRect({"x":31,"y":1,"width":142,"height":48})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":142,"height":48}
+[Pane pane-1] setRect({"x":31,"y":1,"width":142,"height":48})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":142,"height":48}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":132,"height":47}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=47, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=127, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":48})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":48}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":48})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":48}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":47}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=47, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: tokens.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[Pane pane-1] renderLine: complete
+[Pane pane-1] renderContent: lines done
+[Pane pane-1] renderContent: complete
+[Pane pane-1] renderEditor: content done
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":47})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":47}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":47})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":47}, tabs=2
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":46}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=46, startLine=0, docLineCount=81
+[Pane pane-1] renderContent: content.length=1348
+[Pane pane-1] renderContent: getting new tokens
+[PaneManager] setRect({"x":1,"y":1,"width":176,"height":48})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":1,"y":1,"width":176,"height":48}
+[Pane pane-1] setRect({"x":1,"y":1,"width":176,"height":48})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":1,"y":1,"width":176,"height":48}, tabs=0
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=null, editorRect={"x":1,"y":2,"width":166,"height":47}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: no doc, rendering empty state
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":48})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":48}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":48})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":48}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":47}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=47, startLine=0, docLineCount=53
+[Pane pane-1] renderContent: content.length=1077
+[Pane pane-1] renderContent: getting new tokens
+[PaneManager] setRect({"x":1,"y":1,"width":176,"height":48})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":1,"y":1,"width":176,"height":48}
+[Pane pane-1] setRect({"x":1,"y":1,"width":176,"height":48})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":1,"y":1,"width":176,"height":48}, tabs=0
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=null, editorRect={"x":1,"y":2,"width":166,"height":47}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: no doc, rendering empty state
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":48})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":48}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":48})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":48}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":47}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=47, startLine=0, docLineCount=53
+[Pane pane-1] renderContent: content.length=1077
+[Pane pane-1] renderContent: parsing new content
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line="/**"
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText="/**"
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done
+[PaneManager] setRect({"x":1,"y":1,"width":176,"height":48})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":1,"y":1,"width":176,"height":48}
+[Pane pane-1] setRect({"x":1,"y":1,"width":176,"height":48})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":1,"y":1,"width":176,"height":48}, tabs=0
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=null, editorRect={"x":1,"y":2,"width":166,"height":47}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: no doc, rendering empty state
+[Pane pane-1] rendering minimap...
+[Pane pane-1] render() complete
+[PaneManager] setRect({"x":31,"y":1,"width":146,"height":48})
+[PaneManager] recalculateLayout, root.type=leaf
+[PaneManager] calculateNodeRect type=leaf, pane=pane-1
+[PaneManager] setting pane pane-1 rect to {"x":31,"y":1,"width":146,"height":48}
+[Pane pane-1] setRect({"x":31,"y":1,"width":146,"height":48})
+[Pane pane-1] setting tabBar rect...
+[Pane pane-1] tabBar rect set
+[Pane pane-1] setting minimap rect...
+[Pane pane-1] minimap rect set
+[Pane pane-1] setRect complete
+[PaneManager] setRect complete
+[Pane pane-1] render() called, rect={"x":31,"y":1,"width":146,"height":48}, tabs=1
+[Pane pane-1] rendering tab bar...
+[Pane pane-1] rendering editor...
+[Pane pane-1] renderEditor: doc=exists, editorRect={"x":31,"y":2,"width":136,"height":47}
+[Pane pane-1] renderEditor: background done
+[Pane pane-1] renderEditor: rendering content...
+[Pane pane-1] renderContent: visibleLines=47, startLine=0, docLineCount=1
+[Pane pane-1] renderContent: content.length=0
+[Pane pane-1] renderContent: rendering lines...
+[Pane pane-1] renderLine: lineNum=0, screenY=2
+[Pane pane-1] renderLine: line=""
+[Pane pane-1] renderLine: cursor={"position":{"line":0,"column":0},"selection":null,"desiredColumn":0}
+[Pane pane-1] renderLine: isCurrentLine=true
+[Pane pane-1] renderLine: gutter done
+[Pane pane-1] renderLine: line highlight done
+[Pane pane-1] renderLine: contentWidth=131, visibleText=""
+[Pane pane-1] renderLine: content done
+[Pane pane-1] renderLine: buffer done

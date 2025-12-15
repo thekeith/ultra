@@ -351,19 +351,27 @@ export class PaneManager implements MouseHandler {
    * Set the available rect for all panes
    */
   setRect(rect: Rect): void {
+    const fs = require('fs');
+    fs.appendFileSync('debug.log', `[PaneManager] setRect(${JSON.stringify(rect)})\n`);
     this.rect = rect;
     this.recalculateLayout();
+    fs.appendFileSync('debug.log', `[PaneManager] setRect complete\n`);
   }
 
   /**
    * Recalculate layout for all panes
    */
   private recalculateLayout(): void {
+    const fs = require('fs');
+    fs.appendFileSync('debug.log', `[PaneManager] recalculateLayout, root.type=${this.root.type}\n`);
     this.calculateNodeRect(this.root, this.rect);
   }
 
   private calculateNodeRect(node: LayoutNode, rect: Rect): void {
+    const fs = require('fs');
+    fs.appendFileSync('debug.log', `[PaneManager] calculateNodeRect type=${node.type}, pane=${node.pane?.id || 'none'}\n`);
     if (node.type === 'leaf' && node.pane) {
+      fs.appendFileSync('debug.log', `[PaneManager] setting pane ${node.pane.id} rect to ${JSON.stringify(rect)}\n`);
       node.pane.setRect(rect);
       return;
     }
