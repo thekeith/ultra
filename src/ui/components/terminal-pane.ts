@@ -363,7 +363,7 @@ export class TerminalPane implements MouseHandler {
    */
   private renderTerminalContent(ctx: RenderContext, terminal: TerminalInstance): void {
     const contentRect = this.getTerminalContentRect();
-    const buffer = terminal.pty.getVisibleBuffer();
+    const buffer = terminal.pty.getBuffer();
     const cursor = terminal.pty.getCursor();
     
     const defaultBg = this.hexToRgb(this.bgColor);
