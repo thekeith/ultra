@@ -692,106 +692,171 @@ export class Pane implements MouseHandler {
     if (lnColor) output += `\x1b[38;2;${lnColor.r};${lnColor.g};${lnColor.b}m`;
     output += lineNumStr + ' \x1b[0m';
     
-    // Line highlight for current line
+    // Determine background color for line
+    let lineBg: { r: number; g: number; b: number } | null = null;
     if (isCurrentLine && this.isFocused) {
-      const hlBg = this.hexToRgb(this.theme.lineHighlightBackground);
-      if (hlBg) {
-        output += `\x1b[48;2;${hlBg.r};${hlBg.g};${hlBg.b}m`;
+      lineBg = this.hexToRgb(this.theme.lineHighlightBackground);
+    }
+    
+    // Get selection range for this line (if any)
+    let selStart = -1;
+    let selEnd = -1;
+    if (hasSelection(cursor.selection)) {
+      const selection = getSelectionRange(cursor.selection);
+      const { start, end } = selection;
+      if (lineNum >= start.line && lineNum <= end.line) {
+        selStart = lineNum === start.line ? start.column : 0;
+        selEnd = lineNum === end.line ? end.column : line.length;
+        // Adjust for scroll
+        selStart = Math.max(0, selStart - this.scrollLeft);
+        selEnd = Math.max(0, selEnd - this.scrollLeft);
       }
     }
     
-    // Content with syntax highlighting
+    const selBg = this.hexToRgb(this.theme.selectionBackground);
+    
+    // Content with syntax highlighting and selection
     const contentWidth = rect.width - this.gutterWidth;
     const startCol = this.scrollLeft;
     const visibleText = line.substring(startCol, startCol + contentWidth);
     
-    // Apply syntax highlighting tokens
-    if (lineTokens.length > 0) {
-      output += this.renderHighlightedText(visibleText, lineTokens, startCol, contentWidth);
-    } else {
-      const fgColor = this.hexToRgb(this.theme.foreground);
-      if (fgColor) output += `\x1b[38;2;${fgColor.r};${fgColor.g};${fgColor.b}m`;
-      output += visibleText;
-    }
+    // Render text character by character with appropriate backgrounds
+    output += this.renderTextWithSelection(
+      visibleText,
+      lineTokens,
+      startCol,
+      contentWidth,
+      selStart,
+      selEnd,
+      lineBg,
+      selBg
+    );
     
-    // Pad rest of line
+    // Pad rest of line (with selection bg if selection extends past text)
     const padding = contentWidth - visibleText.length;
     if (padding > 0) {
-      output += ' '.repeat(padding);
+      // Check if selection extends into padding area
+      const paddingStart = visibleText.length;
+      const paddingEnd = paddingStart + padding;
+      
+      if (selStart >= 0 && selEnd > paddingStart && selStart < paddingEnd && selBg) {
+        // Some of the padding is selected
+        const selPaddingStart = Math.max(0, selStart - paddingStart);
+        const selPaddingEnd = Math.min(padding, selEnd - paddingStart);
+        
+        // Non-selected padding before selection
+        if (selPaddingStart > 0) {
+          if (lineBg) {
+            output += `\x1b[48;2;${lineBg.r};${lineBg.g};${lineBg.b}m`;
+          }
+          output += ' '.repeat(selPaddingStart);
+        }
+        
+        // Selected padding
+        output += `\x1b[48;2;${selBg.r};${selBg.g};${selBg.b}m`;
+        output += ' '.repeat(selPaddingEnd - selPaddingStart);
+        
+        // Non-selected padding after selection
+        if (selPaddingEnd < padding) {
+          if (lineBg) {
+            output += `\x1b[48;2;${lineBg.r};${lineBg.g};${lineBg.b}m`;
+          } else {
+            output += '\x1b[49m';  // Default background
+          }
+          output += ' '.repeat(padding - selPaddingEnd);
+        }
+      } else {
+        // No selection in padding
+        if (lineBg) {
+          output += `\x1b[48;2;${lineBg.r};${lineBg.g};${lineBg.b}m`;
+        }
+        output += ' '.repeat(padding);
+      }
     }
     
     output += '\x1b[0m';
     ctx.buffer(output);
-    
-    // Render selection highlight
-    if (hasSelection(cursor.selection)) {
-      this.renderSelectionForLine(ctx, doc, lineNum, screenY, rect);
-    }
   }
 
-  private renderHighlightedText(
+  private renderTextWithSelection(
     text: string,
     tokens: HighlightToken[],
     startCol: number,
-    maxWidth: number
+    maxWidth: number,
+    selStart: number,
+    selEnd: number,
+    lineBg: { r: number; g: number; b: number } | null,
+    selBg: { r: number; g: number; b: number } | null
   ): string {
-    let result = '';
-    let currentCol = 0;
+    if (text.length === 0) return '';
     
+    let result = '';
+    const defaultFg = this.hexToRgb(this.theme.foreground);
+    
+    // Build a color map for each character position
+    const charColors: (string | null)[] = new Array(text.length).fill(null);
+    
+    // Apply syntax highlighting colors
     for (const token of tokens) {
-      if (currentCol >= maxWidth) break;
-      
       const tokenStart = Math.max(0, token.start - startCol);
-      const tokenEnd = Math.min(maxWidth, token.end - startCol);
+      const tokenEnd = Math.min(text.length, token.end - startCol);
       
-      if (tokenEnd <= 0 || tokenStart >= maxWidth) continue;
+      if (tokenEnd <= 0 || tokenStart >= text.length) continue;
       
-      const tokenText = text.substring(tokenStart, tokenEnd);
-      if (tokenText.length === 0) continue;
-      
-      const rgb = this.hexToRgb(token.color);
-      if (rgb) {
-        result += `\x1b[38;2;${rgb.r};${rgb.g};${rgb.b}m${tokenText}`;
-      } else {
-        result += tokenText;
+      for (let i = tokenStart; i < tokenEnd; i++) {
+        charColors[i] = token.color;
       }
-      
-      currentCol = tokenEnd;
     }
     
+    // Render character by character, grouping by same style
+    let currentFg: string | null = null;
+    let currentBg: 'line' | 'selection' | 'none' = 'none';
+    let pendingText = '';
+    
+    const flushPending = () => {
+      if (pendingText.length === 0) return;
+      
+      let style = '';
+      
+      // Set background
+      if (currentBg === 'selection' && selBg) {
+        style += `\x1b[48;2;${selBg.r};${selBg.g};${selBg.b}m`;
+      } else if (currentBg === 'line' && lineBg) {
+        style += `\x1b[48;2;${lineBg.r};${lineBg.g};${lineBg.b}m`;
+      }
+      
+      // Set foreground
+      if (currentFg) {
+        const rgb = this.hexToRgb(currentFg);
+        if (rgb) {
+          style += `\x1b[38;2;${rgb.r};${rgb.g};${rgb.b}m`;
+        }
+      } else if (defaultFg) {
+        style += `\x1b[38;2;${defaultFg.r};${defaultFg.g};${defaultFg.b}m`;
+      }
+      
+      result += style + pendingText;
+      pendingText = '';
+    };
+    
+    for (let i = 0; i < text.length && i < maxWidth; i++) {
+      const char = text[i]!;
+      const fg = charColors[i];
+      const isSelected = selStart >= 0 && i >= selStart && i < selEnd;
+      const bg: 'line' | 'selection' | 'none' = isSelected ? 'selection' : (lineBg ? 'line' : 'none');
+      
+      // Check if style changed
+      if (fg !== currentFg || bg !== currentBg) {
+        flushPending();
+        currentFg = fg;
+        currentBg = bg;
+      }
+      
+      pendingText += char;
+    }
+    
+    flushPending();
     return result;
-  }
-
-  private renderSelectionForLine(
-    ctx: RenderContext,
-    doc: Document,
-    lineNum: number,
-    screenY: number,
-    rect: Rect
-  ): void {
-    const cursor = doc.primaryCursor;
-    if (!cursor.selection) return;
-    
-    const selection = getSelectionRange(cursor.selection);
-    const { start, end } = selection;
-    if (lineNum < start.line || lineNum > end.line) return;
-    
-    const line = doc.getLine(lineNum);
-    let selStart = lineNum === start.line ? start.column : 0;
-    let selEnd = lineNum === end.line ? end.column : line.length;
-    
-    // Adjust for scroll
-    selStart = Math.max(0, selStart - this.scrollLeft);
-    selEnd = Math.max(0, selEnd - this.scrollLeft);
-    
-    if (selStart >= selEnd) return;
-    
-    const contentX = rect.x + this.gutterWidth;
-    const selBg = this.hexToRgb(this.theme.selectionBackground);
-    if (!selBg) return;
-    
-    const bg = `\x1b[48;2;${selBg.r};${selBg.g};${selBg.b}m`;
-    ctx.buffer(`\x1b[${screenY};${contentX + selStart}H${bg}${' '.repeat(selEnd - selStart)}\x1b[0m`);
   }
 
   private renderCursor(ctx: RenderContext, doc: Document, rect: Rect): void {
