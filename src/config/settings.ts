@@ -35,6 +35,7 @@ export interface EditorSettings {
   'terminal.integrated.defaultHeight': number;
   'terminal.integrated.defaultWidth': number;
   'git.statusInterval': number;
+  'git.panel.location': 'sidebar-bottom' | 'sidebar-top' | 'panel';
 }
 
 const defaultSettings: EditorSettings = {
@@ -71,7 +72,8 @@ const defaultSettings: EditorSettings = {
   'terminal.integrated.position': 'bottom',
   'terminal.integrated.defaultHeight': 12,
   'terminal.integrated.defaultWidth': 40,
-  'git.statusInterval': 100
+  'git.statusInterval': 100,
+  'git.panel.location': 'sidebar-bottom'
 };
 
 export class Settings {

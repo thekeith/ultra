@@ -1458,13 +1458,56 @@ export class App {
     
     this.debugLog(`render: editorRect=${JSON.stringify(editorRect)}, sidebarRect=${sidebarRect ? JSON.stringify(sidebarRect) : 'null'}`);
 
-    // Render file tree sidebar (if visible)
+    // Render file tree sidebar and/or git panel (if visible)
     if (sidebarRect) {
-      if (gitPanel.isOpen()) {
-        // Git panel takes over sidebar
+      const fileTreeOpen = fileTree.getVisible();
+      const gitPanelOpen = gitPanel.isOpen();
+      const gitPanelLocation = settings.get('git.panel.location');
+      
+      if (fileTreeOpen && gitPanelOpen && gitPanelLocation !== 'panel') {
+        // Split sidebar between file tree and git panel
+        const splitRatio = 0.5;  // Could make this configurable
+        const fileTreeHeight = Math.floor(sidebarRect.height * splitRatio);
+        const gitPanelHeight = sidebarRect.height - fileTreeHeight;
+        
+        if (gitPanelLocation === 'sidebar-bottom') {
+          // File tree on top, git panel on bottom
+          fileTree.setRect({
+            x: sidebarRect.x,
+            y: sidebarRect.y,
+            width: sidebarRect.width,
+            height: fileTreeHeight
+          });
+          gitPanel.setRect({
+            x: sidebarRect.x,
+            y: sidebarRect.y + fileTreeHeight,
+            width: sidebarRect.width,
+            height: gitPanelHeight
+          });
+        } else {
+          // sidebar-top: Git panel on top, file tree on bottom
+          gitPanel.setRect({
+            x: sidebarRect.x,
+            y: sidebarRect.y,
+            width: sidebarRect.width,
+            height: gitPanelHeight
+          });
+          fileTree.setRect({
+            x: sidebarRect.x,
+            y: sidebarRect.y + gitPanelHeight,
+            width: sidebarRect.width,
+            height: fileTreeHeight
+          });
+        }
+        
+        fileTree.render(ctx);
+        gitPanel.render(ctx);
+      } else if (gitPanelOpen) {
+        // Git panel only
         gitPanel.setRect(sidebarRect);
         gitPanel.render(ctx);
       } else {
+        // File tree only (or nothing, but sidebar is visible)
         fileTree.setRect(sidebarRect);
         fileTree.setVisible(true);
         fileTree.render(ctx);
@@ -2085,14 +2128,13 @@ export class App {
             if (!layoutManager.isSidebarVisible()) {
               layoutManager.toggleSidebar(settings.get('ultra.sidebar.width') || 30);
             }
-            fileTree.setVisible(false);
+            // Don't hide file tree - they can coexist in split sidebar
             gitPanel.setVisible(true);
             gitPanel.setFocused(true);
             await gitPanel.refresh();
           } else {
             gitPanel.setVisible(false);
             gitPanel.setFocused(false);
-            fileTree.setVisible(true);
           }
           renderer.scheduleRender();
         }
