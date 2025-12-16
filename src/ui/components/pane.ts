@@ -501,6 +501,140 @@ export class Pane implements MouseHandler {
   }
 
   /**
+   * Get visible column count (text width)
+   */
+  private getVisibleColumnCount(): number {
+    const minimapWidth = this.minimapEnabled ? 10 : 0;
+    return Math.max(1, this.rect.width - this.gutterWidth - minimapWidth);
+  }
+
+  /**
+   * Check if word wrap is enabled
+   */
+  private isWordWrapEnabled(): boolean {
+    const wrapSetting = settings.get('editor.wordWrap');
+    return wrapSetting === 'on' || wrapSetting === 'wordWrapColumn' || wrapSetting === 'bounded';
+  }
+
+  /**
+   * Compute wrapped lines for the entire document
+   */
+  private computeWrappedLines(): void {
+    const doc = this.getActiveDocument();
+    if (!doc) {
+      this.wrappedLines = [];
+      return;
+    }
+
+    const textWidth = this.getVisibleColumnCount();
+    const content = doc.content;
+
+    // Cache check - only recompute if width or content changed
+    if (textWidth === this.lastWrapWidth && content === this.lastWrapContent && this.wrappedLines.length > 0) {
+      return;
+    }
+
+    this.lastWrapWidth = textWidth;
+    this.lastWrapContent = content;
+    this.wrappedLines = [];
+
+    const lineCount = doc.lineCount;
+
+    if (!this.isWordWrapEnabled() || textWidth <= 0) {
+      // No wrapping - each buffer line is one screen line
+      for (let i = 0; i < lineCount; i++) {
+        const lineLen = doc.getLine(i).length;
+        this.wrappedLines.push({
+          bufferLine: i,
+          startColumn: 0,
+          endColumn: lineLen,
+          isFirstWrap: true
+        });
+      }
+      return;
+    }
+
+    // Compute wrapped lines
+    for (let bufferLine = 0; bufferLine < lineCount; bufferLine++) {
+      const line = doc.getLine(bufferLine);
+      const lineLen = line.length;
+
+      if (lineLen <= textWidth) {
+        // Line fits on one screen line
+        this.wrappedLines.push({
+          bufferLine,
+          startColumn: 0,
+          endColumn: lineLen,
+          isFirstWrap: true
+        });
+      } else {
+        // Line needs wrapping - break at word boundaries
+        let col = 0;
+        let isFirst = true;
+        while (col < lineLen) {
+          let endCol = Math.min(col + textWidth, lineLen);
+
+          // If we're not at the end of the line, try to find a good break point
+          if (endCol < lineLen) {
+            // Look backwards for a break point (space or delimiter)
+            let breakCol = endCol;
+            while (breakCol > col) {
+              const char = line[breakCol - 1];
+              // Break after spaces, or after common delimiters
+              if (char === ' ' || char === '\t') {
+                break;
+              }
+              if (char === '.' || char === ',' || char === ';' || char === ':' ||
+                  char === ')' || char === ']' || char === '}' || char === '>' ||
+                  char === '-' || char === '/' || char === '\\') {
+                break;
+              }
+              breakCol--;
+            }
+
+            // Only use the break point if it's not too far back (at least 50% of width)
+            if (breakCol > col + Math.floor(textWidth / 2)) {
+              endCol = breakCol;
+            }
+          }
+
+          this.wrappedLines.push({
+            bufferLine,
+            startColumn: col,
+            endColumn: endCol,
+            isFirstWrap: isFirst
+          });
+          col = endCol;
+          isFirst = false;
+        }
+      }
+    }
+  }
+
+  /**
+   * Convert buffer position to screen line
+   */
+  private bufferToScreenLine(bufferLine: number, column: number = 0): number {
+    if (!this.isWordWrapEnabled()) {
+      return bufferLine;
+    }
+
+    for (let i = 0; i < this.wrappedLines.length; i++) {
+      const wrap = this.wrappedLines[i]!;
+      if (wrap.bufferLine === bufferLine && column >= wrap.startColumn && column < wrap.endColumn) {
+        return i;
+      }
+      // Handle cursor at end of line
+      if (wrap.bufferLine === bufferLine && column === wrap.endColumn &&
+          (i + 1 >= this.wrappedLines.length || this.wrappedLines[i + 1]!.bufferLine !== bufferLine)) {
+        return i;
+      }
+    }
+
+    return bufferLine;  // Fallback
+  }
+
+  /**
    * Ensure cursor is visible
    */
   ensureCursorVisible(): void {
@@ -515,29 +649,49 @@ export class Pane implements MouseHandler {
 
     debugLog(`[Pane ${this.id}] ensureCursorVisible called: cursor=(${cursor.position.line},${cursor.position.column}), scrollTop=${this.scrollTop}, visibleLines=${visibleLines}`);
 
+    // Compute wrapped lines for accurate positioning
+    this.computeWrappedLines();
+
     let scrolled = false;
 
-    // Vertical scrolling
-    if (cursor.position.line < this.scrollTop) {
-      debugLog(`[Pane ${this.id}] ensureCursorVisible: cursor above viewport, scrolling up`);
-      this.scrollTop = cursor.position.line;
-      scrolled = true;
-    } else if (cursor.position.line >= this.scrollTop + visibleLines) {
-      debugLog(`[Pane ${this.id}] ensureCursorVisible: cursor below viewport, scrolling down`);
-      this.scrollTop = cursor.position.line - visibleLines + 1;
-      scrolled = true;
-    }
+    if (this.isWordWrapEnabled()) {
+      // With word wrap, we scroll by screen lines
+      const screenLine = this.bufferToScreenLine(cursor.position.line, cursor.position.column);
 
-    // Horizontal scrolling
-    const editorWidth = this.rect.width - this.gutterWidth - (this.minimapEnabled ? 10 : 0);
-    if (cursor.position.column < this.scrollLeft) {
-      debugLog(`[Pane ${this.id}] ensureCursorVisible: cursor left of viewport, scrolling left`);
-      this.scrollLeft = Math.max(0, cursor.position.column - 5);
-      scrolled = true;
-    } else if (cursor.position.column >= this.scrollLeft + editorWidth) {
-      debugLog(`[Pane ${this.id}] ensureCursorVisible: cursor right of viewport, scrolling right`);
-      this.scrollLeft = cursor.position.column - editorWidth + 5;
-      scrolled = true;
+      if (screenLine < this.scrollTop) {
+        debugLog(`[Pane ${this.id}] ensureCursorVisible: cursor above viewport, scrolling up`);
+        this.scrollTop = screenLine;
+        scrolled = true;
+      } else if (screenLine >= this.scrollTop + visibleLines) {
+        debugLog(`[Pane ${this.id}] ensureCursorVisible: cursor below viewport, scrolling down`);
+        this.scrollTop = screenLine - visibleLines + 1;
+        scrolled = true;
+      }
+      // No horizontal scrolling with word wrap
+      this.scrollLeft = 0;
+    } else {
+      // Without word wrap, scroll by buffer lines
+      if (cursor.position.line < this.scrollTop) {
+        debugLog(`[Pane ${this.id}] ensureCursorVisible: cursor above viewport, scrolling up`);
+        this.scrollTop = cursor.position.line;
+        scrolled = true;
+      } else if (cursor.position.line >= this.scrollTop + visibleLines) {
+        debugLog(`[Pane ${this.id}] ensureCursorVisible: cursor below viewport, scrolling down`);
+        this.scrollTop = cursor.position.line - visibleLines + 1;
+        scrolled = true;
+      }
+
+      // Horizontal scrolling
+      const editorWidth = this.getVisibleColumnCount();
+      if (cursor.position.column < this.scrollLeft) {
+        debugLog(`[Pane ${this.id}] ensureCursorVisible: cursor left of viewport, scrolling left`);
+        this.scrollLeft = Math.max(0, cursor.position.column - 5);
+        scrolled = true;
+      } else if (cursor.position.column >= this.scrollLeft + editorWidth) {
+        debugLog(`[Pane ${this.id}] ensureCursorVisible: cursor right of viewport, scrolling right`);
+        this.scrollLeft = cursor.position.column - editorWidth + 5;
+        scrolled = true;
+      }
     }
 
     this.minimap.setEditorScroll(this.scrollTop, visibleLines);
@@ -706,9 +860,9 @@ export class Pane implements MouseHandler {
 
   private renderContent(ctx: RenderContext, doc: Document, rect: Rect): void {
     const visibleLines = rect.height;
-    
+
     debugLog(`[Pane ${this.id}] renderContent: visibleLines=${visibleLines}, scrollTop=${this.scrollTop}, docLineCount=${doc.lineCount}`);
-    
+
     // Recompute fold regions if content changed
     const content = doc.content;
     if (content !== this.lastFoldContent) {
@@ -716,7 +870,7 @@ export class Pane implements MouseHandler {
       this.foldManager.computeRegions(lines);
       this.lastFoldContent = content;
     }
-    
+
     // Parse content for syntax highlighting
     debugLog(`[Pane ${this.id}] renderContent: content.length=${content.length}`);
     if (this.highlighterReady && content !== this.lastParsedContent) {
@@ -724,38 +878,79 @@ export class Pane implements MouseHandler {
       shikiHighlighter.parse(content);
       this.lastParsedContent = content;
     }
-    
+
+    // Compute wrapped lines
+    this.computeWrappedLines();
+
     // Calculate inline diff position if visible
     const inlineDiffLine = this.inlineDiff.visible ? this.inlineDiff.line : -1;
     const inlineDiffHeight = this.inlineDiff.visible ? this.inlineDiff.height : 0;
-    
-    // Render visible lines, skipping folded ones
+
+    // Render visible lines
     debugLog(`[Pane ${this.id}] renderContent: rendering lines...`);
-    let screenLine = 0;
-    let bufferLine = this.scrollTop;
-    
-    while (screenLine < visibleLines && bufferLine < doc.lineCount) {
-      // Skip hidden (folded) lines
-      if (this.foldManager.isHidden(bufferLine)) {
-        bufferLine++;
-        continue;
+
+    if (this.isWordWrapEnabled()) {
+      // With word wrap: render wrapped screen lines
+      let screenLine = 0;
+      let wrapIndex = this.scrollTop;
+
+      while (screenLine < visibleLines && wrapIndex < this.wrappedLines.length) {
+        const wrap = this.wrappedLines[wrapIndex]!;
+
+        // Skip hidden (folded) lines
+        if (this.foldManager.isHidden(wrap.bufferLine)) {
+          // Skip all wraps of this folded line
+          while (wrapIndex < this.wrappedLines.length &&
+                 this.wrappedLines[wrapIndex]!.bufferLine === wrap.bufferLine) {
+            wrapIndex++;
+          }
+          continue;
+        }
+
+        const screenY = rect.y + screenLine;
+        const lineTokens = this.highlighterReady ? shikiHighlighter.highlightLine(wrap.bufferLine) : [];
+        this.renderWrappedLine(ctx, doc, wrap, screenY, rect, lineTokens);
+
+        screenLine++;
+        wrapIndex++;
+
+        // Render inline diff after the target line (only after last wrap of the line)
+        if (wrap.bufferLine === inlineDiffLine &&
+            (wrapIndex >= this.wrappedLines.length || this.wrappedLines[wrapIndex]!.bufferLine !== wrap.bufferLine) &&
+            screenLine + inlineDiffHeight <= visibleLines) {
+          this.renderInlineDiff(ctx, rect.x, rect.y + screenLine, rect.width, inlineDiffHeight);
+          screenLine += inlineDiffHeight;
+        }
       }
-      
-      const screenY = rect.y + screenLine;
-      const lineTokens = this.highlighterReady ? shikiHighlighter.highlightLine(bufferLine) : [];
-      this.renderLine(ctx, doc, bufferLine, screenY, rect, lineTokens);
-      
-      screenLine++;
-      bufferLine++;
-      
-      // Render inline diff after the target line
-      if (bufferLine - 1 === inlineDiffLine && screenLine + inlineDiffHeight <= visibleLines) {
-        this.renderInlineDiff(ctx, rect.x, rect.y + screenLine, rect.width, inlineDiffHeight);
-        screenLine += inlineDiffHeight;
+    } else {
+      // Without word wrap: render buffer lines directly
+      let screenLine = 0;
+      let bufferLine = this.scrollTop;
+
+      while (screenLine < visibleLines && bufferLine < doc.lineCount) {
+        // Skip hidden (folded) lines
+        if (this.foldManager.isHidden(bufferLine)) {
+          bufferLine++;
+          continue;
+        }
+
+        const screenY = rect.y + screenLine;
+        const lineTokens = this.highlighterReady ? shikiHighlighter.highlightLine(bufferLine) : [];
+        this.renderLine(ctx, doc, bufferLine, screenY, rect, lineTokens);
+
+        screenLine++;
+        bufferLine++;
+
+        // Render inline diff after the target line
+        if (bufferLine - 1 === inlineDiffLine && screenLine + inlineDiffHeight <= visibleLines) {
+          this.renderInlineDiff(ctx, rect.x, rect.y + screenLine, rect.width, inlineDiffHeight);
+          screenLine += inlineDiffHeight;
+        }
       }
     }
+
     debugLog(`[Pane ${this.id}] renderContent: lines done`);
-    
+
     // Render cursor if focused
     if (this.isFocused) {
       debugLog(`[Pane ${this.id}] renderContent: rendering cursor`);
@@ -1071,6 +1266,142 @@ export class Pane implements MouseHandler {
     ctx.buffer(output);
   }
 
+  private renderWrappedLine(
+    ctx: RenderContext,
+    doc: Document,
+    wrap: WrappedLine,
+    screenY: number,
+    rect: Rect,
+    lineTokens: HighlightToken[]
+  ): void {
+    const line = doc.getLine(wrap.bufferLine);
+    const cursor = doc.primaryCursor;
+    const isCurrentLine = wrap.bufferLine === cursor.position.line;
+
+    // Calculate gutter parts
+    const digits = Math.max(3, String(doc.lineCount).length);
+    const lineNumStr = wrap.isFirstWrap ? String(wrap.bufferLine + 1).padStart(digits, ' ') : ' '.repeat(digits);
+
+    const lnColor = isCurrentLine
+      ? this.hexToRgb(this.theme.lineNumberActiveForeground)
+      : this.hexToRgb(this.theme.lineNumberForeground);
+    const gutterBg = this.hexToRgb(this.theme.gutterBackground);
+
+    let output = `\x1b[${screenY};${rect.x}H`;
+    if (gutterBg) output += `\x1b[48;2;${gutterBg.r};${gutterBg.g};${gutterBg.b}m`;
+
+    // Git gutter indicator (only on first wrap)
+    if (wrap.isFirstWrap) {
+      const gitChange = this.gitLineChanges.get(wrap.bufferLine + 1);
+      if (gitChange) {
+        const gitAddedColor = { r: 129, g: 199, b: 132 };
+        const gitModifiedColor = { r: 224, g: 175, b: 104 };
+        const gitDeletedColor = { r: 229, g: 115, b: 115 };
+
+        let indicatorColor: { r: number; g: number; b: number };
+        let indicator: string;
+
+        if (gitChange === 'added') {
+          indicatorColor = gitAddedColor;
+          indicator = '│';
+        } else if (gitChange === 'modified') {
+          indicatorColor = gitModifiedColor;
+          indicator = '│';
+        } else {
+          indicatorColor = gitDeletedColor;
+          indicator = '▼';
+        }
+
+        const gitSeq = `\x1b[38;2;${indicatorColor.r};${indicatorColor.g};${indicatorColor.b}m${indicator}`;
+        output += gitSeq;
+      } else {
+        output += ' ';
+      }
+    } else {
+      output += ' ';
+    }
+
+    // Line number
+    if (lnColor) output += `\x1b[38;2;${lnColor.r};${lnColor.g};${lnColor.b}m`;
+    output += lineNumStr;
+
+    // Fold indicator (only on first wrap)
+    if (wrap.isFirstWrap) {
+      const canFold = this.foldManager.canFold(wrap.bufferLine);
+      const isFolded = this.foldManager.isFolded(wrap.bufferLine);
+
+      if (canFold) {
+        const foldColor = themeLoader.getColor('editorLineNumber.foreground') ||
+                          this.theme.lineNumberForeground || '#626880';
+        const foldRgb = this.hexToRgb(foldColor);
+        if (foldRgb) {
+          output += `\x1b[38;2;${foldRgb.r};${foldRgb.g};${foldRgb.b}m`;
+        }
+        output += isFolded ? '▶' : '▼';
+      } else {
+        output += ' ';
+      }
+    } else {
+      output += ' ';
+    }
+
+    // Reset after gutter
+    output += ' \x1b[0m';
+
+    // Determine background color for line
+    let lineBg: { r: number; g: number; b: number } | null = null;
+    if (isCurrentLine && this.isFocused) {
+      lineBg = this.hexToRgb(this.theme.lineHighlightBackground);
+    }
+
+    // Get selection range for this line segment
+    let selStart = -1;
+    let selEnd = -1;
+    if (hasSelection(cursor.selection)) {
+      const selection = getSelectionRange(cursor.selection);
+      const { start, end } = selection;
+      if (wrap.bufferLine >= start.line && wrap.bufferLine <= end.line) {
+        const lineSelStart = wrap.bufferLine === start.line ? start.column : 0;
+        const lineSelEnd = wrap.bufferLine === end.line ? end.column : line.length;
+        // Map selection to this wrap segment
+        if (lineSelEnd > wrap.startColumn && lineSelStart < wrap.endColumn) {
+          selStart = Math.max(0, lineSelStart - wrap.startColumn);
+          selEnd = Math.min(wrap.endColumn - wrap.startColumn, lineSelEnd - wrap.startColumn);
+        }
+      }
+    }
+
+    const selBg = this.hexToRgb(this.theme.selectionBackground);
+
+    // Content with syntax highlighting and selection
+    const contentWidth = rect.width - this.gutterWidth;
+    const visibleText = line.substring(wrap.startColumn, wrap.endColumn);
+
+    // Render text with selection
+    output += this.renderTextWithSelection(
+      visibleText,
+      lineTokens,
+      wrap.startColumn,
+      contentWidth,
+      selStart,
+      selEnd,
+      lineBg,
+      selBg
+    );
+
+    // Pad rest of line
+    const padding = contentWidth - visibleText.length;
+    if (padding > 0) {
+      if (lineBg) {
+        output += `\x1b[48;2;${lineBg.r};${lineBg.g};${lineBg.b}m`;
+      }
+      output += ' '.repeat(padding);
+    }
+
+    output += '\x1b[0m';
+    ctx.buffer(output);
+  }
+
   private renderTextWithSelection(
     text: string,
     tokens: HighlightToken[],
@@ -1155,17 +1486,34 @@ export class Pane implements MouseHandler {
   private renderCursor(ctx: RenderContext, doc: Document, rect: Rect): void {
     // Only render cursor in focused pane
     if (!this.isFocused) return;
-    
+
     const cursor = doc.primaryCursor;
-    const screenLine = cursor.position.line - this.scrollTop;
-    const screenCol = cursor.position.column - this.scrollLeft;
-    
+    let screenLine: number;
+    let screenCol: number;
+
+    if (this.isWordWrapEnabled()) {
+      // Find the screen line for this cursor
+      screenLine = this.bufferToScreenLine(cursor.position.line, cursor.position.column) - this.scrollTop;
+
+      // Find the column within the wrapped segment
+      const wrapIndex = this.bufferToScreenLine(cursor.position.line, cursor.position.column);
+      if (wrapIndex < this.wrappedLines.length) {
+        const wrap = this.wrappedLines[wrapIndex]!;
+        screenCol = cursor.position.column - wrap.startColumn;
+      } else {
+        screenCol = cursor.position.column;
+      }
+    } else {
+      screenLine = cursor.position.line - this.scrollTop;
+      screenCol = cursor.position.column - this.scrollLeft;
+    }
+
     if (screenLine < 0 || screenLine >= rect.height) return;
-    if (screenCol < 0 || screenCol >= rect.width - this.gutterWidth) return;
-    
+    if (screenCol < 0 || screenCol >= this.getVisibleColumnCount()) return;
+
     const cursorX = rect.x + this.gutterWidth + screenCol;
     const cursorY = rect.y + screenLine;
-    
+
     const cursorColor = this.hexToRgb(this.theme.cursorForeground);
     if (cursorColor) {
       ctx.buffer(`\x1b[${cursorY};${cursorX}H\x1b[48;2;${cursorColor.r};${cursorColor.g};${cursorColor.b}m \x1b[0m`);
@@ -1396,17 +1744,38 @@ export class Pane implements MouseHandler {
   private screenToBuffer(screenX: number, screenY: number, editorRect: Rect): Position {
     const doc = this.getActiveDocument();
     if (!doc) return { line: 0, column: 0 };
-    
-    const screenLine = screenY - editorRect.y;
-    const line = this.screenLineToBufferLine(screenLine);
-    const actualLine = line === -1 ? Math.max(0, doc.lineCount - 1) : line;
-    
-    // Get the actual line content to clamp column to line length
-    const lineContent = doc.getLine(actualLine);
-    const rawColumn = Math.max(0, this.scrollLeft + (screenX - editorRect.x - this.gutterWidth));
-    const column = Math.min(rawColumn, lineContent.length);
-    
-    return { line: actualLine, column };
+
+    const screenLineOffset = screenY - editorRect.y;
+    const screenCol = Math.max(0, screenX - editorRect.x - this.gutterWidth);
+
+    if (this.isWordWrapEnabled()) {
+      // With word wrap, map screen position to buffer position
+      const wrapIndex = this.scrollTop + screenLineOffset;
+
+      if (wrapIndex < 0) return { line: 0, column: 0 };
+      if (wrapIndex >= this.wrappedLines.length) {
+        const lastLine = Math.max(0, doc.lineCount - 1);
+        return { line: lastLine, column: doc.getLine(lastLine).length };
+      }
+
+      const wrap = this.wrappedLines[wrapIndex]!;
+      const bufferCol = wrap.startColumn + screenCol;
+      const lineLength = doc.getLine(wrap.bufferLine).length;
+      const clampedCol = Math.min(Math.max(wrap.startColumn, bufferCol), Math.min(wrap.endColumn, lineLength));
+
+      return { line: wrap.bufferLine, column: clampedCol };
+    } else {
+      // Without word wrap, use simple mapping
+      const line = this.screenLineToBufferLine(screenLineOffset);
+      const actualLine = line === -1 ? Math.max(0, doc.lineCount - 1) : line;
+
+      // Get the actual line content to clamp column to line length
+      const lineContent = doc.getLine(actualLine);
+      const rawColumn = Math.max(0, this.scrollLeft + screenCol);
+      const column = Math.min(rawColumn, lineContent.length);
+
+      return { line: actualLine, column };
+    }
   }
 
   // ==================== Callbacks ====================
