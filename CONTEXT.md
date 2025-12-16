@@ -63,6 +63,131 @@ Ultra is a terminal-based code editor written in TypeScript, compiled to a singl
 - Git commands need relative paths when using `-C workspaceRoot`
 - `renderer.width`/`renderer.height` are getters, not `getSize()`
 
+## Tmux Compatibility Issues (December 16, 2025)
+
+### Problem: Inline Diff Freeze in Tmux
+When viewing inline git diffs in tmux, Ultra would freeze (terminal hangs, no response to input).
+
+**Root Cause Identified:**
+- Blocking `process.stdout.write()` in `src/ui/renderer.ts:152`
+- Inline diff rendering generates 20-50KB of ANSI escape sequences per frame
+- Each `drawStyled()` call adds: cursor positioning + fg color + bg color + text + reset codes
+- Tmux's terminal emulation can't process output fast enough, causing stdout to block
+- This blocked the entire event loop, freezing keyboard and mouse input
+
+**Fixes Applied (src/ui/renderer.ts:151-160):**
+```typescript
+// Changed from single write to chunked writes
+const chunkSize = 16384; // 16KB chunks
+for (let i = 0; i < this.outputBuffer.length; i += chunkSize) {
+  const chunk = this.outputBuffer.substring(i, i + chunkSize);
+  process.stdout.write(chunk);
+}
+```
+
+**Optimization (src/ui/components/pane.ts:798-806):**
+Reduced ANSI escape sequences by combining border + content draws when they share background:
+```typescript
+if (lineBg === bgColor) {
+  // Border and content have same background - combine into one call
+  ctx.drawStyled(x, screenY, '│' + displayLine, lineFg, lineBg);
+} else {
+  // Different backgrounds - need separate calls
+  ctx.drawStyled(x, screenY, '│', borderColor, bgColor);
+  ctx.drawStyled(x + 1, screenY, displayLine, lineFg, lineBg);
+}
+```
+
+**Result:** Keyboard input now works in tmux after viewing inline diff.
+
+### Problem: Mouse Scroll Not Working in Inline Diff (Tmux)
+Mouse wheel events over inline diff don't scroll the content.
+
+**Root Cause Identified:**
+- `handleInlineDiffMouseEvent()` handles `MOUSE_WHEEL_UP/DOWN` events (pane.ts:1304-1315)
+- Updates `inlineDiff.scrollTop` but doesn't trigger re-render
+- The scroll value changes internally but screen never updates
+
+**Fix Applied (src/ui/components/pane.ts:1306, 1314):**
+```typescript
+case 'MOUSE_WHEEL_UP':
+  this.inlineDiff.scrollTop = Math.max(0, this.inlineDiff.scrollTop - 3);
+  if (this.onScrollCallback) this.onScrollCallback(0, -3);  // Trigger render
+  return true;
+
+case 'MOUSE_WHEEL_DOWN':
+  this.inlineDiff.scrollTop = Math.min(
+    Math.max(0, this.inlineDiff.diffLines.length - this.inlineDiff.height + 2),
+    this.inlineDiff.scrollTop + 3
+  );
+  if (this.onScrollCallback) this.onScrollCallback(0, 3);  // Trigger render
+  return true;
+```
+
+**Status:** Fix applied but **still not working** - needs further investigation.
+
+**Next Steps to Debug:**
+1. Check if mouse events are being received in tmux at all
+   - Add debug logging to `handleInlineDiffMouseEvent()`
+   - Check if `MOUSE_WHEEL_UP/DOWN` events reach the handler
+2. Verify tmux mouse mode is enabled properly
+   - Check terminal escape sequences for mouse tracking (SGR mode)
+   - Test if other mouse events work (clicks, scrolling in main editor)
+3. Check if position detection is correct
+   - `inlineDiffScreenStart` and bounds checking may be off in tmux
+   - Log event coordinates vs calculated diff area bounds
+4. Alternative: keyboard scrolling works (`j/k` keys) - maybe good enough?
+
+**Mouse Event Flow:**
+```
+terminal/input.ts (parseSGRMouse)
+  → app.ts (convertMouseEvent)
+  → mouseManager.processEvent()
+  → pane.handleEditorMouseEvent()
+  → pane.handleInlineDiffMouseEvent()
+```
+
+### Problem: Dialog/Modal Flickering Over Sidebar (December 16, 2025)
+
+When command palette, file browser, or other modal dialogs were shown, the sidebar would flicker (briefly appear and disappear repeatedly).
+
+**Root Cause:**
+1. **Frequent renders**: Git status polling runs every 100ms (`git.statusInterval: 100`) and calls `renderer.scheduleRender()` each time (app.ts:3308)
+2. **Chunked stdout writes**: Renderer breaks each frame into 16KB chunks (renderer.ts:151-160) to prevent tmux blocking
+3. **Partial frame visibility**: Terminal displays chunk 1 (sidebar) before chunk 2 (modal overlay) arrives
+4. **Dialogs centered over full screen**: Modals were positioned over the entire screen width, overlapping the sidebar
+
+**Solution Applied:**
+Center all modal dialogs over the **editor area** instead of the full screen, avoiding sidebar overlap entirely.
+
+**Changes Made:**
+- Updated dialog positioning logic in:
+  - `src/ui/components/command-palette.ts` - `show()` and `showWithItems()` methods
+  - `src/ui/components/file-browser.ts` - `show()` method
+  - `src/ui/components/file-picker.ts` - `show()` method
+  - `src/ui/components/input-dialog.ts` - `show()` method
+  - `src/ui/components/save-browser.ts` - `show()` method
+- All dialog `.show()` methods now accept optional `editorX` and `editorWidth` parameters
+- Updated all call sites in `src/app.ts` to pass `layoutManager.getEditorAreaRect()` coordinates
+- Dialogs now calculate center position as: `editorX + editorWidth / 2` instead of `screenWidth / 2`
+
+**Pattern for Future Dialogs:**
+```typescript
+// In dialog component:
+show(..., editorX?: number, editorWidth?: number): void {
+  const centerX = editorX !== undefined && editorWidth !== undefined
+    ? editorX + Math.floor(editorWidth / 2)
+    : Math.floor(screenWidth / 2);
+  this.x = centerX - Math.floor(this.width / 2) + 1;
+}
+
+// In app.ts command handler:
+const editorRect = layoutManager.getEditorAreaRect();
+dialog.show(..., editorRect.x, editorRect.width);
+```
+
+**Result:** Dialogs no longer overlap the sidebar, eliminating the flickering caused by frequent re-renders painting the sidebar between dialog chunks.
+
 ## Important Patterns
 
 ### Terminal Key Events

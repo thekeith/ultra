@@ -1099,12 +1099,15 @@ export class App {
     }
 
     // Show input dialog for new name
+    const editorRect = layoutManager.getEditorAreaRect();
     inputDialog.show({
       title: 'Rename Symbol',
       placeholder: `Enter new name for '${currentWord}'`,
       initialValue: currentWord,
       screenWidth: renderer.width,
       screenHeight: renderer.height,
+      editorX: editorRect.x,
+      editorWidth: editorRect.width,
       onConfirm: async (newName: string) => {
         if (!newName || newName === currentWord) return;
         
@@ -2293,12 +2296,15 @@ export class App {
         title: 'Git: Commit',
         category: 'Git',
         handler: async () => {
+          const editorRect = layoutManager.getEditorAreaRect();
           inputDialog.show({
             title: 'Commit Message',
             placeholder: 'Enter commit message...',
             initialValue: '',
             screenWidth: renderer.width,
             screenHeight: renderer.height,
+            editorX: editorRect.x,
+            editorWidth: editorRect.width,
             onConfirm: async (message: string) => {
               if (message.trim()) {
                 const success = await gitIntegration.commit(message);
@@ -2504,7 +2510,8 @@ export class App {
         category: 'File',
         handler: async () => {
           const workspaceRoot = process.cwd();
-          fileBrowser.show(workspaceRoot, renderer.width, renderer.height);
+          const editorRect = layoutManager.getEditorAreaRect();
+          fileBrowser.show(workspaceRoot, renderer.width, renderer.height, editorRect.x, editorRect.width);
           fileBrowser.onSelect(async (path) => {
             await this.openFile(path);
             renderer.scheduleRender();
@@ -2546,8 +2553,9 @@ export class App {
         handler: async () => {
           const themes = await userConfigManager.getAvailableThemes();
           const currentTheme = settings.get('workbench.colorTheme') || 'catppuccin-frappe';
-          
+
           // Show theme selector in command palette
+          const editorRect = layoutManager.getEditorAreaRect();
           commandPalette.showWithItems(
             themes.map(t => ({
               id: t.name,
@@ -2558,7 +2566,9 @@ export class App {
               }
             })),
             'Select Color Theme',
-            currentTheme
+            currentTheme,
+            editorRect.x,
+            editorRect.width
           );
           renderer.scheduleRender();
         }
@@ -2741,7 +2751,8 @@ export class App {
         category: 'Navigation',
         handler: async () => {
           const workspaceRoot = process.cwd();
-          await filePicker.show(workspaceRoot, renderer.width, renderer.height);
+          const editorRect = layoutManager.getEditorAreaRect();
+          await filePicker.show(workspaceRoot, renderer.width, renderer.height, editorRect.x, editorRect.width);
           filePicker.onSelect(async (path) => {
             await this.openFile(path);
             renderer.scheduleRender();
@@ -2755,7 +2766,8 @@ export class App {
         category: 'View',
         handler: () => {
           const commands = commandRegistry.getAll();
-          commandPalette.show(commands, renderer.width, renderer.height);
+          const editorRect = layoutManager.getEditorAreaRect();
+          commandPalette.show(commands, renderer.width, renderer.height, editorRect.x, editorRect.width);
           commandPalette.onSelect(async (command) => {
             await commandRegistry.execute(command.id);
           });
@@ -2906,11 +2918,14 @@ export class App {
       ? path.dirname(existingPath) 
       : process.cwd();
 
+    const editorRect = layoutManager.getEditorAreaRect();
     saveBrowser.show({
       startPath: startDir,
       suggestedFilename: suggestedName,
       screenWidth: renderer.width,
       screenHeight: renderer.height,
+      editorX: editorRect.x,
+      editorWidth: editorRect.width,
       onSave: async (filePath: string) => {
         try {
           await doc.saveAs(filePath);
@@ -3104,11 +3119,14 @@ export class App {
             this.closeDocument(docId);
           } else {
             // No file path, need save-as first
+            const editorRect = layoutManager.getEditorAreaRect();
             saveBrowser.show({
               startPath: process.cwd(),
               suggestedFilename: doc.fileName,
               screenWidth: renderer.width,
               screenHeight: renderer.height,
+              editorX: editorRect.x,
+              editorWidth: editorRect.width,
               onSave: async (filePath: string) => {
                 await doc.saveAs(filePath);
                 this.closeDocument(docId);
@@ -3363,13 +3381,16 @@ export class App {
   private showCommitDialog(): void {
     const width = renderer.width;
     const height = renderer.height;
-    
+    const editorRect = layoutManager.getEditorAreaRect();
+
     inputDialog.show({
       title: 'Commit Message',
       placeholder: 'Enter commit message...',
       screenWidth: width,
       screenHeight: height,
       width: 80,  // Wider for commit messages
+      editorX: editorRect.x,
+      editorWidth: editorRect.width,
       onConfirm: async (message) => {
         const success = await gitPanel.commitWithMessage(message);
         if (success) {

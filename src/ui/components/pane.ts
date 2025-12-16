@@ -771,17 +771,17 @@ export class Pane implements MouseHandler {
     // Draw content area
     const contentHeight = height - 2;  // Minus header and footer
     const lines = this.inlineDiff.diffLines;
-    
+
     for (let i = 0; i < contentHeight; i++) {
       const lineIdx = this.inlineDiff.scrollTop + i;
       const screenY = y + 1 + i;
-      
+
       if (lineIdx < lines.length) {
         const line = lines[lineIdx] || '';
         let lineBg = bgColor;
         let lineFg = fgColor;
         let prefix = ' ';
-        
+
         if (line.startsWith('+') && !line.startsWith('+++')) {
           lineBg = addedBg;
           lineFg = addedFg;
@@ -793,10 +793,17 @@ export class Pane implements MouseHandler {
         } else if (line.startsWith('@@')) {
           lineFg = colors['textPreformat.foreground'] || '#d7ba7d';
         }
-        
-        const displayLine = (prefix + line.substring(1)).substring(0, width - 1).padEnd(width - 1);
-        ctx.drawStyled(x, screenY, '│', borderColor, bgColor);
-        ctx.drawStyled(x + 1, screenY, displayLine, lineFg, lineBg);
+
+        const displayLine = (prefix + line.substring(1)).substring(0, width - 2).padEnd(width - 2);
+        // Optimize: draw border and content in single call when possible
+        if (lineBg === bgColor) {
+          // Border and content have same background - combine into one call
+          ctx.drawStyled(x, screenY, '│' + displayLine, lineFg, lineBg);
+        } else {
+          // Different backgrounds - need separate calls
+          ctx.drawStyled(x, screenY, '│', borderColor, bgColor);
+          ctx.drawStyled(x + 1, screenY, displayLine, lineFg, lineBg);
+        }
       } else {
         ctx.drawStyled(x, screenY, '│' + ' '.repeat(width - 1), borderColor, bgColor);
       }
@@ -1296,13 +1303,15 @@ export class Pane implements MouseHandler {
       
       case 'MOUSE_WHEEL_UP':
         this.inlineDiff.scrollTop = Math.max(0, this.inlineDiff.scrollTop - 3);
+        if (this.onScrollCallback) this.onScrollCallback(0, -3);
         return true;
-        
+
       case 'MOUSE_WHEEL_DOWN':
         this.inlineDiff.scrollTop = Math.min(
           Math.max(0, this.inlineDiff.diffLines.length - this.inlineDiff.height + 2),
           this.inlineDiff.scrollTop + 3
         );
+        if (this.onScrollCallback) this.onScrollCallback(0, 3);
         return true;
     }
     

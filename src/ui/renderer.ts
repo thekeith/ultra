@@ -137,19 +137,25 @@ export class Renderer {
    */
   render(): void {
     this.needsRender = false;
-    
+
     // Start buffering for this frame
     this.outputBuffer = '';
-    
+
     const ctx = this.createRenderContext();
-    
+
     for (const callback of this.renderCallbacks) {
       callback(ctx);
     }
-    
+
     // Flush all buffered output in a single write
     if (this.outputBuffer) {
-      process.stdout.write(this.outputBuffer);
+      // Use non-blocking write to prevent hanging in tmux
+      // Break into chunks to avoid blocking on large buffers
+      const chunkSize = 16384; // 16KB chunks
+      for (let i = 0; i < this.outputBuffer.length; i += chunkSize) {
+        const chunk = this.outputBuffer.substring(i, i + chunkSize);
+        process.stdout.write(chunk);
+      }
       this.outputBuffer = '';
     }
   }

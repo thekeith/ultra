@@ -33,15 +33,19 @@ export class FileBrowser implements MouseHandler {
   /**
    * Show the file browser
    */
-  show(startPath: string, screenWidth: number, screenHeight: number): void {
+  show(startPath: string, screenWidth: number, screenHeight: number, editorX?: number, editorWidth?: number): void {
     this.isVisible = true;
     this.selectedIndex = 0;
     this.scrollOffset = 0;
 
-    // Center the browser
-    this.width = Math.min(80, screenWidth - 4);
+    // Center the browser over editor area if provided, otherwise over full screen
+    const centerX = editorX !== undefined && editorWidth !== undefined
+      ? editorX + Math.floor(editorWidth / 2)
+      : Math.floor(screenWidth / 2);
+
+    this.width = Math.min(80, (editorWidth || screenWidth) - 4);
     this.height = Math.min(30, screenHeight - 4);
-    this.x = Math.floor((screenWidth - this.width) / 2) + 1;
+    this.x = centerX - Math.floor(this.width / 2) + 1;
     this.y = 2;
 
     this.navigateTo(startPath);

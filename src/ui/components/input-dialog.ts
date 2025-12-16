@@ -28,6 +28,8 @@ export class InputDialog {
     screenWidth: number;
     screenHeight: number;
     width?: number;  // Optional custom width
+    editorX?: number;
+    editorWidth?: number;
     onConfirm: (value: string) => void;
     onCancel?: () => void;
   }): void {
@@ -38,11 +40,15 @@ export class InputDialog {
     this.onConfirmCallback = options.onConfirm;
     this.onCancelCallback = options.onCancel || null;
 
-    // Center the dialog (use custom width if provided)
+    // Center the dialog over editor area if provided, otherwise over full screen
+    const centerX = options.editorX !== undefined && options.editorWidth !== undefined
+      ? options.editorX + Math.floor(options.editorWidth / 2)
+      : Math.floor(options.screenWidth / 2);
+
     const defaultWidth = 60;
-    const maxWidth = options.screenWidth - 4;
+    const maxWidth = (options.editorWidth || options.screenWidth) - 4;
     this.width = Math.min(options.width || defaultWidth, maxWidth);
-    this.x = Math.floor((options.screenWidth - this.width) / 2) + 1;
+    this.x = centerX - Math.floor(this.width / 2) + 1;
     this.y = Math.floor(options.screenHeight / 3);
   }
 

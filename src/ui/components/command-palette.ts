@@ -49,20 +49,24 @@ export class CommandPalette implements MouseHandler {
   private isCustomMode: boolean = false;
   private highlightedId: string = '';
 
-  show(commands: Command[], screenWidth: number, screenHeight: number): void {
+  show(commands: Command[], screenWidth: number, screenHeight: number, editorX?: number, editorWidth?: number): void {
     this.isVisible = true;
     this.isCustomMode = false;
     this.commands = commands;
     this.query = '';
     this.selectedIndex = 0;
     this.customTitle = 'Command Palette';
-    
-    // Center the palette
-    this.width = Math.min(70, screenWidth - 4);
+
+    // Center the palette over editor area if provided, otherwise over full screen
+    const centerX = editorX !== undefined && editorWidth !== undefined
+      ? editorX + Math.floor(editorWidth / 2)
+      : Math.floor(screenWidth / 2);
+
+    this.width = Math.min(70, (editorWidth || screenWidth) - 4);
     this.height = Math.min(20, screenHeight - 4);
-    this.x = Math.floor((screenWidth - this.width) / 2) + 1;
+    this.x = centerX - Math.floor(this.width / 2) + 1;
     this.y = 2;
-    
+
     this.filter();
   }
 
@@ -70,9 +74,11 @@ export class CommandPalette implements MouseHandler {
    * Show palette with custom items
    */
   showWithItems(
-    items: PaletteItem[], 
+    items: PaletteItem[],
     title: string = 'Select Item',
-    highlightId: string = ''
+    highlightId: string = '',
+    editorX?: number,
+    editorWidth?: number
   ): void {
     this.isVisible = true;
     this.isCustomMode = true;
@@ -81,7 +87,7 @@ export class CommandPalette implements MouseHandler {
     this.highlightedId = highlightId;
     this.query = '';
     this.selectedIndex = 0;
-    
+
     // Find the highlighted item's index
     if (highlightId) {
       const idx = items.findIndex(item => item.id === highlightId);
@@ -89,15 +95,20 @@ export class CommandPalette implements MouseHandler {
         this.selectedIndex = idx;
       }
     }
-    
-    // Center the palette
+
+    // Center the palette over editor area if provided, otherwise over full screen
     const screenWidth = process.stdout.columns || 80;
     const screenHeight = process.stdout.rows || 24;
-    this.width = Math.min(70, screenWidth - 4);
+
+    const centerX = editorX !== undefined && editorWidth !== undefined
+      ? editorX + Math.floor(editorWidth / 2)
+      : Math.floor(screenWidth / 2);
+
+    this.width = Math.min(70, (editorWidth || screenWidth) - 4);
     this.height = Math.min(20, screenHeight - 4);
-    this.x = Math.floor((screenWidth - this.width) / 2) + 1;
+    this.x = centerX - Math.floor(this.width / 2) + 1;
     this.y = 2;
-    
+
     this.filterCustomItems();
   }
 

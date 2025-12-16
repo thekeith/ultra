@@ -24,15 +24,19 @@ export class FilePicker implements MouseHandler {
   /**
    * Show the file picker
    */
-  async show(workspaceRoot: string, screenWidth: number, screenHeight: number): Promise<void> {
+  async show(workspaceRoot: string, screenWidth: number, screenHeight: number, editorX?: number, editorWidth?: number): Promise<void> {
     this.isVisible = true;
     this.query = '';
     this.selectedIndex = 0;
 
-    // Center the picker
-    this.width = Math.min(80, screenWidth - 4);
+    // Center the picker over editor area if provided, otherwise over full screen
+    const centerX = editorX !== undefined && editorWidth !== undefined
+      ? editorX + Math.floor(editorWidth / 2)
+      : Math.floor(screenWidth / 2);
+
+    this.width = Math.min(80, (editorWidth || screenWidth) - 4);
     this.height = Math.min(24, screenHeight - 4);
-    this.x = Math.floor((screenWidth - this.width) / 2) + 1;
+    this.x = centerX - Math.floor(this.width / 2) + 1;
     this.y = 2;
 
     // Index files if needed

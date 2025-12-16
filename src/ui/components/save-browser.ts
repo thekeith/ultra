@@ -49,6 +49,8 @@ export class SaveBrowser implements MouseHandler {
     suggestedFilename: string;
     screenWidth: number;
     screenHeight: number;
+    editorX?: number;
+    editorWidth?: number;
     onSave: (filePath: string) => void;
     onCancel?: () => void;
   }): void {
@@ -62,10 +64,14 @@ export class SaveBrowser implements MouseHandler {
     this.mode = 'browse';
     this.confirmPath = '';
 
-    // Center the browser
-    this.width = Math.min(80, options.screenWidth - 4);
+    // Center the browser over editor area if provided, otherwise over full screen
+    const centerX = options.editorX !== undefined && options.editorWidth !== undefined
+      ? options.editorX + Math.floor(options.editorWidth / 2)
+      : Math.floor(options.screenWidth / 2);
+
+    this.width = Math.min(80, (options.editorWidth || options.screenWidth) - 4);
     this.height = Math.min(30, options.screenHeight - 4);
-    this.x = Math.floor((options.screenWidth - this.width) / 2) + 1;
+    this.x = centerX - Math.floor(this.width / 2) + 1;
     this.y = 2;
 
     this.navigateTo(options.startPath);
