@@ -528,7 +528,11 @@ export class GitIntegration {
   async add(filePath: string): Promise<boolean> {
     if (!this.workspaceRoot) return false;
     try {
-      const result = await $`git -C ${this.workspaceRoot} add -- ${filePath}`.quiet();
+      // Make path relative to workspace root
+      const relativePath = filePath.startsWith(this.workspaceRoot)
+        ? filePath.substring(this.workspaceRoot.length + 1)
+        : filePath;
+      const result = await $`git -C ${this.workspaceRoot} add -- ${relativePath}`.quiet();
       if (result.exitCode === 0) {
         this.invalidateCache();
         return true;
@@ -579,7 +583,11 @@ export class GitIntegration {
   async checkout(filePath: string): Promise<boolean> {
     if (!this.workspaceRoot) return false;
     try {
-      const result = await $`git -C ${this.workspaceRoot} checkout -- ${filePath}`.quiet();
+      // Make path relative to workspace root
+      const relativePath = filePath.startsWith(this.workspaceRoot)
+        ? filePath.substring(this.workspaceRoot.length + 1)
+        : filePath;
+      const result = await $`git -C ${this.workspaceRoot} checkout -- ${relativePath}`.quiet();
       if (result.exitCode === 0) {
         this.invalidateCache();
         return true;
