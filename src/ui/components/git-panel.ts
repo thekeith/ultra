@@ -342,9 +342,10 @@ export class GitPanel implements MouseHandler {
     const fgRgb = (r: number, g: number, b: number) => `\x1b[38;2;${r};${g};${b}m`;
     const reset = '\x1b[0m';
     
-    // Get colors from theme (use focused background if focused)
-    const focusedBg = this.isFocused ? settings.get('workbench.sideBar.focusedBackground') : null;
-    const panelBg = this.hexToRgb(focusedBg || themeLoader.getColor('sideBar.background')) || { r: 37, g: 37, b: 38 };
+    // Get colors from theme (adjust brightness when focused)
+    const baseBgColor = themeLoader.getColor('sideBar.background');
+    const bgColor = this.isFocused ? themeLoader.getFocusedBackground(baseBgColor) : baseBgColor;
+    const panelBg = this.hexToRgb(bgColor) || { r: 37, g: 37, b: 38 };
     const panelFg = this.hexToRgb(themeLoader.getColor('sideBar.foreground')) || { r: 204, g: 204, b: 204 };
     const titleFg = this.hexToRgb(themeLoader.getColor('sideBarTitle.foreground')) || { r: 187, g: 187, b: 187 };
     const selectionBg = this.hexToRgb(themeLoader.getColor('list.activeSelectionBackground')) || { r: 9, g: 71, b: 113 };

@@ -158,6 +158,50 @@ export class ThemeLoader {
   }
 
   /**
+   * Check if current theme is dark
+   */
+  isThemeDark(): boolean {
+    return this.currentTheme?.type === 'dark';
+  }
+
+  /**
+   * Adjust brightness of a color (hex format)
+   * @param color - hex color string (e.g., '#252526')
+   * @param amount - positive to lighten, negative to darken (0-100)
+   */
+  adjustBrightness(color: string, amount: number): string {
+    // Parse hex color
+    const hex = color.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+
+    // Adjust brightness
+    const adjust = (val: number) => {
+      const adjusted = val + (amount * 2.55); // Convert percentage to 0-255 scale
+      return Math.max(0, Math.min(255, Math.round(adjusted)));
+    };
+
+    const newR = adjust(r);
+    const newG = adjust(g);
+    const newB = adjust(b);
+
+    // Convert back to hex
+    const toHex = (val: number) => val.toString(16).padStart(2, '0');
+    return `#${toHex(newR)}${toHex(newG)}${toHex(newB)}`;
+  }
+
+  /**
+   * Get a focused version of a background color
+   * Makes it slightly lighter for dark themes, slightly darker for light themes
+   */
+  getFocusedBackground(baseColor: string): string {
+    const isDark = this.isThemeDark();
+    const adjustAmount = isDark ? 8 : -8; // Adjust by 8% brightness
+    return this.adjustBrightness(baseColor, adjustAmount);
+  }
+
+  /**
    * Get token color for a scope
    */
   getTokenColor(scope: string): TokenColorSettings {
