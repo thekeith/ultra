@@ -229,6 +229,109 @@ gitPanel.onCommitRequest(() => { ... });
 paneManager.onInlineDiffStage(async (filePath, line) => { ... });
 ```
 
+### Arrow Key Navigation Flow
+```typescript
+// Arrow key press handling:
+terminal/input.ts parseArrowKey()
+  → app.ts handleKeyDown()
+  → app.ts command handlers (ultra.cursorUp, ultra.cursorDown, etc.)
+  → paneManager.moveCursor(direction)
+  → document.moveCursor(direction)  // Updates cursor position
+  → paneManager.ensureCursorVisible()
+  → pane.ensureCursorVisible()  // Should scroll viewport to show cursor
+  → pane.onScrollCallback()  // Triggers re-render if scrolling occurred
+```
+
+### Debug Logging Pattern
+```typescript
+// Enable debug logging globally
+import { debugLog, setDebugEnabled } from './debug.ts';
+
+// In app initialization:
+if (options?.debug) {
+  setDebugEnabled(true);
+  // Clear previous debug log
+  const fs = require('fs');
+  fs.writeFileSync('debug.log', '');
+}
+
+// In component code:
+debugLog(`[Component ${this.id}] operation: value=${value}`);
+```
+
+### Scrolling with Render Callback
+When updating scroll position, always trigger a re-render:
+```typescript
+this.scrollTop = newScrollTop;
+if (this.onScrollCallback) {
+  this.onScrollCallback(deltaX, deltaY);  // Triggers renderer.scheduleRender()
+}
+```
+
+## Anti-Patterns to Avoid
+
+### DON'T: Access Cursor Properties Directly
+```typescript
+// ❌ WRONG: Accessing .line and .column may return undefined
+const cursor = doc.primaryCursor;
+if (cursor.line < this.scrollTop) {
+  // This will fail if cursor.line is undefined
+}
+```
+
+**Problem:** `doc.primaryCursor.line` and `doc.primaryCursor.column` can return undefined, breaking comparison logic.
+
+**Investigation Needed:** Check if there's a method like `cursor.getPosition()` or if cursor needs to be accessed differently.
+
+### DON'T: Scroll Without Triggering Re-render
+```typescript
+// ❌ WRONG: Updates state but screen never updates
+this.scrollTop = newValue;
+// Missing: this.onScrollCallback(0, delta);
+```
+
+**Solution:** Always invoke the scroll callback after changing scroll position to schedule a render.
+
+### DON'T: Block stdout with Large Writes
+```typescript
+// ❌ WRONG: Single large write can block event loop in tmux
+process.stdout.write(largeOutputBuffer);  // 50KB+
+```
+
+**Solution:** Break into chunks (16KB) to prevent terminal emulation blocking:
+```typescript
+const chunkSize = 16384;
+for (let i = 0; i < buffer.length; i += chunkSize) {
+  const chunk = buffer.substring(i, i + chunkSize);
+  process.stdout.write(chunk);
+}
+```
+
+### DON'T: Center Dialogs Over Full Screen
+```typescript
+// ❌ WRONG: Dialog flickers over sidebar with frequent renders
+const centerX = Math.floor(renderer.width / 2);
+```
+
+**Solution:** Center dialogs over editor area only to avoid sidebar overlap:
+```typescript
+const editorRect = layoutManager.getEditorAreaRect();
+const centerX = editorRect.x + Math.floor(editorRect.width / 2);
+```
+
+### DON'T: Use Lowercase for Terminal Key Events
+```typescript
+// ❌ WRONG: Terminal input provides uppercase
+if (event.key === 's' && event.ctrl) {
+```
+
+**Solution:** Keys from terminal/input.ts are uppercase:
+```typescript
+if (event.key === 'S' && event.ctrl) {
+  // Use event.char if you need lowercase
+}
+```
+
 ## Settings (config/default-settings.json)
 - `git.diffContextLines`: Lines of context in diff (default: 3)
 - `ultra.sidebar.width`: Sidebar width
@@ -264,6 +367,44 @@ bun run build.ts    # Compile to ./ultra
 - Debug log writes to `debug.log` in working directory
 - Use `this.debugLog()` in App class
 - Crash logs show in `debug.log` with stack traces
+
+### Problem: Cursor Scrolling Not Following Arrow Keys (December 16, 2025)
+
+When using arrow keys to navigate in the editor, the viewport doesn't scroll to keep the cursor visible. The cursor can move beyond the visible area without the editor window scrolling to follow it.
+
+**Investigation Process:**
+1. Traced arrow key input flow:
+   ```
+   terminal/input.ts (parseArrowKey)
+     → app.ts (handleKeyDown, command handlers)
+     → paneManager.moveCursor(direction)
+     → paneManager.ensureCursorVisible()
+     → pane.ensureCursorVisible()
+   ```
+
+2. Added debug logging to `pane.ensureCursorVisible()` (lines 506-557)
+3. Built with `--debug` flag and tested arrow key navigation
+4. Analyzed debug.log output
+
+**Root Cause Identified:**
+The debug log revealed that `doc.primaryCursor.line` and `doc.primaryCursor.column` return **undefined** values:
+```
+[Pane pane-1] ensureCursorVisible called: cursor=(undefined,undefined), scrollTop=0, visibleLines=48
+[Pane pane-1] ensureCursorVisible: no scrolling needed, cursor is visible
+```
+
+This causes the scrolling logic to fail because:
+- `cursor.line < this.scrollTop` evaluates to `undefined < 0` → false
+- `cursor.line >= this.scrollTop + visibleLines` evaluates to `undefined >= 48` → false
+- The `scrolled` flag never gets set, so no viewport scrolling occurs
+
+**Status:** Root cause identified, needs fix in cursor property access or Document class implementation.
+
+**Next Steps:**
+1. Investigate Document class (`src/core/document.ts`) and Cursor class to understand why `primaryCursor` properties are undefined
+2. Determine correct API for accessing cursor position
+3. Fix the property access or cursor implementation
+4. Verify viewport scrolling works after fix
 
 ## Current State
 - Git integration fully working (status, stage, unstage, revert, commit)

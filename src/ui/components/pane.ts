@@ -505,27 +505,55 @@ export class Pane implements MouseHandler {
    */
   ensureCursorVisible(): void {
     const doc = this.getActiveDocument();
-    if (!doc) return;
+    if (!doc) {
+      debugLog(`[Pane ${this.id}] ensureCursorVisible: no active document`);
+      return;
+    }
 
     const cursor = doc.primaryCursor;
     const visibleLines = this.getVisibleLineCount();
 
+    debugLog(`[Pane ${this.id}] ensureCursorVisible called: cursor=(${cursor.position.line},${cursor.position.column}), scrollTop=${this.scrollTop}, visibleLines=${visibleLines}`);
+
+    let scrolled = false;
+
     // Vertical scrolling
-    if (cursor.line < this.scrollTop) {
-      this.scrollTop = cursor.line;
-    } else if (cursor.line >= this.scrollTop + visibleLines) {
-      this.scrollTop = cursor.line - visibleLines + 1;
+    if (cursor.position.line < this.scrollTop) {
+      debugLog(`[Pane ${this.id}] ensureCursorVisible: cursor above viewport, scrolling up`);
+      this.scrollTop = cursor.position.line;
+      scrolled = true;
+    } else if (cursor.position.line >= this.scrollTop + visibleLines) {
+      debugLog(`[Pane ${this.id}] ensureCursorVisible: cursor below viewport, scrolling down`);
+      this.scrollTop = cursor.position.line - visibleLines + 1;
+      scrolled = true;
     }
 
     // Horizontal scrolling
     const editorWidth = this.rect.width - this.gutterWidth - (this.minimapEnabled ? 10 : 0);
-    if (cursor.column < this.scrollLeft) {
-      this.scrollLeft = Math.max(0, cursor.column - 5);
-    } else if (cursor.column >= this.scrollLeft + editorWidth) {
-      this.scrollLeft = cursor.column - editorWidth + 5;
+    if (cursor.position.column < this.scrollLeft) {
+      debugLog(`[Pane ${this.id}] ensureCursorVisible: cursor left of viewport, scrolling left`);
+      this.scrollLeft = Math.max(0, cursor.position.column - 5);
+      scrolled = true;
+    } else if (cursor.position.column >= this.scrollLeft + editorWidth) {
+      debugLog(`[Pane ${this.id}] ensureCursorVisible: cursor right of viewport, scrolling right`);
+      this.scrollLeft = cursor.position.column - editorWidth + 5;
+      scrolled = true;
     }
 
     this.minimap.setEditorScroll(this.scrollTop, visibleLines);
+
+    // Trigger render if scrolling occurred
+    if (scrolled) {
+      debugLog(`[Pane ${this.id}] ensureCursorVisible: scrolled to (${this.scrollTop}, ${this.scrollLeft})`);
+      if (this.onScrollCallback) {
+        debugLog(`[Pane ${this.id}] ensureCursorVisible: invoking scroll callback`);
+        this.onScrollCallback(0, 0);
+      } else {
+        debugLog(`[Pane ${this.id}] ensureCursorVisible: scrolled but no callback registered!`);
+      }
+    } else {
+      debugLog(`[Pane ${this.id}] ensureCursorVisible: no scrolling needed, cursor is visible`);
+    }
   }
 
   // ==================== Rendering ====================

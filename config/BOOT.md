@@ -64,7 +64,7 @@ Themes are located in:
 ## Need Help?
 
 - Press **Ctrl+Shift+P** and type "help" to see available commands
-- Visit the documentation at: https://github.com/anthropics/ultra
+- Visit the documentation at: https://github.com/zorz/ultra
 
 ---
 

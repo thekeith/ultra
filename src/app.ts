@@ -34,6 +34,7 @@ import { terminalPane } from './ui/components/terminal-pane.ts';
 import { gitIntegration } from './features/git/git-integration.ts';
 import { gitPanel } from './ui/components/git-panel.ts';
 import { defaultBootFile } from './config/defaults.ts';
+import { setDebugEnabled } from './debug.ts';
 
 // Helper function to ensure boot file exists
 async function ensureBootFile(bootFilePath: string): Promise<void> {
@@ -116,6 +117,7 @@ export class App {
       // Enable debug logging if requested
       if (options?.debug) {
         this.debugEnabled = true;
+        setDebugEnabled(true);
         lspManager.setDebugEnabled(true);
         // Clear previous debug log
         const fs = require('fs');
