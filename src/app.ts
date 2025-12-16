@@ -3297,6 +3297,11 @@ export class App {
     // Update gutter indicators for active document
     await this.updateGitGutterIndicators();
     
+    // Refresh git panel if visible
+    if (gitPanel.isOpen()) {
+      await gitPanel.refresh();
+    }
+    
     renderer.scheduleRender();
   }
 
