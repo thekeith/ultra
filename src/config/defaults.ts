@@ -454,6 +454,7 @@ export const defaultSettings: Record<string, any> = {
   "workbench.colorTheme": "catppuccin-frappe",
   "workbench.sideBar.visible": true,
   "workbench.sideBar.location": "left",
+  "workbench.sideBar.focusedBackground": "#2d3139",
   "workbench.startupEditor": "~/.ultra/BOOT.md",
   "ultra.sidebar.width": 30,
   "ultra.ai.model": "claude-sonnet-4-20250514",

@@ -183,6 +183,11 @@ export class App {
         fileTree.setFocused(false);
         renderer.scheduleRender();
       });
+      fileTree.onFocus(() => {
+        // Unfocus other components when file tree gains focus
+        gitPanel.setFocused(false);
+        terminalPane.setFocused(false);
+      });
 
       // Set up git panel callbacks
       gitPanel.onFileSelect(async (filePath) => {
@@ -193,6 +198,11 @@ export class App {
       });
       gitPanel.onRefresh(() => {
         renderer.scheduleRender();
+      });
+      gitPanel.onFocus(() => {
+        // Unfocus other components when git panel gains focus
+        fileTree.setFocused(false);
+        terminalPane.setFocused(false);
       });
       gitPanel.onCommitRequest(() => {
         this.showCommitDialog();
@@ -1405,9 +1415,10 @@ export class App {
 
     // Handle mouse clicks in documents
     paneManager.onDocumentClick((doc, position, clickCount, event) => {
-      // Clicking in editor unfocuses terminal and file tree
+      // Clicking in editor unfocuses terminal, file tree, and git panel
       terminalPane.setFocused(false);
       fileTree.setFocused(false);
+      gitPanel.setFocused(false);
       
       if (event.meta) {
         // Cmd+Click adds cursor
@@ -1504,6 +1515,11 @@ export class App {
     // Re-render when terminal output changes
     terminalPane.onUpdate(() => {
       renderer.scheduleRender();
+    });
+    terminalPane.onFocus(() => {
+      // Unfocus other components when terminal gains focus
+      fileTree.setFocused(false);
+      gitPanel.setFocused(false);
     });
   }
 

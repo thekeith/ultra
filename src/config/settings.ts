@@ -27,6 +27,7 @@ export interface EditorSettings {
   'workbench.colorTheme': string;
   'workbench.sideBar.visible': boolean;
   'workbench.sideBar.location': 'left' | 'right';
+  'workbench.sideBar.focusedBackground': string;
   'workbench.startupEditor': string;
   'ultra.sidebar.width': number;
   'ultra.ai.model': string;
@@ -70,6 +71,7 @@ const defaultSettings: EditorSettings = {
   'workbench.colorTheme': 'One Dark',
   'workbench.sideBar.visible': true,
   'workbench.sideBar.location': 'left',
+  'workbench.sideBar.focusedBackground': '#2d3139',
   'workbench.startupEditor': '~/.ultra/BOOT.md',
   'ultra.sidebar.width': 30,
   'ultra.ai.model': 'claude-sonnet-4-20250514',

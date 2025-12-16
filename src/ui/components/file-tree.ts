@@ -81,6 +81,7 @@ export class FileTree implements MouseHandler {
   
   // Callbacks
   private onFileSelectCallback?: (path: string) => void;
+  private onFocusCallback?: () => void;
   
   // Dialog state
   private dialogMode: 'none' | 'new-file' | 'rename' | 'delete-confirm' = 'none';
@@ -127,6 +128,10 @@ export class FileTree implements MouseHandler {
    */
   onFileSelect(callback: (path: string) => void): void {
     this.onFileSelectCallback = callback;
+  }
+
+  onFocus(callback: () => void): void {
+    this.onFocusCallback = callback;
   }
 
   /**
@@ -517,8 +522,9 @@ export class FileTree implements MouseHandler {
     const fgRgb = (r: number, g: number, b: number) => `\x1b[38;2;${r};${g};${b}m`;
     const reset = '\x1b[0m';
     
-    // Get colors from theme
-    const sidebarBg = this.hexToRgb(themeLoader.getColor('sideBar.background')) || { r: 37, g: 37, b: 38 };
+    // Get colors from theme (use focused background if focused)
+    const focusedBg = this.isFocused ? settings.get('workbench.sideBar.focusedBackground') : null;
+    const sidebarBg = this.hexToRgb(focusedBg || themeLoader.getColor('sideBar.background')) || { r: 37, g: 37, b: 38 };
     const sidebarFg = this.hexToRgb(themeLoader.getColor('sideBar.foreground')) || { r: 204, g: 204, b: 204 };
     const titleFg = this.hexToRgb(themeLoader.getColor('sideBarTitle.foreground')) || { r: 187, g: 187, b: 187 };
     const selectionBg = this.hexToRgb(themeLoader.getColor('list.activeSelectionBackground')) || { r: 9, g: 71, b: 113 };
@@ -743,19 +749,22 @@ export class FileTree implements MouseHandler {
 
   onMouseEvent(event: MouseEvent): boolean {
     if (!this.isVisible) return false;
-    
+
     switch (event.name) {
       case 'MOUSE_LEFT_BUTTON_PRESSED': {
+        // Request focus on any click within bounds
+        this.isFocused = true;
+        if (this.onFocusCallback) {
+          this.onFocusCallback();
+        }
+
         // Calculate which item was clicked
         const clickY = event.y - this.rect.y - 1; // -1 for header
         if (clickY < 0) return true; // Clicked on header
-        
+
         const clickedIndex = this.scrollTop + clickY;
         if (clickedIndex < this.flatList.length) {
           this.selectedIndex = clickedIndex;
-          
-          // Request focus
-          this.isFocused = true;
         }
         return true;
       }

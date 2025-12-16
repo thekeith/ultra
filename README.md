@@ -28,8 +28,6 @@ cd ultra-editor
 bun install
 ```
 
-
-
 ## Usage
 
 ### Development Mode

@@ -9,6 +9,7 @@ import type { RenderContext } from '../renderer.ts';
 import type { Rect } from '../layout.ts';
 import type { MouseHandler, MouseEvent } from '../mouse.ts';
 import { themeLoader } from '../themes/theme-loader.ts';
+import { settings } from '../../config/settings.ts';
 import { gitIntegration, type GitStatus, type GitFileStatus } from '../../features/git/git-integration.ts';
 import * as path from 'path';
 
@@ -42,6 +43,7 @@ export class GitPanel implements MouseHandler {
   // Callbacks
   private onFileSelectCallback?: (filePath: string) => void;
   private onRefreshCallback?: () => void;
+  private onFocusCallback?: () => void;
   private onCommitRequestCallback?: () => void;
 
   setRect(rect: Rect): void {
@@ -340,8 +342,9 @@ export class GitPanel implements MouseHandler {
     const fgRgb = (r: number, g: number, b: number) => `\x1b[38;2;${r};${g};${b}m`;
     const reset = '\x1b[0m';
     
-    // Get colors from theme
-    const panelBg = this.hexToRgb(themeLoader.getColor('sideBar.background')) || { r: 37, g: 37, b: 38 };
+    // Get colors from theme (use focused background if focused)
+    const focusedBg = this.isFocused ? settings.get('workbench.sideBar.focusedBackground') : null;
+    const panelBg = this.hexToRgb(focusedBg || themeLoader.getColor('sideBar.background')) || { r: 37, g: 37, b: 38 };
     const panelFg = this.hexToRgb(themeLoader.getColor('sideBar.foreground')) || { r: 204, g: 204, b: 204 };
     const titleFg = this.hexToRgb(themeLoader.getColor('sideBarTitle.foreground')) || { r: 187, g: 187, b: 187 };
     const selectionBg = this.hexToRgb(themeLoader.getColor('list.activeSelectionBackground')) || { r: 9, g: 71, b: 113 };
@@ -552,10 +555,17 @@ export class GitPanel implements MouseHandler {
 
   onMouseEvent(event: MouseEvent): boolean {
     if (!this.isVisible) return false;
-    
+
+    // Request focus on any click within bounds
+    if (event.name === 'MOUSE_LEFT_BUTTON_PRESSED') {
+      this.isFocused = true;
+      if (this.onFocusCallback) {
+        this.onFocusCallback();
+      }
+    }
+
     switch (event.name) {
       case 'MOUSE_LEFT_BUTTON_PRESSED': {
-        this.isFocused = true;
         // TODO: Handle click on specific items
         return true;
       }
@@ -579,6 +589,10 @@ export class GitPanel implements MouseHandler {
 
   onRefresh(callback: () => void): void {
     this.onRefreshCallback = callback;
+  }
+
+  onFocus(callback: () => void): void {
+    this.onFocusCallback = callback;
   }
 
   onCommitRequest(callback: () => void): void {
