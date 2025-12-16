@@ -5,6 +5,8 @@
  */
 
 import * as path from 'path';
+import * as fs from 'fs';
+import * as os from 'os';
 import { Document } from './core/document.ts';
 import { type Position } from './core/buffer.ts';
 import { hasSelection } from './core/cursor.ts';
@@ -31,6 +33,29 @@ import { lspManager, autocompletePopup, hoverTooltip, signatureHelp, diagnostics
 import { terminalPane } from './ui/components/terminal-pane.ts';
 import { gitIntegration } from './features/git/git-integration.ts';
 import { gitPanel } from './ui/components/git-panel.ts';
+import { defaultBootFile } from './config/defaults.ts';
+
+// Helper function to ensure boot file exists
+async function ensureBootFile(bootFilePath: string): Promise<void> {
+  try {
+    // Expand ~ to home directory
+    const expandedPath = bootFilePath.replace(/^~/, os.homedir());
+    const dir = path.dirname(expandedPath);
+
+    // Create ~/.ultra directory if it doesn't exist
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    // Create boot file if it doesn't exist
+    if (!fs.existsSync(expandedPath)) {
+      fs.writeFileSync(expandedPath, defaultBootFile, 'utf-8');
+    }
+  } catch (error) {
+    // Silently fail - we'll fall back to empty file
+    console.error('Failed to create boot file:', error);
+  }
+}
 
 interface OpenDocument {
   id: string;
@@ -189,13 +214,52 @@ export class App {
       this.debugLog('Starting file watcher...');
       this.startFileWatcher();
 
-      // Open file if provided, otherwise create empty document
-      this.debugLog(`Opening: ${fileToOpen || 'new file'}`);
+      // Open file if provided, otherwise check startup setting
+      this.debugLog(`Opening: ${fileToOpen || 'checking startup setting'}`);
       if (fileToOpen) {
+        // File provided via command line - open it
         await this.openFile(fileToOpen);
       } else {
-        // Create empty document
-        this.newFile();
+        // No file provided - check workbench.startupEditor setting
+        const startupEditor = settings.get('workbench.startupEditor') || '';
+        this.debugLog(`startupEditor setting: "${startupEditor}"`);
+
+        if (startupEditor === '' || startupEditor === 'none') {
+          // User wants to start with empty editor
+          this.debugLog('Opening empty editor (setting is empty or "none")');
+          this.newFile();
+        } else {
+          // Open the configured startup file
+          this.debugLog(`Will try to open startup file: ${startupEditor}`);
+          try {
+            // Expand ~ to home directory
+            const expandedPath = startupEditor.replace(/^~/, os.homedir());
+            this.debugLog(`Expanded path: ${expandedPath}`);
+
+            // Ensure boot file exists if it's the default one
+            if (startupEditor === '~/.ultra/BOOT.md') {
+              this.debugLog('Ensuring boot file exists...');
+              await ensureBootFile(startupEditor);
+              this.debugLog('Boot file ensured');
+            }
+
+            // Open the file
+            this.debugLog(`Calling openFile: ${expandedPath}`);
+            await this.openFile(expandedPath);
+
+            // Check if a document was actually opened
+            if (this.documents.length === 0) {
+              this.debugLog('No document opened, falling back to empty');
+              this.newFile();
+            } else {
+              this.debugLog('File opened successfully');
+            }
+          } catch (error) {
+            // Failed to open startup file - fall back to empty document
+            this.debugLog(`Failed to open startup file: ${error}`);
+            this.newFile();
+          }
+        }
       }
 
       this.debugLog('Setting isRunning = true');

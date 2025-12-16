@@ -23,6 +23,7 @@
   "workbench.colorTheme": "catppuccin-frappe",
   "workbench.sideBar.visible": true,
   "workbench.sideBar.location": "left",
+  "workbench.startupEditor": "~/.ultra/BOOT.md",
   "ultra.sidebar.width": 30,
   "ultra.ai.model": "claude-sonnet-4-20250514",
   "ultra.ai.apiKey": "${env:ANTHROPIC_API_KEY}",
@@ -35,6 +36,6 @@
   "git.panel.location": "sidebar-bottom",
   "git.panel.openOnStartup": true,
   "git.diffContextLines": 3,
-  "terminal.integrated.openOnStartup": true,
+  "terminal.integrated.openOnStartup": false,
   "terminal.integrated.spawnOnStartup": true
 }

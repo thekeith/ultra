@@ -27,6 +27,7 @@ export interface EditorSettings {
   'workbench.colorTheme': string;
   'workbench.sideBar.visible': boolean;
   'workbench.sideBar.location': 'left' | 'right';
+  'workbench.startupEditor': string;
   'ultra.sidebar.width': number;
   'ultra.ai.model': string;
   'ultra.ai.apiKey': string;
@@ -69,6 +70,7 @@ const defaultSettings: EditorSettings = {
   'workbench.colorTheme': 'One Dark',
   'workbench.sideBar.visible': true,
   'workbench.sideBar.location': 'left',
+  'workbench.startupEditor': '~/.ultra/BOOT.md',
   'ultra.sidebar.width': 30,
   'ultra.ai.model': 'claude-sonnet-4-20250514',
   'ultra.ai.apiKey': '${env:ANTHROPIC_API_KEY}',
