@@ -3110,10 +3110,11 @@ export class App {
     // Initial check
     this.updateGitStatus();
     
-    // Poll every 500ms for responsive git status updates
+    // Poll at configured interval for responsive git status updates
+    const interval = settings.get('git.statusInterval');
     this.gitStatusInterval = setInterval(() => {
       this.updateGitStatus();
-    }, 500);
+    }, interval);
   }
 
   /**

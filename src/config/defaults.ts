@@ -448,7 +448,8 @@ export const defaultSettings: Record<string, any> = {
   "terminal.integrated.position": "bottom",
   "terminal.integrated.defaultHeight": 18,
   "terminal.integrated.defaultWidth": 60,
-  "terminal.integrated.scrollback": 1000
+  "terminal.integrated.scrollback": 1000,
+  "git.statusInterval": 100
 };
 
 export const defaultThemes: Record<string, Theme> = {

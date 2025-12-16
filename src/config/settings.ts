@@ -34,6 +34,7 @@ export interface EditorSettings {
   'terminal.integrated.position': 'bottom' | 'top' | 'left' | 'right';
   'terminal.integrated.defaultHeight': number;
   'terminal.integrated.defaultWidth': number;
+  'git.statusInterval': number;
 }
 
 const defaultSettings: EditorSettings = {
@@ -69,7 +70,8 @@ const defaultSettings: EditorSettings = {
   'terminal.integrated.shell': process.env.SHELL || '/bin/zsh',
   'terminal.integrated.position': 'bottom',
   'terminal.integrated.defaultHeight': 12,
-  'terminal.integrated.defaultWidth': 40
+  'terminal.integrated.defaultWidth': 40,
+  'git.statusInterval': 100
 };
 
 export class Settings {

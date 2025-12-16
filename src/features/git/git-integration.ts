@@ -350,37 +350,74 @@ export class GitIntegration {
       }
     }
 
-    // For each new line not in LCS, it's either added or modified
+    // Build a map of old line index to new line index for matched lines
+    // This helps us understand where deletions/additions happen relative to matched context
+    const oldToNewMapping: Map<number, number> = new Map();
+    i = m; j = n;
+    while (i > 0 && j > 0) {
+      if (oldLines[i - 1] === newLines[j - 1]) {
+        oldToNewMapping.set(i - 1, j - 1);
+        i--;
+        j--;
+      } else if (lcs[i - 1][j] > lcs[i][j - 1]) {
+        i--;
+      } else {
+        j--;
+      }
+    }
+
+    // Group deletions by their "region" in the new file
+    // A deletion at old line X affects the new file between the previous and next matched lines
+    const deletionRegions: Array<{ start: number; end: number }> = [];
+    for (const oldIdx of deletedOldLines) {
+      // Find the closest matched line before and after this deletion
+      let prevMatchedNew = -1;
+      let nextMatchedNew = n;
+      
+      for (let k = oldIdx - 1; k >= 0; k--) {
+        if (oldToNewMapping.has(k)) {
+          prevMatchedNew = oldToNewMapping.get(k)!;
+          break;
+        }
+      }
+      for (let k = oldIdx + 1; k < m; k++) {
+        if (oldToNewMapping.has(k)) {
+          nextMatchedNew = oldToNewMapping.get(k)!;
+          break;
+        }
+      }
+      
+      // The deletion affects new lines between prevMatchedNew and nextMatchedNew
+      deletionRegions.push({ start: prevMatchedNew + 1, end: nextMatchedNew });
+    }
+
+    // For each new line not in LCS, check if it's in a deletion region (modified) or not (added)
     for (let k = 0; k < n; k++) {
       if (!matchedNew.has(k)) {
-        // Check if there's a corresponding deleted line nearby (modification)
-        // Simple heuristic: if same position had a deletion, it's modified
-        const hasCorrespondingDeletion = deletedOldLines.some(oldIdx => {
-          // Check if this old line roughly corresponds to this new line position
-          const oldRatio = oldIdx / Math.max(m, 1);
-          const newRatio = k / Math.max(n, 1);
-          return Math.abs(oldRatio - newRatio) < 0.1 || oldIdx === k;
-        });
+        // Check if this line is in a region where deletions occurred
+        const inDeletionRegion = deletionRegions.some(region => 
+          k >= region.start && k < region.end
+        );
         
         changes.push({
           line: k + 1,  // 1-based line numbers
-          type: hasCorrespondingDeletion ? 'modified' : 'added'
+          type: inDeletionRegion ? 'modified' : 'added'
         });
       }
     }
 
     // Add delete markers at positions where content was removed
     // Show on the line after the deletion (or line 1 if at start)
-    let newLineIdx = 0;
     for (const oldIdx of deletedOldLines) {
       // Find where in the new file this deletion would appear
-      // Count matched old lines before this one
-      let matchedBefore = 0;
-      for (let k = 0; k < oldIdx; k++) {
-        if (matchedOld.has(k)) matchedBefore++;
+      let prevMatchedNew = 0;
+      for (let k = oldIdx - 1; k >= 0; k--) {
+        if (oldToNewMapping.has(k)) {
+          prevMatchedNew = oldToNewMapping.get(k)! + 1;  // Line after the previous match
+          break;
+        }
       }
-      // The deletion appears after this many matched lines in the new file
-      const deletionLine = matchedBefore + 1;  // 1-based
+      const deletionLine = prevMatchedNew + 1;  // 1-based
       
       // Only add if we don't already have a change at this line
       if (!changes.some(c => c.line === deletionLine)) {

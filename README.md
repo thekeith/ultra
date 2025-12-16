@@ -16,9 +16,6 @@ A terminal-native code editor with Sublime Text ergonomics, VS Code configuratio
 (hmm, is this seen?)
 
 
-
-
-
 ## Requirements
 
 - [Bun](https://bun.sh) v1.0 or later
