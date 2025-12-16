@@ -27,6 +27,7 @@ export class InputDialog {
     initialValue?: string;
     screenWidth: number;
     screenHeight: number;
+    width?: number;  // Optional custom width
     onConfirm: (value: string) => void;
     onCancel?: () => void;
   }): void {
@@ -37,8 +38,10 @@ export class InputDialog {
     this.onConfirmCallback = options.onConfirm;
     this.onCancelCallback = options.onCancel || null;
 
-    // Center the dialog
-    this.width = Math.min(60, options.screenWidth - 4);
+    // Center the dialog (use custom width if provided)
+    const defaultWidth = 60;
+    const maxWidth = options.screenWidth - 4;
+    this.width = Math.min(options.width || defaultWidth, maxWidth);
     this.x = Math.floor((options.screenWidth - this.width) / 2) + 1;
     this.y = Math.floor(options.screenHeight / 3);
   }

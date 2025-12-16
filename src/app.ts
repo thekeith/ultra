@@ -167,6 +167,9 @@ export class App {
       gitPanel.onRefresh(() => {
         renderer.scheduleRender();
       });
+      gitPanel.onCommitRequest(() => {
+        this.showCommitDialog();
+      });
 
       // Initialize LSP manager with workspace root
       this.debugLog('Initializing LSP...');
@@ -2330,7 +2333,7 @@ export class App {
           if (!layoutManager.isSidebarVisible()) {
             layoutManager.toggleSidebar(settings.get('ultra.sidebar.width') || 30);
           }
-          fileTree.setVisible(false);
+          // Show git panel (keep file tree visible - they can coexist)
           gitPanel.setVisible(true);
           gitPanel.setFocused(true);
           fileTree.setFocused(false);
@@ -3351,6 +3354,36 @@ export class App {
 
     // Show inline diff in the pane (line is 1-based from git gutter)
     await pane.showInlineDiff(doc.filePath, line - 1, diffContent);
+    renderer.scheduleRender();
+  }
+
+  /**
+   * Show commit message dialog
+   */
+  private showCommitDialog(): void {
+    const width = renderer.width;
+    const height = renderer.height;
+    
+    inputDialog.show({
+      title: 'Commit Message',
+      placeholder: 'Enter commit message...',
+      screenWidth: width,
+      screenHeight: height,
+      width: 80,  // Wider for commit messages
+      onConfirm: async (message) => {
+        const success = await gitPanel.commitWithMessage(message);
+        if (success) {
+          statusBar.setMessage('Committed successfully', 2000);
+          await this.updateGitStatus();
+        } else {
+          statusBar.setMessage('Commit failed', 2000);
+        }
+        renderer.scheduleRender();
+      },
+      onCancel: () => {
+        renderer.scheduleRender();
+      }
+    });
     renderer.scheduleRender();
   }
 

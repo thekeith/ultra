@@ -39,13 +39,10 @@ export class GitPanel implements MouseHandler {
   private unstagedCollapsed: boolean = false;
   private untrackedCollapsed: boolean = false;
   
-  // Commit message
-  private commitMessage: string = '';
-  private isCommitInputActive: boolean = false;
-  
   // Callbacks
   private onFileSelectCallback?: (filePath: string) => void;
   private onRefreshCallback?: () => void;
+  private onCommitRequestCallback?: () => void;
 
   setRect(rect: Rect): void {
     this.rect = rect;
@@ -231,17 +228,23 @@ export class GitPanel implements MouseHandler {
   }
 
   /**
-   * Commit staged changes
+   * Commit staged changes with the given message
    */
-  async commit(): Promise<boolean> {
-    if (!this.commitMessage.trim()) return false;
+  async commitWithMessage(message: string): Promise<boolean> {
+    if (!message.trim()) return false;
     
-    const success = await gitIntegration.commit(this.commitMessage);
+    const success = await gitIntegration.commit(message);
     if (success) {
-      this.commitMessage = '';
       await this.refresh();
     }
     return success;
+  }
+
+  /**
+   * Check if there are staged changes to commit
+   */
+  hasStagedChanges(): boolean {
+    return this.status !== null && this.status.staged.length > 0;
   }
 
   /**
@@ -262,37 +265,6 @@ export class GitPanel implements MouseHandler {
    */
   async handleKey(key: string, ctrl: boolean, shift: boolean, char?: string): Promise<boolean> {
     if (!this.isFocused) return false;
-    
-    // Commit message input mode
-    if (this.isCommitInputActive) {
-      if (key === 'ESCAPE') {
-        this.isCommitInputActive = false;
-        return true;
-      }
-      if (key === 'ENTER') {
-        if (shift) {
-          // Shift+Enter: add newline to commit message
-          this.commitMessage += '\n';
-        } else {
-          // Enter: commit
-          await this.commit();
-          this.isCommitInputActive = false;
-        }
-        return true;
-      }
-      if (key === 'BACKSPACE') {
-        if (this.commitMessage.length > 0) {
-          this.commitMessage = this.commitMessage.slice(0, -1);
-        }
-        return true;
-      }
-      // Add character to commit message
-      if (char && char.length === 1 && char.charCodeAt(0) >= 32) {
-        this.commitMessage += char;
-        return true;
-      }
-      return true;
-    }
     
     // Normal panel navigation
     switch (key) {
@@ -338,8 +310,10 @@ export class GitPanel implements MouseHandler {
         return true;
         
       case 'C':
-        // C: Start commit message input (no ctrl needed since panel is focused)
-        this.isCommitInputActive = true;
+        // C: Open commit dialog
+        if (this.onCommitRequestCallback && this.hasStagedChanges()) {
+          this.onCommitRequestCallback();
+        }
         return true;
         
       case 'R':
@@ -405,15 +379,7 @@ export class GitPanel implements MouseHandler {
     output += branchLine.substring(0, this.rect.width).padEnd(this.rect.width, ' ');
     y++;
     
-    // Commit message input (if active)
-    if (this.isCommitInputActive) {
-      output += moveTo(this.rect.x, y);
-      output += fgRgb(panelFg.r, panelFg.g, panelFg.b);
-      const msgLine = ` ${this.commitMessage || 'Commit message...'}_`;
-      output += msgLine.substring(0, this.rect.width).padEnd(this.rect.width, ' ');
-      y++;
-    }
-    
+
     // Separator
     output += moveTo(this.rect.x, y);
     output += fgRgb(panelFg.r * 0.5, panelFg.g * 0.5, panelFg.b * 0.5);
@@ -529,9 +495,7 @@ export class GitPanel implements MouseHandler {
       output += bgRgb(45, 45, 48);
       output += fgRgb(150, 150, 150);
       
-      const hints = this.isCommitInputActive 
-        ? ['Enter:commit', 'Esc:cancel']
-        : ['s:stage', 'u:unstage', 'd:discard', 'c:commit', 'S:stage all'];
+      const hints = ['s:stage', 'u:unstage', 'd:discard', 'c:commit', 'S:stage all'];
       
       // Wrap hints into lines that fit the width
       const lines: string[] = [];
@@ -615,6 +579,10 @@ export class GitPanel implements MouseHandler {
 
   onRefresh(callback: () => void): void {
     this.onRefreshCallback = callback;
+  }
+
+  onCommitRequest(callback: () => void): void {
+    this.onCommitRequestCallback = callback;
   }
 }
 
