@@ -1260,14 +1260,12 @@ export class Pane implements MouseHandler {
    * Set git line changes for gutter indicators
    */
   setGitLineChanges(changes: GitLineChange[]): void {
-    // Direct file write to bypass any caching issues
-    const fs = require('fs');
-    fs.appendFileSync('debug.log', `[${new Date().toISOString()}] [Pane.setGitLineChanges DIRECT] changes=${changes.length}\n`);
+    debugLog(`[Pane.setGitLineChanges] changes=${changes.length}`);
     this.gitLineChanges.clear();
     for (const change of changes) {
       this.gitLineChanges.set(change.line, change.type);
     }
-    fs.appendFileSync('debug.log', `[${new Date().toISOString()}] [Pane.setGitLineChanges DIRECT] map size=${this.gitLineChanges.size}\n`);
+    debugLog(`[Pane.setGitLineChanges] map size=${this.gitLineChanges.size}`);
   }
 
   /**
