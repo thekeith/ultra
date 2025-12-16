@@ -363,6 +363,10 @@ export const defaultKeybindings: KeyBinding[] = [
     "command": "ultra.gitCommit"
   },
   {
+    "key": "ctrl+alt+d",
+    "command": "ultra.showGitDiff"
+  },
+  {
     "key": "f12",
     "command": "ultra.goToDefinition"
   },
@@ -446,12 +450,13 @@ export const defaultSettings: Record<string, any> = {
   "ultra.ai.apiKey": "${env:ANTHROPIC_API_KEY}",
   "terminal.integrated.shell": "",
   "terminal.integrated.position": "bottom",
-  "terminal.integrated.defaultHeight": 18,
+  "terminal.integrated.defaultHeight": 24,
   "terminal.integrated.defaultWidth": 60,
   "terminal.integrated.scrollback": 1000,
   "git.statusInterval": 100,
   "git.panel.location": "sidebar-bottom",
   "git.panel.openOnStartup": true,
+  "git.diffContextLines": 3,
   "terminal.integrated.openOnStartup": true,
   "terminal.integrated.spawnOnStartup": true
 };

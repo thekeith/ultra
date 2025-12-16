@@ -122,6 +122,7 @@
   { "key": "ctrl+alt+u", "command": "ultra.gitUnstageFile" },
   { "key": "ctrl+alt+z", "command": "ultra.gitDiscardChanges" },
   { "key": "ctrl+enter", "command": "ultra.gitCommit" },
+  { "key": "ctrl+alt+d", "command": "ultra.showGitDiff" },
 
   { "key": "f12", "command": "ultra.goToDefinition" },
   { "key": "shift+f12", "command": "ultra.findReferences" },

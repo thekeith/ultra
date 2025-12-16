@@ -37,6 +37,7 @@ export interface EditorSettings {
   'git.statusInterval': number;
   'git.panel.location': 'sidebar-bottom' | 'sidebar-top' | 'panel';
   'git.panel.openOnStartup': boolean;
+  'git.diffContextLines': number;
   'terminal.integrated.openOnStartup': boolean;
   'terminal.integrated.spawnOnStartup': boolean;
 }
@@ -78,6 +79,7 @@ const defaultSettings: EditorSettings = {
   'git.statusInterval': 100,
   'git.panel.location': 'sidebar-bottom',
   'git.panel.openOnStartup': true,
+  'git.diffContextLines': 3,
   'terminal.integrated.openOnStartup': true,
   'terminal.integrated.spawnOnStartup': true
 };

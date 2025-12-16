@@ -102,6 +102,27 @@ export class Pane implements MouseHandler {
   // Git line changes for gutter indicators
   private gitLineChanges: Map<number, GitLineChange['type']> = new Map();
   
+  // Inline diff widget state
+  private inlineDiff: {
+    visible: boolean;
+    line: number;           // Line at which to show diff
+    diffLines: string[];    // Parsed diff lines
+    scrollTop: number;      // Scroll within diff widget
+    height: number;         // Height of widget in lines
+    filePath: string;       // File being diffed
+  } = {
+    visible: false,
+    line: 0,
+    diffLines: [],
+    scrollTop: 0,
+    height: 10,
+    filePath: ''
+  };
+  
+  // Inline diff callbacks
+  private onInlineDiffStageCallback?: (filePath: string, line: number) => Promise<void>;
+  private onInlineDiffRevertCallback?: (filePath: string, line: number) => Promise<void>;
+  
   // Callbacks
   private onClickCallback?: (position: Position, clickCount: number, event: MouseEvent) => void;
   private onDragCallback?: (position: Position, event: MouseEvent) => void;
@@ -110,6 +131,7 @@ export class Pane implements MouseHandler {
   private onTabSelectCallback?: (document: Document) => void;
   private onTabCloseCallback?: (document: Document, tabId: string) => void;
   private onFoldToggleCallback?: (line: number) => void;
+  private onGitGutterClickCallback?: (line: number) => void;
 
   constructor(id: string) {
     this.id = id;
@@ -675,6 +697,10 @@ export class Pane implements MouseHandler {
       this.lastParsedContent = content;
     }
     
+    // Calculate inline diff position if visible
+    const inlineDiffLine = this.inlineDiff.visible ? this.inlineDiff.line : -1;
+    const inlineDiffHeight = this.inlineDiff.visible ? this.inlineDiff.height : 0;
+    
     // Render visible lines, skipping folded ones
     debugLog(`[Pane ${this.id}] renderContent: rendering lines...`);
     let screenLine = 0;
@@ -693,6 +719,12 @@ export class Pane implements MouseHandler {
       
       screenLine++;
       bufferLine++;
+      
+      // Render inline diff after the target line
+      if (bufferLine - 1 === inlineDiffLine && screenLine + inlineDiffHeight <= visibleLines) {
+        this.renderInlineDiff(ctx, rect.x, rect.y + screenLine, rect.width, inlineDiffHeight);
+        screenLine += inlineDiffHeight;
+      }
     }
     debugLog(`[Pane ${this.id}] renderContent: lines done`);
     
@@ -702,6 +734,79 @@ export class Pane implements MouseHandler {
       this.renderCursor(ctx, doc, rect);
     }
     debugLog(`[Pane ${this.id}] renderContent: complete`);
+  }
+
+  /**
+   * Render the inline diff widget
+   */
+  private renderInlineDiff(ctx: RenderContext, x: number, y: number, width: number, height: number): void {
+    const theme = themeLoader.getCurrentTheme();
+    if (!theme) return;
+    const colors = theme.colors;
+    
+    const bgColor = colors['editor.background'] || '#1e1e1e';
+    const borderColor = colors['editorWidget.border'] || '#454545';
+    const fgColor = colors['editor.foreground'] || '#d4d4d4';
+    const addedBg = '#2ea04326';
+    const deletedBg = '#f8514926';
+    const addedFg = colors['gitDecoration.addedResourceForeground'] || '#89d185';
+    const deletedFg = colors['gitDecoration.deletedResourceForeground'] || '#f14c4c';
+    const headerBg = colors['editorWidget.background'] || '#252526';
+    
+    // Draw header with title and buttons
+    const fileName = this.inlineDiff.filePath.split('/').pop() || 'diff';
+    const headerText = ` ${fileName} - Line ${this.inlineDiff.line + 1} `;
+    const buttons = ' 󰐕 Stage  󰜺 Revert  󰅖 Close ';
+    
+    // Header background
+    ctx.drawStyled(x, y, ' '.repeat(width), fgColor, headerBg);
+    ctx.drawStyled(x, y, headerText, fgColor, headerBg);
+    ctx.drawStyled(x + width - buttons.length - 1, y, buttons, fgColor, headerBg);
+    
+    // Draw content area
+    const contentHeight = height - 2;  // Minus header and footer
+    const lines = this.inlineDiff.diffLines;
+    
+    for (let i = 0; i < contentHeight; i++) {
+      const lineIdx = this.inlineDiff.scrollTop + i;
+      const screenY = y + 1 + i;
+      
+      if (lineIdx < lines.length) {
+        const line = lines[lineIdx] || '';
+        let lineBg = bgColor;
+        let lineFg = fgColor;
+        let prefix = ' ';
+        
+        if (line.startsWith('+') && !line.startsWith('+++')) {
+          lineBg = addedBg;
+          lineFg = addedFg;
+          prefix = '+';
+        } else if (line.startsWith('-') && !line.startsWith('---')) {
+          lineBg = deletedBg;
+          lineFg = deletedFg;
+          prefix = '-';
+        } else if (line.startsWith('@@')) {
+          lineFg = colors['textPreformat.foreground'] || '#d7ba7d';
+        }
+        
+        const displayLine = (prefix + line.substring(1)).substring(0, width - 1).padEnd(width - 1);
+        ctx.drawStyled(x, screenY, '│', borderColor, bgColor);
+        ctx.drawStyled(x + 1, screenY, displayLine, lineFg, lineBg);
+      } else {
+        ctx.drawStyled(x, screenY, '│' + ' '.repeat(width - 1), borderColor, bgColor);
+      }
+    }
+    
+    // Draw footer with keybindings
+    const footerText = ' s:stage  r:revert  c/Esc:close  j/k:scroll ';
+    const footerY = y + height - 1;
+    ctx.drawStyled(x, footerY, ' '.repeat(width), fgColor, headerBg);
+    const footerX = x + Math.floor((width - footerText.length) / 2);
+    ctx.drawStyled(footerX, footerY, footerText, colors['descriptionForeground'] || '#858585', headerBg);
+    
+    // Draw left border
+    ctx.drawStyled(x, y, '┌', borderColor, headerBg);
+    ctx.drawStyled(x, footerY, '└', borderColor, headerBg);
   }
 
   private renderLine(
@@ -1058,11 +1163,32 @@ export class Pane implements MouseHandler {
   private handleEditorMouseEvent(event: MouseEvent, editorRect: Rect): boolean {
     const doc = this.getActiveDocument();
     if (!doc) return false;
+
+    // Handle inline diff mouse events first
+    if (this.inlineDiff.visible) {
+      const handled = this.handleInlineDiffMouseEvent(event, editorRect);
+      if (handled) return true;
+    }
     
     switch (event.name) {
       case 'MOUSE_LEFT_BUTTON_PRESSED':
       case 'MOUSE_LEFT_BUTTON_PRESSED_DOUBLE':
       case 'MOUSE_LEFT_BUTTON_PRESSED_TRIPLE': {
+        // Check if click is in the git gutter area (first column)
+        const gitGutterEnd = editorRect.x + 1;  // Git indicator is first column
+        if (event.x >= editorRect.x && event.x < gitGutterEnd) {
+          const screenLine = event.y - editorRect.y;
+          const bufferLine = this.screenLineToBufferLine(screenLine);
+          if (bufferLine !== -1) {
+            // Check if there's a git change at this line
+            const gitChange = this.gitLineChanges.get(bufferLine + 1);  // 1-based
+            if (gitChange && this.onGitGutterClickCallback) {
+              this.onGitGutterClickCallback(bufferLine + 1);  // Pass 1-based line number
+              return true;
+            }
+          }
+        }
+        
         // Check if click is in the gutter area (line numbers or fold indicator)
         const gutterEnd = editorRect.x + this.gutterWidth;
         if (this.foldingEnabled && event.x >= editorRect.x && event.x < gutterEnd) {
@@ -1106,6 +1232,83 @@ export class Pane implements MouseHandler {
     }
     
     return false;
+  }
+
+  /**
+   * Handle mouse events for the inline diff widget
+   */
+  private handleInlineDiffMouseEvent(event: MouseEvent, editorRect: Rect): boolean {
+    // Calculate where the inline diff would be rendered
+    const inlineDiffScreenStart = this.bufferLineToScreenLine(this.inlineDiff.line) + 1;
+    const inlineDiffScreenEnd = inlineDiffScreenStart + this.inlineDiff.height;
+    const clickScreenY = event.y - editorRect.y;
+    
+    // Check if click is within the inline diff area
+    if (clickScreenY < inlineDiffScreenStart || clickScreenY >= inlineDiffScreenEnd) {
+      return false;
+    }
+    
+    const relativeY = clickScreenY - inlineDiffScreenStart;
+    
+    switch (event.name) {
+      case 'MOUSE_LEFT_BUTTON_PRESSED': {
+        // Header row (y=0) - check buttons
+        if (relativeY === 0) {
+          const width = editorRect.width;
+          const relX = event.x - editorRect.x;
+          
+          // Buttons are at the end: " 󰐕 Stage  󰜺 Revert  󰅖 Close "
+          // Close button is last
+          if (relX >= width - 8) {
+            this.hideInlineDiff();
+            return true;
+          }
+          // Revert button
+          else if (relX >= width - 18) {
+            if (this.onInlineDiffRevertCallback) {
+              this.onInlineDiffRevertCallback(this.inlineDiff.filePath, this.inlineDiff.line);
+            }
+            return true;
+          }
+          // Stage button
+          else if (relX >= width - 28) {
+            if (this.onInlineDiffStageCallback) {
+              this.onInlineDiffStageCallback(this.inlineDiff.filePath, this.inlineDiff.line);
+            }
+            return true;
+          }
+        }
+        return true;  // Consume click within diff area
+      }
+      
+      case 'MOUSE_WHEEL_UP':
+        this.inlineDiff.scrollTop = Math.max(0, this.inlineDiff.scrollTop - 3);
+        return true;
+        
+      case 'MOUSE_WHEEL_DOWN':
+        this.inlineDiff.scrollTop = Math.min(
+          Math.max(0, this.inlineDiff.diffLines.length - this.inlineDiff.height + 2),
+          this.inlineDiff.scrollTop + 3
+        );
+        return true;
+    }
+    
+    return true;  // Consume all events in diff area
+  }
+
+  /**
+   * Convert buffer line to screen line (accounting for folds and inline diff)
+   */
+  private bufferLineToScreenLine(bufferLine: number): number {
+    if (bufferLine < this.scrollTop) return -1;
+    
+    let screenLine = 0;
+    for (let line = this.scrollTop; line < bufferLine; line++) {
+      if (!this.foldManager.isHidden(line)) {
+        screenLine++;
+      }
+    }
+    return screenLine;
   }
 
   /**
@@ -1184,6 +1387,10 @@ export class Pane implements MouseHandler {
 
   onFoldToggle(callback: (line: number) => void): void {
     this.onFoldToggleCallback = callback;
+  }
+
+  onGitGutterClick(callback: (line: number) => void): void {
+    this.onGitGutterClickCallback = callback;
   }
 
   // ==================== Folding ====================
@@ -1273,6 +1480,100 @@ export class Pane implements MouseHandler {
    */
   clearGitLineChanges(): void {
     this.gitLineChanges.clear();
+  }
+
+  /**
+   * Get all git line changes as an array
+   */
+  getGitLineChanges(): GitLineChange[] {
+    const changes: GitLineChange[] = [];
+    for (const [line, type] of this.gitLineChanges) {
+      changes.push({ line, type });
+    }
+    return changes.sort((a, b) => a.line - b.line);
+  }
+
+  // ==================== Inline Diff ====================
+
+  /**
+   * Show inline diff at a specific line
+   */
+  async showInlineDiff(filePath: string, line: number, diffContent: string): Promise<void> {
+    const lines = diffContent.split('\n');
+    this.inlineDiff = {
+      visible: true,
+      line: line,
+      diffLines: lines,
+      scrollTop: 0,
+      height: Math.min(lines.length + 2, 15),  // +2 for header/footer, max 15 lines
+      filePath: filePath
+    };
+  }
+
+  /**
+   * Hide inline diff
+   */
+  hideInlineDiff(): void {
+    this.inlineDiff.visible = false;
+    this.inlineDiff.diffLines = [];
+  }
+
+  /**
+   * Check if inline diff is visible
+   */
+  isInlineDiffVisible(): boolean {
+    return this.inlineDiff.visible;
+  }
+
+  /**
+   * Handle keyboard input for inline diff
+   */
+  handleInlineDiffKey(key: string, ctrl: boolean, _shift: boolean): boolean {
+    if (!this.inlineDiff.visible) return false;
+
+    switch (key) {
+      case 'ESCAPE':
+      case 'c':
+        this.hideInlineDiff();
+        return true;
+      case 's':
+        if (this.onInlineDiffStageCallback) {
+          this.onInlineDiffStageCallback(this.inlineDiff.filePath, this.inlineDiff.line);
+        }
+        return true;
+      case 'r':
+        if (this.onInlineDiffRevertCallback) {
+          this.onInlineDiffRevertCallback(this.inlineDiff.filePath, this.inlineDiff.line);
+        }
+        return true;
+      case 'j':
+      case 'DOWN':
+        this.inlineDiff.scrollTop = Math.min(
+          this.inlineDiff.scrollTop + 1,
+          Math.max(0, this.inlineDiff.diffLines.length - this.inlineDiff.height + 2)
+        );
+        return true;
+      case 'k':
+      case 'UP':
+        this.inlineDiff.scrollTop = Math.max(0, this.inlineDiff.scrollTop - 1);
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Set callback for inline diff stage action
+   */
+  onInlineDiffStage(callback: (filePath: string, line: number) => Promise<void>): void {
+    this.onInlineDiffStageCallback = callback;
+  }
+
+  /**
+   * Set callback for inline diff revert action
+   */
+  onInlineDiffRevert(callback: (filePath: string, line: number) => Promise<void>): void {
+    this.onInlineDiffRevertCallback = callback;
   }
 
   // ==================== Utilities ====================

@@ -708,6 +708,22 @@ export class GitIntegration {
     return this.diff(filePath);
   }
 
+  /**
+   * Get raw diff text for a file (comparing working tree to HEAD)
+   */
+  async getLineDiff(filePath: string, _line: number, contextLines: number = 3): Promise<string | null> {
+    if (!this.workspaceRoot) return null;
+    try {
+      // Get the diff comparing to HEAD (same as what gutter shows)
+      const result = await $`git -C ${this.workspaceRoot} diff HEAD -U${contextLines} -- ${filePath}`.quiet();
+      if (result.exitCode !== 0 || !result.text().trim()) return null;
+      
+      return result.text();
+    } catch {
+      return null;
+    }
+  }
+
   async stageFile(filePath: string): Promise<boolean> {
     return this.add(filePath);
   }

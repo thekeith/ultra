@@ -607,6 +607,16 @@ export class App {
         return;
       }
 
+      // Handle inline diff input if visible in active pane
+      const activePane = paneManager.getActivePane();
+      if (activePane.isInlineDiffVisible()) {
+        const handled = activePane.handleInlineDiffKey(event.key, event.ctrl, event.shift);
+        if (handled) {
+          renderer.scheduleRender();
+          return;
+        }
+      }
+
       // Handle git panel input if it's focused
       if (gitPanel.getFocused() && gitPanel.isOpen()) {
         // Allow Ctrl+Shift+G to toggle git panel even when focused
@@ -1377,6 +1387,40 @@ export class App {
       const docEntry = this.documents.find(d => d.document === document);
       if (docEntry) {
         this.requestCloseDocumentInPane(docEntry.id, pane.id);
+      }
+    });
+
+    // Handle git gutter clicks
+    paneManager.onGitGutterClick((line) => {
+      this.showGitDiffPopup(line);
+    });
+
+    // Handle inline diff stage action
+    paneManager.onInlineDiffStage(async (filePath, _line) => {
+      const result = await gitIntegration.stageFile(filePath);
+      if (result) {
+        statusBar.setMessage('Staged file', 2000);
+        const pane = paneManager.getActivePane();
+        pane.hideInlineDiff();
+        await this.updateGitStatus();
+        renderer.scheduleRender();
+      }
+    });
+
+    // Handle inline diff revert action
+    paneManager.onInlineDiffRevert(async (filePath, _line) => {
+      const result = await gitIntegration.revertFile(filePath);
+      if (result) {
+        statusBar.setMessage('Reverted changes', 2000);
+        const pane = paneManager.getActivePane();
+        pane.hideInlineDiff();
+        // Reload the file
+        const doc = this.getActiveDocument();
+        if (doc) {
+          await doc.reload();
+        }
+        await this.updateGitStatus();
+        renderer.scheduleRender();
       }
     });
   }
@@ -2160,6 +2204,18 @@ export class App {
             gitPanel.setFocused(false);
           }
           renderer.scheduleRender();
+        }
+      },
+      {
+        id: 'ultra.showGitDiff',
+        title: 'Git: Show Diff at Cursor',
+        category: 'Git',
+        handler: async () => {
+          const doc = this.getActiveDocument();
+          if (doc?.filePath) {
+            const line = doc.primaryCursor.position.line + 1;  // 1-based
+            await this.showGitDiffPopup(line);
+          }
         }
       },
       {
@@ -3262,6 +3318,35 @@ export class App {
     this.debugLog(`[Git Gutter] Calling setGitLineChanges on pane: ${pane?.id}`);
     pane.setGitLineChanges(lineChanges);
     this.debugLog(`[Git Gutter] setGitLineChanges called`);
+  }
+
+  /**
+   * Show git diff inline in the editor at the specified line
+   */
+  private async showGitDiffPopup(line: number): Promise<void> {
+    const doc = this.getActiveDocument();
+    if (!doc?.filePath) return;
+
+    const pane = paneManager.getActivePane();
+    const changes = pane.getGitLineChanges();
+    
+    if (changes.length === 0) {
+      statusBar.setMessage('No changes to show', 2000);
+      return;
+    }
+
+    // Get the diff content for this line from git
+    const contextLines = settings.get('git.diffContextLines') ?? 3;
+    const diffContent = await gitIntegration.getLineDiff(doc.filePath, line, contextLines);
+    
+    if (!diffContent) {
+      statusBar.setMessage('No diff available for this line', 2000);
+      return;
+    }
+
+    // Show inline diff in the pane (line is 1-based from git gutter)
+    await pane.showInlineDiff(doc.filePath, line - 1, diffContent);
+    renderer.scheduleRender();
   }
 
   /**

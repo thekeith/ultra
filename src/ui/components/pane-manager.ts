@@ -36,6 +36,9 @@ export class PaneManager implements MouseHandler {
   private onDocumentDragCallback?: (document: Document, position: Position, event: MouseEvent) => void;
   private onDocumentScrollCallback?: (document: Document, deltaX: number, deltaY: number) => void;
   private onTabCloseRequestCallback?: (document: Document, pane: Pane) => void;
+  private onGitGutterClickCallback?: (line: number) => void;
+  private onInlineDiffStageCallback?: (filePath: string, line: number) => Promise<void>;
+  private onInlineDiffRevertCallback?: (filePath: string, line: number) => Promise<void>;
 
   constructor() {
     // Create initial pane
@@ -87,6 +90,24 @@ export class PaneManager implements MouseHandler {
       const doc = pane.getActiveDocument();
       if (doc && this.onDocumentScrollCallback) {
         this.onDocumentScrollCallback(doc, deltaX, deltaY);
+      }
+    });
+
+    pane.onGitGutterClick((line) => {
+      if (this.onGitGutterClickCallback) {
+        this.onGitGutterClickCallback(line);
+      }
+    });
+
+    pane.onInlineDiffStage(async (filePath, line) => {
+      if (this.onInlineDiffStageCallback) {
+        await this.onInlineDiffStageCallback(filePath, line);
+      }
+    });
+
+    pane.onInlineDiffRevert(async (filePath, line) => {
+      if (this.onInlineDiffRevertCallback) {
+        await this.onInlineDiffRevertCallback(filePath, line);
       }
     });
     
@@ -600,6 +621,18 @@ export class PaneManager implements MouseHandler {
 
   onTabCloseRequest(callback: (document: Document, pane: Pane) => void): void {
     this.onTabCloseRequestCallback = callback;
+  }
+
+  onGitGutterClick(callback: (line: number) => void): void {
+    this.onGitGutterClickCallback = callback;
+  }
+
+  onInlineDiffStage(callback: (filePath: string, line: number) => Promise<void>): void {
+    this.onInlineDiffStageCallback = callback;
+  }
+
+  onInlineDiffRevert(callback: (filePath: string, line: number) => Promise<void>): void {
+    this.onInlineDiffRevertCallback = callback;
   }
 
   // ==================== Pane Utilities ====================
