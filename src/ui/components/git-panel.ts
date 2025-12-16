@@ -526,13 +526,36 @@ export class GitPanel implements MouseHandler {
       }
     }
     
-    // Help hint at bottom
+    // Help hint at bottom (wrapped to fit width)
     if (this.isFocused) {
-      output += moveTo(this.rect.x, this.rect.y + this.rect.height - 1);
       output += bgRgb(45, 45, 48);
       output += fgRgb(150, 150, 150);
-      const hint = this.isCommitInputActive ? ' Enter:commit Esc:cancel' : ' s:stage u:unstage d:discard ^C:commit';
-      output += hint.substring(0, this.rect.width).padEnd(this.rect.width, ' ');
+      
+      const hints = this.isCommitInputActive 
+        ? ['Enter:commit', 'Esc:cancel']
+        : ['s:stage', 'u:unstage', 'd:discard', '^C:commit', 'S:stage all'];
+      
+      // Wrap hints into lines that fit the width
+      const lines: string[] = [];
+      let currentLine = '';
+      
+      for (const hint of hints) {
+        const addition = currentLine ? '  ' + hint : ' ' + hint;
+        if ((currentLine + addition).length <= this.rect.width) {
+          currentLine += addition;
+        } else {
+          if (currentLine) lines.push(currentLine);
+          currentLine = ' ' + hint;
+        }
+      }
+      if (currentLine) lines.push(currentLine);
+      
+      // Draw from bottom up
+      for (let i = 0; i < lines.length; i++) {
+        const y = this.rect.y + this.rect.height - lines.length + i;
+        output += moveTo(this.rect.x, y);
+        output += (lines[i] || '').padEnd(this.rect.width, ' ');
+      }
     }
     
     output += reset;
