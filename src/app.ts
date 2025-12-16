@@ -1602,6 +1602,8 @@ export class App {
               return;
             }
             await doc.save();
+            // Update file watcher mod time to prevent auto-reload
+            await this.updateFileWatcherModTime(doc.filePath);
             this.updateStatusBar();
           }
         }
@@ -2973,6 +2975,8 @@ export class App {
           const doc = docEntry.document;
           if (doc.filePath) {
             await doc.save();
+            // Update file watcher mod time to prevent auto-reload
+            await this.updateFileWatcherModTime(doc.filePath);
             this.closeDocument(docId);
           } else {
             // No file path, need save-as first
@@ -3187,9 +3191,9 @@ export class App {
     // Compare current buffer content against HEAD (not disk content)
     const bufferContent = doc.content;
     const lineChanges = await gitIntegration.diffBufferLines(doc.filePath, bufferContent);
-    debug.log(`[Git Gutter] File: ${doc.filePath}, Changes: ${lineChanges.length}`);
+    this.debugLog(`[Git Gutter] File: ${doc.filePath}, Changes: ${lineChanges.length}`);
     if (lineChanges.length > 0) {
-      debug.log(`[Git Gutter] First few changes: ${JSON.stringify(lineChanges.slice(0, 5))}`);
+      this.debugLog(`[Git Gutter] First few changes: ${JSON.stringify(lineChanges.slice(0, 5))}`);
     }
     paneManager.getActivePane().setGitLineChanges(lineChanges);
   }
@@ -3219,6 +3223,24 @@ export class App {
    */
   private unwatchFile(filePath: string): void {
     this.fileWatchers.delete(filePath);
+  }
+
+  /**
+   * Update file watcher mod time after saving to prevent auto-reload
+   */
+  private async updateFileWatcherModTime(filePath: string): Promise<void> {
+    const watchInfo = this.fileWatchers.get(filePath);
+    if (watchInfo) {
+      try {
+        const file = Bun.file(filePath);
+        const stat = await file.stat();
+        if (stat?.mtime) {
+          watchInfo.lastModTime = stat.mtime.getTime();
+        }
+      } catch {
+        // Ignore errors
+      }
+    }
   }
 
   /**
