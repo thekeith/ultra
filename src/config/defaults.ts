@@ -67,6 +67,10 @@ export const defaultKeybindings: KeyBinding[] = [
     "command": "ultra.focusSidebar"
   },
   {
+    "key": "ctrl+shift+left",
+    "command": "ultra.focusGitPanel"
+  },
+  {
     "key": "ctrl+shift+down",
     "command": "ultra.focusEditor"
   },

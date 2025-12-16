@@ -338,10 +338,8 @@ export class GitPanel implements MouseHandler {
         return true;
         
       case 'C':
-        if (ctrl) {
-          // Ctrl+C: Start commit message input
-          this.isCommitInputActive = true;
-        }
+        // C: Start commit message input (no ctrl needed since panel is focused)
+        this.isCommitInputActive = true;
         return true;
         
       case 'R':
@@ -533,7 +531,7 @@ export class GitPanel implements MouseHandler {
       
       const hints = this.isCommitInputActive 
         ? ['Enter:commit', 'Esc:cancel']
-        : ['s:stage', 'u:unstage', 'd:discard', '^C:commit', 'S:stage all'];
+        : ['s:stage', 'u:unstage', 'd:discard', 'c:commit', 'S:stage all'];
       
       // Wrap hints into lines that fit the width
       const lines: string[] = [];
