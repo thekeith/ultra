@@ -385,3 +385,140 @@ bun run build.ts    # Compile to ./ultra
 - Git gutter compares to HEAD, so staged changes still show as "changed"
 - Revert now handles both staged and unstaged (reset + checkout)
 - Must rebuild after any TypeScript changes (`bun run build.ts`)
+
+## Recent Session Work (December 17, 2025)
+
+### Dialog Theme Color Integration (COMPLETED)
+
+**Problem**: Dialog boxes were using hardcoded colors (#2d2d2d charcoal) instead of dynamically loading from the current theme (Catppuccin Frappe #303446).
+
+**Root Cause**:
+- FileBrowser component (Ctrl+O) was not using BaseDialog
+- Had standalone implementation with hardcoded colors
+- Different from FilePicker (Ctrl+P quick open)
+
+**Solution**:
+- Modified `BaseDialog` class to load colors from theme via `themeLoader.getColor()`
+- Completely rewrote `FileBrowser` to extend `BaseDialog`
+- Updated all dialog components to use theme colors dynamically
+
+**Files Modified**:
+- `src/ui/components/base-dialog.ts` - Uses `editor.background` instead of hardcoded colors
+- `src/ui/components/file-browser.ts` - Complete rewrite to extend BaseDialog
+- `src/ui/components/command-palette.ts` - Replaced hardcoded colors
+- `src/ui/components/searchable-dialog.ts` - Replaced hardcoded colors
+- `src/ui/components/input-dialog.ts` - Replaced hardcoded error color
+- `src/ui/types.ts` - Added `successForeground` and `errorForeground` to DialogColors
+
+**Pattern**:
+```typescript
+// All dialogs extend BaseDialog and get theme colors automatically
+const colors = this.getColors();
+ctx.drawStyled(x, y, text, colors.foreground, colors.background);
+```
+
+### File Tree UI Improvements (COMPLETED)
+
+**Problem**: File explorer had no visual separation between header and file list, and no left gutter matching the Git pane styling.
+
+**Solution**:
+- Added horizontal separator line between "EXPLORER" header and file list
+- Added 1-column gutter to the left of each file entry
+- Updated mouse click calculations to account for new layout
+
+**Files Modified**: `src/ui/components/file-tree.ts`
+- Lines 546-550: Separator line rendering
+- Line 556: Updated `visibleCount` calculation (-1 for separator)
+- Line 591: Updated `screenY` calculation (+2 for header and separator)
+- Line 644: Added 1-space gutter: `' ' + indent + icon + node.name`
+- Line 769: Fixed mouse click offset (-2 for header and separator)
+
+### Git Panel Mouse Selection (COMPLETED)
+
+**Problem**: Git panel would focus on mouse click but couldn't select individual files or toggle sections with mouse.
+
+**Solution**:
+- Implemented click-to-select functionality for file items
+- Added section header click to toggle collapse/expand
+- Added double-click to open files in editor
+- Mouse wheel scrolling support
+
+**Files Modified**: `src/ui/components/git-panel.ts` (lines 557-662)
+- Calculates Y offset to map clicks to items (accounts for header, branch, separator)
+- Maps clicks to staged/unstaged/untracked sections
+- Handles section header toggles
+- Double-click opens file via `onFileSelectCallback`
+
+### Pane Splitting/Closing Bug (IN PROGRESS)
+
+**Problem**: After closing a pane and splitting again, the number of panes multiplies instead of remaining at 2.
+
+**Reproduction Steps**:
+```
+1. Split pane-1 → [pane-1, pane-2] (2 panes) ✓
+2. Close pane-2 → [pane-1] (1 pane) ✓
+3. Split pane-1 → [pane-1, pane-3] (2 panes) ✓
+4. Split pane-3 → [pane-1, pane-3, pane-4] (3 panes) ✗ SHOULD BE 2!
+5. Split pane-4 → [pane-1, pane-3, pane-4, pane-5] (4 panes) ✗ SHOULD BE 2!
+```
+
+**Root Cause**: When splitting a pane that's already in a same-direction container, the old logic would add the new pane as a sibling to ALL panes in the container instead of creating a nested split of just the selected pane.
+
+**Expected Behavior**:
+- Split pane-3 in `[pane-1, pane-3]` should create `[pane-1, [pane-3, pane-4]]`, not `[pane-1, pane-3, pane-4]`
+- Each split should only affect the selected pane, not add siblings to the entire container
+
+**Debug Logs Show**:
+```
+Tree before fix:
+horizontal(
+  leaf(pane-1) [ratio=0.50]
+  leaf(pane-3) [ratio=0.25]  <- Added as sibling
+  leaf(pane-4) [ratio=0.25]  <- Added as sibling
+)
+
+Tree after fix (expected):
+horizontal(
+  leaf(pane-1) [ratio=0.50]
+  horizontal(                <- Nested container
+    leaf(pane-3) [ratio=0.50]
+    leaf(pane-4) [ratio=0.50]
+  ) [ratio=0.50]
+)
+```
+
+**Current Fix Applied**: Modified `splitPane()` to always wrap the selected pane in a new container with the new pane, preventing sibling addition to parent container.
+
+**Files Modified**: `src/ui/components/pane-manager.ts`
+
+**Key Changes**:
+1. **splitPane()** (lines 243-267): Always wraps selected pane in new container instead of checking parent direction
+2. **closePane()** (lines 278-316): Added root collapse check after removing panes
+3. **collapseNode()** (lines 382-406): Improved cleanup - deletes unused properties (leaf nodes shouldn't have children/ratio, containers shouldn't have pane)
+4. **Debug utilities**:
+   - `dumpTree()` (lines 584-592): Visualizes tree structure with ratios
+   - `collectPanesFromTree()` (lines 562-579): Verifies tree consistency
+   - Added extensive logging to track pane count, tree structure, and collapse operations
+
+**Debug Commands**:
+```bash
+# View split/close tree structure
+grep -E "\[PaneManager\] (splitPane: tree after split|closePane: tree after close)" debug.log -A 5
+
+# Check pane counts
+grep "panes.size" debug.log
+
+# Check collapse operations
+grep "collapseNode" debug.log
+```
+
+**Status**: Fix implemented but needs rebuild to test. The latest changes ensure:
+- Every split wraps the selected pane in its own container
+- Closing panes properly collapses single-child containers
+- Tree structure is maintained correctly without ghost nodes
+
+**Next Steps**:
+1. Rebuild editor to load latest pane-manager changes
+2. Test split → close → split → split sequence
+3. Verify debug logs show proper tree structure with nesting
+4. Confirm pane count stays at 2 after each split operation

@@ -241,29 +241,39 @@ export class PaneManager implements MouseHandler {
     const newNode: LayoutNode = { type: 'leaf', pane: newPane };
     
     if (!parent) {
-      // Splitting root node
+      // Splitting root node - create a new container
+      // IMPORTANT: Create a copy of the node to avoid reusing the root reference
+      const nodeCopy: LayoutNode = {
+        type: node.type,
+        pane: node.pane,
+        children: node.children,
+        ratio: node.ratio
+      };
       this.root = {
         type: direction,
-        children: [node, newNode],
+        children: [nodeCopy, newNode],
         ratio: [0.5, 0.5]
       };
     } else {
-      // Always wrap the node being split in a new container
-      // This ensures we're splitting just this pane, not adding to a multi-pane container
+      // Always wrap the selected pane in a new container with the new pane
+      // This ensures we split just this pane, not add to a container of siblings
       const container: LayoutNode = {
         type: direction,
         children: [node, newNode],
         ratio: [0.5, 0.5]
       };
       parent.children![childIndex] = container;
+      debugLog(`[PaneManager] splitPane: wrapped pane in new ${direction} container`);
     }
     
     // Focus new pane
     this.setActivePane(newPane.id);
-    
+
     // Recalculate layout
     this.recalculateLayout();
-    
+
+    debugLog(`[PaneManager] splitPane: tree after split:\n${this.dumpTree(this.root)}`);
+
     return newPane;
   }
 
@@ -295,7 +305,7 @@ export class PaneManager implements MouseHandler {
 
     // Remove from panes map
     this.panes.delete(paneId);
-    debugLog(`[PaneManager] closePane: removed pane, new panes.size=${this.panes.size}, root.type=${this.root.type}`);
+    debugLog(`[PaneManager] closePane: removed pane, new panes.size=${this.panes.size}, root.type=${this.root.type}, root.pane=${this.root.pane?.id ?? 'none'}, root.children.length=${this.root.children?.length ?? 0}`);
 
     // If we closed the active pane, focus another
     if (this.activePaneId === paneId) {
@@ -307,6 +317,8 @@ export class PaneManager implements MouseHandler {
 
     // Recalculate layout
     this.recalculateLayout();
+
+    debugLog(`[PaneManager] closePane: tree after close:\n${this.dumpTree(this.root)}`);
 
     return true;
   }
@@ -380,9 +392,13 @@ export class PaneManager implements MouseHandler {
   }
 
   private collapseNode(node: LayoutNode): void {
-    if (!node.children || node.children.length !== 1) return;
+    if (!node.children || node.children.length !== 1) {
+      debugLog(`[PaneManager] collapseNode: skipping, children.length=${node.children?.length ?? 0}`);
+      return;
+    }
 
     const child = node.children[0]!;
+    debugLog(`[PaneManager] collapseNode: collapsing container(${node.type}) with child(${child.type}, pane=${child.pane?.id ?? 'none'})`);
 
     // Completely replace node contents with child
     node.type = child.type;
@@ -394,8 +410,10 @@ export class PaneManager implements MouseHandler {
     if (node.type === 'leaf') {
       delete node.children;
       delete node.ratio;
+      debugLog(`[PaneManager] collapseNode: collapsed to leaf with pane=${node.pane?.id}`);
     } else {
       delete node.pane;
+      debugLog(`[PaneManager] collapseNode: collapsed to container(${node.type}) with ${node.children?.length ?? 0} children`);
     }
   }
 
@@ -570,6 +588,19 @@ export class PaneManager implements MouseHandler {
     }
 
     return panes;
+  }
+
+  /**
+   * Dump tree structure for debugging
+   */
+  private dumpTree(node: LayoutNode, indent: string = ''): string {
+    if (node.type === 'leaf') {
+      return `${indent}leaf(${node.pane?.id ?? 'NO_PANE'})`;
+    }
+    const childrenStr = node.children?.map((child, i) =>
+      this.dumpTree(child, indent + '  ') + ` [ratio=${node.ratio?.[i]?.toFixed(2) ?? '?'}]`
+    ).join('\n') ?? '';
+    return `${indent}${node.type}(\n${childrenStr}\n${indent})`;
   }
 
   private renderNode(ctx: RenderContext, node: LayoutNode): void {
