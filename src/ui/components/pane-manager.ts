@@ -200,9 +200,9 @@ export class PaneManager implements MouseHandler {
    * Split active pane vertically (side by side)
    */
   splitVertical(): Pane | null {
-    debugLog(`[PaneManager] splitVertical called, activePaneId=${this.activePaneId}`);
+    debugLog(`[PaneManager] splitVertical called, activePaneId=${this.activePaneId}, panes.size=${this.panes.size}`);
     const result = this.splitPane(this.activePaneId, 'horizontal'); // horizontal container = side by side
-    debugLog(`[PaneManager] splitVertical result=${result?.id ?? 'null'}`);
+    debugLog(`[PaneManager] splitVertical result=${result?.id ?? 'null'}, new panes.size=${this.panes.size}`);
     return result;
   }
 
@@ -247,14 +247,9 @@ export class PaneManager implements MouseHandler {
         children: [node, newNode],
         ratio: [0.5, 0.5]
       };
-    } else if (parent.type === direction) {
-      // Same direction - just add new child
-      parent.children!.splice(childIndex + 1, 0, newNode);
-      // Recalculate ratios
-      const count = parent.children!.length;
-      parent.ratio = parent.children!.map(() => 1 / count);
     } else {
-      // Different direction - wrap in new container
+      // Always wrap the node being split in a new container
+      // This ensures we're splitting just this pane, not adding to a multi-pane container
       const container: LayoutNode = {
         type: direction,
         children: [node, newNode],
@@ -276,18 +271,32 @@ export class PaneManager implements MouseHandler {
    * Close a pane
    */
   closePane(paneId: string): boolean {
+    debugLog(`[PaneManager] closePane(${paneId}), current panes.size=${this.panes.size}`);
     if (this.panes.size <= 1) return false; // Can't close last pane
-    
+
     const pane = this.panes.get(paneId);
-    if (!pane) return false;
-    
+    if (!pane) {
+      debugLog(`[PaneManager] closePane: pane ${paneId} not found`);
+      return false;
+    }
+
     // Find and remove from layout tree
     const removed = this.removePaneFromTree(this.root, paneId, null, -1);
-    if (!removed) return false;
-    
+    if (!removed) {
+      debugLog(`[PaneManager] closePane: failed to remove from tree`);
+      return false;
+    }
+
+    // If root is a container with only one child, collapse it
+    if (this.root.type !== 'leaf' && this.root.children && this.root.children.length === 1) {
+      debugLog(`[PaneManager] closePane: collapsing root node`);
+      this.collapseNode(this.root);
+    }
+
     // Remove from panes map
     this.panes.delete(paneId);
-    
+    debugLog(`[PaneManager] closePane: removed pane, new panes.size=${this.panes.size}, root.type=${this.root.type}`);
+
     // If we closed the active pane, focus another
     if (this.activePaneId === paneId) {
       const remainingPaneId = this.panes.keys().next().value;
@@ -295,10 +304,10 @@ export class PaneManager implements MouseHandler {
         this.setActivePane(remainingPaneId);
       }
     }
-    
+
     // Recalculate layout
     this.recalculateLayout();
-    
+
     return true;
   }
 
@@ -372,12 +381,22 @@ export class PaneManager implements MouseHandler {
 
   private collapseNode(node: LayoutNode): void {
     if (!node.children || node.children.length !== 1) return;
-    
+
     const child = node.children[0]!;
+
+    // Completely replace node contents with child
     node.type = child.type;
     node.pane = child.pane;
     node.children = child.children;
     node.ratio = child.ratio;
+
+    // Clean up: leaf nodes shouldn't have children/ratio, containers shouldn't have pane
+    if (node.type === 'leaf') {
+      delete node.children;
+      delete node.ratio;
+    } else {
+      delete node.pane;
+    }
   }
 
   // ==================== Layout Calculation ====================
@@ -513,24 +532,63 @@ export class PaneManager implements MouseHandler {
    * Render all panes
    */
   render(ctx: RenderContext): void {
+    // Verify tree consistency (only in debug mode)
+    if (process.env.DEBUG) {
+      const panesInTree = this.collectPanesFromTree(this.root);
+      if (panesInTree.size !== this.panes.size) {
+        debugLog(`[PaneManager] ERROR: panes.size=${this.panes.size} but tree has ${panesInTree.size} panes!`);
+        debugLog(`[PaneManager] Panes in map: ${Array.from(this.panes.keys()).join(', ')}`);
+        debugLog(`[PaneManager] Panes in tree: ${Array.from(panesInTree).join(', ')}`);
+      }
+    }
+
     this.renderNode(ctx, this.root);
-    
+
     // Render split dividers
     if (this.panes.size > 1) {
       this.renderDividers(ctx, this.root);
     }
   }
 
-  private renderNode(ctx: RenderContext, node: LayoutNode): void {
+  /**
+   * Collect all pane IDs from the tree (for debugging)
+   */
+  private collectPanesFromTree(node: LayoutNode): Set<string> {
+    const panes = new Set<string>();
+
     if (node.type === 'leaf' && node.pane) {
-      node.pane.render(ctx);
+      panes.add(node.pane.id);
+    }
+
+    if (node.children) {
+      for (const child of node.children) {
+        const childPanes = this.collectPanesFromTree(child);
+        for (const id of childPanes) {
+          panes.add(id);
+        }
+      }
+    }
+
+    return panes;
+  }
+
+  private renderNode(ctx: RenderContext, node: LayoutNode): void {
+    if (node.type === 'leaf') {
+      if (node.pane) {
+        node.pane.render(ctx);
+      } else {
+        debugLog(`[PaneManager] WARNING: leaf node without pane!`);
+      }
       return;
     }
-    
-    if (node.children) {
+
+    // Container node - should have children
+    if (node.children && node.children.length > 0) {
       for (const child of node.children) {
         this.renderNode(ctx, child);
       }
+    } else {
+      debugLog(`[PaneManager] WARNING: container node without children!`);
     }
   }
 
