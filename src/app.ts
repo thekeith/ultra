@@ -2763,21 +2763,38 @@ export class App {
         id: 'ultra.splitVertical',
         title: 'Split Editor Vertically',
         category: 'View',
-        handler: () => {
-          this.debugLog('ultra.splitVertical command handler called');
-          const result = paneManager.splitVertical();
-          this.debugLog(`splitVertical returned: ${result?.id ?? 'null'}`);
-          renderer.scheduleRender();
-        }
+        handler: (() => {
+          let lastExecution = 0;
+          return () => {
+            const now = Date.now();
+            if (now - lastExecution < 100) {
+              this.debugLog(`ultra.splitVertical: ignoring duplicate call (${now - lastExecution}ms since last)`);
+              return;
+            }
+            lastExecution = now;
+            this.debugLog('ultra.splitVertical command handler called');
+            const result = paneManager.splitVertical();
+            this.debugLog(`splitVertical returned: ${result?.id ?? 'null'}`);
+            renderer.scheduleRender();
+          };
+        })()
       },
       {
         id: 'ultra.splitHorizontal',
         title: 'Split Editor Horizontally',
         category: 'View',
-        handler: () => {
-          paneManager.splitHorizontal();
-          renderer.scheduleRender();
-        }
+        handler: (() => {
+          let lastExecution = 0;
+          return () => {
+            const now = Date.now();
+            if (now - lastExecution < 100) {
+              return;
+            }
+            lastExecution = now;
+            paneManager.splitHorizontal();
+            renderer.scheduleRender();
+          };
+        })()
       },
       {
         id: 'ultra.closePane',
