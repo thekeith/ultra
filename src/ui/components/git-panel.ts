@@ -567,19 +567,97 @@ export class GitPanel implements MouseHandler {
 
     switch (event.name) {
       case 'MOUSE_LEFT_BUTTON_PRESSED': {
-        // TODO: Handle click on specific items
+        // Calculate which line was clicked (accounting for header, branch, separator)
+        const clickY = event.y - this.rect.y - 3; // -3 for header, branch, separator
+        if (clickY < 0) return true; // Clicked on header area
+
+        // Map click to item
+        if (!this.status) return true;
+
+        let currentY = 0;
+
+        // Staged section
+        currentY++; // Header line
+        if (clickY === currentY - 1) {
+          // Clicked on staged header - toggle section
+          this.toggleSection('staged');
+          return true;
+        }
+
+        if (!this.stagedCollapsed) {
+          for (let i = 0; i < this.status.staged.length; i++) {
+            if (clickY === currentY) {
+              this.selectedSection = 'staged';
+              this.selectedIndex = i;
+              return true;
+            }
+            currentY++;
+          }
+        }
+
+        // Unstaged section
+        currentY++; // Header line
+        if (clickY === currentY - 1) {
+          // Clicked on unstaged header - toggle section
+          this.toggleSection('unstaged');
+          return true;
+        }
+
+        if (!this.unstagedCollapsed) {
+          for (let i = 0; i < this.status.unstaged.length; i++) {
+            if (clickY === currentY) {
+              this.selectedSection = 'unstaged';
+              this.selectedIndex = i;
+              return true;
+            }
+            currentY++;
+          }
+        }
+
+        // Untracked section
+        if (this.status.untracked.length > 0) {
+          currentY++; // Header line
+          if (clickY === currentY - 1) {
+            // Clicked on untracked header - toggle section
+            this.toggleSection('untracked');
+            return true;
+          }
+
+          if (!this.untrackedCollapsed) {
+            for (let i = 0; i < this.status.untracked.length; i++) {
+              if (clickY === currentY) {
+                this.selectedSection = 'untracked';
+                this.selectedIndex = i;
+                return true;
+              }
+              currentY++;
+            }
+          }
+        }
+
         return true;
       }
-      
+
+      case 'MOUSE_DOUBLE_CLICK':
+      case 'MOUSE_LEFT_BUTTON_PRESSED_DOUBLE': {
+        // Open file on double click
+        const item = this.getSelectedItem();
+        if (item && this.onFileSelectCallback) {
+          const filePath = typeof item.file === 'string' ? item.file : item.file.path;
+          this.onFileSelectCallback(filePath);
+        }
+        return true;
+      }
+
       case 'MOUSE_WHEEL_UP':
         this.scrollTop = Math.max(0, this.scrollTop - 3);
         return true;
-        
+
       case 'MOUSE_WHEEL_DOWN':
         this.scrollTop += 3;
         return true;
     }
-    
+
     return false;
   }
 
