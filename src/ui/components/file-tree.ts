@@ -762,14 +762,25 @@ export class FileTree implements MouseHandler {
         const clickedIndex = this.scrollTop + clickY;
         if (clickedIndex < this.flatList.length) {
           this.selectedIndex = clickedIndex;
+
+          // Single click on a directory toggles it (expand/collapse)
+          // This matches VS Code and git panel behavior
+          const node = this.flatList[clickedIndex];
+          if (node && node.type === 'directory') {
+            this.toggleSelected();  // Expand/collapse directory
+          }
         }
         return true;
       }
 
       case 'MOUSE_DOUBLE_CLICK':
       case 'MOUSE_LEFT_BUTTON_PRESSED_DOUBLE': {
-        // Toggle or open on double click
-        this.toggleSelected();  // Fire and forget - will trigger callback
+        // Double click opens files
+        const node = this.flatList[this.selectedIndex];
+        if (node && node.type === 'file') {
+          this.toggleSelected();  // Opens the file via callback
+        }
+        // For directories, single click already toggled - ignore double click
         return true;
       }
 
