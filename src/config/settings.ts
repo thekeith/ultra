@@ -42,6 +42,9 @@ export interface EditorSettings {
   'git.diffContextLines': number;
   'terminal.integrated.openOnStartup': boolean;
   'terminal.integrated.spawnOnStartup': boolean;
+  'terminal.integrated.scrollback': number;
+  'debug.console.maxLines': number;
+  'debug.console.autoShow': boolean;
 }
 
 const defaultSettings: EditorSettings = {
@@ -85,7 +88,10 @@ const defaultSettings: EditorSettings = {
   'git.panel.openOnStartup': true,
   'git.diffContextLines': 3,
   'terminal.integrated.openOnStartup': true,
-  'terminal.integrated.spawnOnStartup': true
+  'terminal.integrated.spawnOnStartup': true,
+  'terminal.integrated.scrollback': 1000,
+  'debug.console.maxLines': 10000,
+  'debug.console.autoShow': true
 };
 
 export class Settings {

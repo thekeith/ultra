@@ -464,6 +464,8 @@ export const defaultSettings: Record<string, any> = {
   "terminal.integrated.defaultHeight": 24,
   "terminal.integrated.defaultWidth": 60,
   "terminal.integrated.scrollback": 1000,
+  "debug.console.maxLines": 10000,
+  "debug.console.autoShow": true,
   "git.statusInterval": 100,
   "git.panel.location": "sidebar-bottom",
   "git.panel.openOnStartup": true,

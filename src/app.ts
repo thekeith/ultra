@@ -34,7 +34,8 @@ import { terminalPane } from './ui/components/terminal-pane.ts';
 import { gitIntegration } from './features/git/git-integration.ts';
 import { gitPanel } from './ui/components/git-panel.ts';
 import { defaultBootFile } from './config/defaults.ts';
-import { setDebugEnabled } from './debug.ts';
+import { setDebugEnabled, setDebugConsoleCallback } from './debug.ts';
+import { DebugConsole } from './ui/components/debug-console.ts';
 
 // Helper function to ensure boot file exists
 async function ensureBootFile(bootFilePath: string): Promise<void> {
@@ -96,7 +97,9 @@ export class App {
 
   // Debug logging
   private debugEnabled: boolean = false;
-  
+  private debugConsole: DebugConsole = new DebugConsole();
+  private debugConsoleVisible: boolean = false;
+
   private debugLog(msg: string): void {
     if (this.debugEnabled) {
       const fs = require('fs');
@@ -107,6 +110,7 @@ export class App {
   constructor() {
     this.setupPaneManagerCallbacks();
     this.setupTerminalCallbacks();
+    this.setupDebugConsole();
   }
 
   /**
@@ -122,6 +126,12 @@ export class App {
         // Clear previous debug log
         const fs = require('fs');
         fs.writeFileSync('debug.log', '');
+
+        // Auto-show debug console if enabled in settings
+        const autoShow = settings.get('debug.console.autoShow');
+        if (autoShow) {
+          this.debugConsoleVisible = true;
+        }
       }
 
       this.debugLog('Starting Ultra...');
@@ -629,6 +639,21 @@ export class App {
       // Handle search widget input if visible
       if (searchWidget.visible) {
         if (searchWidget.handleKey(event)) {
+          renderer.scheduleRender();
+          return;
+        }
+      }
+
+      // Global keyboard shortcut to toggle debug console (Ctrl+Shift+D)
+      if (event.ctrl && event.shift && event.key === 'D') {
+        this.debugConsoleVisible = !this.debugConsoleVisible;
+        renderer.scheduleRender();
+        return;
+      }
+
+      // Handle debug console input if visible
+      if (this.debugConsoleVisible) {
+        if (this.debugConsole.handleKey(event)) {
           renderer.scheduleRender();
           return;
         }
@@ -1349,6 +1374,7 @@ export class App {
     mouseManager.registerHandler(commandPalette);
     mouseManager.registerHandler(fileBrowser);
     mouseManager.registerHandler(filePicker);
+    mouseManager.registerHandler(this.debugConsole);  // Debug console overlay
     mouseManager.registerHandler(searchWidget);
     mouseManager.registerHandler(terminalPane);  // Terminal pane for embedded terminal
     mouseManager.registerHandler(paneManager);  // Pane manager handles tab bars and editor panes
@@ -1520,6 +1546,21 @@ export class App {
       // Unfocus other components when terminal gains focus
       fileTree.setFocused(false);
       gitPanel.setFocused(false);
+    });
+  }
+
+  /**
+   * Setup debug console
+   */
+  private setupDebugConsole(): void {
+    // Wire up callback to send debug messages to the console
+    setDebugConsoleCallback((timestamp: string, message: string) => {
+      this.debugConsole.addLog(timestamp, message);
+
+      // Schedule render to show new message
+      if (this.debugConsoleVisible) {
+        renderer.scheduleRender();
+      }
     });
   }
 
@@ -1698,6 +1739,23 @@ export class App {
     // Render status bar
     statusBar.setRect(statusBarRect);
     statusBar.render(ctx);
+
+    // Render debug console (overlay in editor area)
+    if (this.debugConsoleVisible) {
+      // Position debug console as an overlay in the bottom-right of editor area
+      const consoleWidth = Math.min(80, Math.floor(editorRect.width * 0.5));
+      const consoleHeight = Math.min(30, Math.floor(editorRect.height * 0.6));
+      const consoleX = editorRect.x + editorRect.width - consoleWidth;
+      const consoleY = editorRect.y + editorRect.height - consoleHeight;
+
+      this.debugConsole.setRect({
+        x: consoleX,
+        y: consoleY,
+        width: consoleWidth,
+        height: consoleHeight
+      });
+      this.debugConsole.render(ctx);
+    }
 
     // Render file picker (on top of everything)
     filePicker.render(ctx);
