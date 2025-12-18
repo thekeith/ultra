@@ -1111,6 +1111,23 @@ export class EditorContent implements ScrollablePanelContent, FocusablePanelCont
   handleMouse(event: MouseEvent): boolean {
     if (!this._document) return false;
 
+    // Check if click is in the minimap area - let minimap handle it
+    const minimapWidth = this.minimapEnabled ? 10 : 0;
+    const contentRightEdge = this.rect.x + this.rect.width - minimapWidth;
+
+    if (this.minimapEnabled && event.x >= contentRightEdge) {
+      // Minimap handles its own events via its onMouseEvent
+      return this.minimap.onMouseEvent(event);
+    }
+
+    // Check if click is outside the content area
+    if (event.y < this.rect.y || event.y >= this.rect.y + this.rect.height) {
+      return false;
+    }
+    if (event.x < this.rect.x || event.x >= contentRightEdge) {
+      return false;
+    }
+
     // Convert screen position to buffer position
     const position = this.screenToBufferPosition(event.x, event.y);
 
@@ -1173,16 +1190,26 @@ export class EditorContent implements ScrollablePanelContent, FocusablePanelCont
       const wrapIndex = this.scrollTop + relativeY;
       if (wrapIndex >= 0 && wrapIndex < this.wrappedLines.length) {
         const wrap = this.wrappedLines[wrapIndex]!;
+        const line = wrap.bufferLine;
+        const column = Math.max(0, wrap.startColumn + relativeX);
+        // Clamp column to actual line length
+        const lineLength = this._document?.getLine(line)?.length ?? 0;
         return {
-          line: wrap.bufferLine,
-          column: Math.max(0, wrap.startColumn + relativeX),
+          line,
+          column: Math.min(column, lineLength),
         };
       }
     }
 
+    // Clamp line to valid range
+    const maxLine = Math.max(0, (this._document?.lineCount ?? 1) - 1);
+    const line = Math.min(Math.max(0, this.scrollTop + relativeY), maxLine);
+    const column = Math.max(0, this.scrollLeft + relativeX);
+    // Clamp column to actual line length
+    const lineLength = this._document?.getLine(line)?.length ?? 0;
     return {
-      line: Math.max(0, this.scrollTop + relativeY),
-      column: Math.max(0, this.scrollLeft + relativeX),
+      line,
+      column: Math.min(column, lineLength),
     };
   }
 
