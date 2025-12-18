@@ -48,6 +48,10 @@ export const defaultKeybindings: KeyBinding[] = [
     "command": "ultra.restart"
   },
   {
+    "key": "ctrl+shift+r",
+    "command": "ultra.rebuild"
+  },
+  {
     "key": "ctrl+w",
     "command": "ultra.closeTab"
   },
@@ -472,7 +476,7 @@ export const defaultSettings: Record<string, any> = {
   "git.panel.location": "sidebar-bottom",
   "git.panel.openOnStartup": true,
   "git.diffContextLines": 3,
-  "terminal.integrated.openOnStartup": false,
+  "terminal.integrated.openOnStartup": true,
   "terminal.integrated.spawnOnStartup": true
 };
 

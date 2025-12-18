@@ -300,10 +300,16 @@ export class App {
     }
   }
 
+  /** Exit code used to signal restart to wrapper script */
+  static readonly RESTART_EXIT_CODE = 75;
+
+  /** Exit code used to signal rebuild to wrapper script */
+  static readonly REBUILD_EXIT_CODE = 76;
+
   /**
    * Stop the application
    */
-  stop(): void {
+  stop(exitCode: number = 0): void {
     this.isRunning = false;
     userConfigManager.destroy();
     fileTree.destroy();
@@ -317,19 +323,23 @@ export class App {
     // Shutdown LSP servers
     lspManager.shutdown();
 
-    renderer.cleanup();
+    renderer.cleanup(exitCode);
   }
-
-  /** Exit code used to signal restart to wrapper script */
-  static readonly RESTART_EXIT_CODE = 75;
 
   /**
    * Restart the application by cleaning up and exiting with RESTART_EXIT_CODE.
    * The wrapper script should detect this exit code and relaunch the app.
    */
   restart(): void {
-    this.stop();
-    process.exit(App.RESTART_EXIT_CODE);
+    this.stop(App.RESTART_EXIT_CODE);
+  }
+
+  /**
+   * Rebuild and restart the application by exiting with REBUILD_EXIT_CODE.
+   * The wrapper script should detect this exit code, run build, and relaunch.
+   */
+  rebuild(): void {
+    this.stop(App.REBUILD_EXIT_CODE);
   }
 
   /**
@@ -1877,6 +1887,12 @@ export class App {
         title: 'Restart',
         category: 'File',
         handler: () => this.restart()
+      },
+      {
+        id: 'ultra.rebuild',
+        title: 'Rebuild and Restart',
+        category: 'File',
+        handler: () => this.rebuild()
       },
       {
         id: 'ultra.closeTab',

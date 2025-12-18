@@ -81,8 +81,8 @@ export class Renderer {
   /**
    * Cleanup and restore terminal
    */
-  cleanup(): void {
-    terminal.exit(0);
+  cleanup(exitCode: number = 0): void {
+    terminal.exit(exitCode);
   }
 
   get width(): number {

@@ -37,6 +37,6 @@
   "git.panel.location": "sidebar-bottom",
   "git.panel.openOnStartup": true,
   "git.diffContextLines": 3,
-  "terminal.integrated.openOnStartup": false,
+  "terminal.integrated.openOnStartup": true,
   "terminal.integrated.spawnOnStartup": true
 }

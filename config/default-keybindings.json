@@ -7,6 +7,7 @@
   { "key": "ctrl+y", "command": "ultra.redo" },
   { "key": "ctrl+q", "command": "ultra.quit" },
   { "key": "ctrl+r", "command": "ultra.restart" },
+  { "key": "ctrl+shift+r", "command": "ultra.rebuild" },
   { "key": "ctrl+w", "command": "ultra.closeTab" },
   { "key": "ctrl+n", "command": "ultra.newFile" },
   { "key": "ctrl+o", "command": "ultra.openFile" },
