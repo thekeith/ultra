@@ -1,10 +1,10 @@
 #!/bin/bash
-# ultra-wrapper.sh - Restart and rebuild wrapper for Ultra
+# ultra-wrapper.sh - Restart and rebuild wrapper for Ultra that enables hot development within the IDE
 
 ULTRA_BIN="${ULTRA_BIN:-./ultra}"
 ULTRA_DIR="${ULTRA_DIR:-$(dirname "$0")}"
-RESTART_CODE=75
-REBUILD_CODE=76
+RESTART_CODE=75 # restart only
+REBUILD_CODE=76 # rebuild and restart
 
 while true; do
   "$ULTRA_BIN" "$@"

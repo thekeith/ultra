@@ -1873,7 +1873,8 @@ export class App {
       }
       this.updateStatusBar();
       renderer.scheduleRender();
-      sessionManager.markDirty();
+      // Save session immediately on tab change
+      sessionManager.saveCurrentSession();
     });
 
     // Handle pane focus changes
@@ -1887,7 +1888,8 @@ export class App {
       }
       this.updateStatusBar();
       renderer.scheduleRender();
-      sessionManager.markDirty();
+      // Save session immediately on pane focus change
+      sessionManager.saveCurrentSession();
     });
 
     // Handle mouse clicks in documents
@@ -2744,6 +2746,7 @@ export class App {
         handler: () => {
           layoutManager.toggleSidebar(settings.get('ultra.sidebar.width') || 30);
           fileTree.setVisible(layoutManager.isSidebarVisible());
+          sessionManager.saveCurrentSession();
         }
       },
       {
@@ -2785,6 +2788,7 @@ export class App {
             terminalPane.setFocused(false);
           }
           renderer.scheduleRender();
+          sessionManager.saveCurrentSession();
         }
       },
       {
@@ -2861,6 +2865,7 @@ export class App {
             gitPanel.setFocused(false);
           }
           renderer.scheduleRender();
+          sessionManager.saveCurrentSession();
         }
       },
       {
@@ -3296,6 +3301,7 @@ export class App {
         category: 'View',
         handler: () => {
           paneManager.toggleMinimap();
+          sessionManager.saveCurrentSession();
         }
       },
       
@@ -3343,7 +3349,7 @@ export class App {
             const result = paneManager.splitVertical();
             this.debugLog(`splitVertical returned: ${result?.id ?? 'null'}`);
             renderer.scheduleRender();
-            sessionManager.markDirty();
+            sessionManager.saveCurrentSession();
           };
         })()
       },
@@ -3361,7 +3367,7 @@ export class App {
             lastExecution = now;
             paneManager.splitHorizontal();
             renderer.scheduleRender();
-            sessionManager.markDirty();
+            sessionManager.saveCurrentSession();
           };
         })()
       },
@@ -3371,7 +3377,7 @@ export class App {
         category: 'View',
         handler: () => {
           paneManager.closeActivePane();
-          sessionManager.markDirty();
+          sessionManager.saveCurrentSession();
           renderer.scheduleRender();
         }
       },
@@ -3869,8 +3875,8 @@ export class App {
         await lspManager.openDocument(uri, document.language, document.content);
       }
 
-      // Mark session dirty for auto-save
-      sessionManager.markDirty();
+      // Save session immediately on file open
+      sessionManager.saveCurrentSession();
     } catch (error) {
       console.error('Failed to open file:', error);
     }
@@ -4067,8 +4073,8 @@ export class App {
       this.updateStatusBar();
     }
 
-    // Mark session dirty for auto-save
-    sessionManager.markDirty();
+    // Save session immediately on file close
+    sessionManager.saveCurrentSession();
   }
 
   /**
