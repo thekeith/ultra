@@ -236,7 +236,7 @@ export class EventEmitterMixin<Events extends Record<string, unknown>> extends E
   /**
    * Expose emit as public for mixin usage
    */
-  public emit<K extends keyof Events>(event: K, data: Events[K]): void {
+  public override emit<K extends keyof Events>(event: K, data: Events[K]): void {
     super.emit(event, data);
   }
 }

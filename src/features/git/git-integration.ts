@@ -326,9 +326,9 @@ export class GitIntegration {
     for (let i = 1; i <= m; i++) {
       for (let j = 1; j <= n; j++) {
         if (oldLines[i - 1] === newLines[j - 1]) {
-          lcs[i][j] = lcs[i - 1][j - 1] + 1;
+          lcs[i]![j] = lcs[i - 1]![j - 1]! + 1;
         } else {
-          lcs[i][j] = Math.max(lcs[i - 1][j], lcs[i][j - 1]);
+          lcs[i]![j] = Math.max(lcs[i - 1]![j]!, lcs[i]![j - 1]!);
         }
       }
     }
@@ -346,7 +346,7 @@ export class GitIntegration {
         oldToNewMapping.set(i - 1, j - 1);
         i--;
         j--;
-      } else if (lcs[i - 1][j] > lcs[i][j - 1]) {
+      } else if (lcs[i - 1]![j]! > lcs[i]![j - 1]!) {
         i--;
       } else {
         j--;
@@ -750,8 +750,8 @@ export class GitIntegration {
       
       // Collect header lines (diff --git, index, ---, +++)
       for (let i = 0; i < lines.length; i++) {
-        const l = lines[i];
-        if (l.startsWith('diff --git') || l.startsWith('index ') || 
+        const l = lines[i]!;
+        if (l.startsWith('diff --git') || l.startsWith('index ') ||
             l.startsWith('--- ') || l.startsWith('+++ ')) {
           headerLines.push(l);
         } else if (l.startsWith('@@')) {
@@ -761,8 +761,8 @@ export class GitIntegration {
       
       // Find hunk containing the target line
       for (let i = 0; i < lines.length; i++) {
-        const l = lines[i];
-        
+        const l = lines[i]!;
+
         if (l.startsWith('@@')) {
           // Parse hunk header: @@ -oldStart,oldCount +newStart,newCount @@
           const match = l.match(/@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/);
@@ -775,9 +775,9 @@ export class GitIntegration {
                 return [...headerLines, ...currentHunkLines].join('\n');
               }
             }
-            
+
             // Start new hunk
-            currentHunkStart = parseInt(match[3], 10); // +newStart (1-based)
+            currentHunkStart = parseInt(match[3]!, 10); // +newStart (1-based)
             currentHunkLines = [l];
           }
         } else if (currentHunkStart !== -1) {

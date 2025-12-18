@@ -65,6 +65,14 @@ interface OpenDocument {
   document: Document;
 }
 
+interface Tab {
+  id: string;
+  fileName: string;
+  filePath: string | null;
+  isDirty: boolean;
+  isActive: boolean;
+}
+
 export class App {
   private documents: OpenDocument[] = [];
   private activeDocumentId: string | null = null;
@@ -884,7 +892,7 @@ export class App {
     
     // Walk backwards to find the start of the identifier
     let startCol = col;
-    while (startCol > 0 && this.isIdentifierChar(line[startCol - 1])) {
+    while (startCol > 0 && this.isIdentifierChar(line[startCol - 1] ?? '')) {
       startCol--;
     }
     
@@ -935,6 +943,9 @@ export class App {
     const doc = this.getActiveDocument();
     if (!doc || !doc.filePath) return;
 
+    // Capture filePath for closure
+    const filePath = doc.filePath;
+
     // Clear any pending trigger
     if (this.completionTriggerTimer) {
       clearTimeout(this.completionTriggerTimer);
@@ -950,10 +961,10 @@ export class App {
     // Small delay to allow typing to settle (250ms to reduce request spam)
     this.completionTriggerTimer = setTimeout(async () => {
       const cursor = doc.primaryCursor;
-      
+
       try {
         const completions = await lspManager.getCompletions(
-          doc.filePath,
+          filePath,
           cursor.position.line,
           cursor.position.column
         );
@@ -1171,6 +1182,9 @@ export class App {
     const doc = this.getActiveDocument();
     if (!doc || !doc.filePath) return;
 
+    // Capture filePath for closure
+    const filePath = doc.filePath;
+
     // Get the word under cursor for initial value
     const cursor = doc.primaryCursor;
     const line = doc.getLine(cursor.position.line);
@@ -1202,7 +1216,7 @@ export class App {
         
         try {
           const workspaceEdit = await lspManager.rename(
-            doc.filePath,
+            filePath,
             cursor.position.line,
             cursor.position.column,
             newName
@@ -2487,9 +2501,9 @@ export class App {
             statusBar.setMessage('Pulled successfully', 2000);
             await this.updateGitStatus();
             // Reload all open documents
-            for (const doc of this.documents.values()) {
-              if (doc.filePath) {
-                await doc.reload();
+            for (const openDoc of this.documents) {
+              if (openDoc.document.filePath) {
+                await openDoc.document.reload();
               }
             }
           } else {
@@ -2528,7 +2542,7 @@ export class App {
             screenHeight: renderer.height,
             editorX: editorRect.x,
             editorWidth: editorRect.width,
-            onSubmit: async (branchName) => {
+            onConfirm: async (branchName: string) => {
               if (branchName) {
                 const success = await gitIntegration.createBranch(branchName);
                 if (success) {
@@ -2573,9 +2587,9 @@ export class App {
                 statusBar.setMessage(`Switched to branch: ${b.name}`, 2000);
                 await this.updateGitStatus();
                 // Reload all open documents
-                for (const doc of this.documents.values()) {
-                  if (doc.filePath) {
-                    await doc.reload();
+                for (const openDoc of this.documents) {
+                  if (openDoc.document.filePath) {
+                    await openDoc.document.reload();
                   }
                 }
               } else {
@@ -2694,7 +2708,7 @@ export class App {
             screenHeight: renderer.height,
             editorX: editorRect.x,
             editorWidth: editorRect.width,
-            onSubmit: async (newName) => {
+            onConfirm: async (newName: string) => {
               if (newName && newName !== currentBranch) {
                 const success = await gitIntegration.renameBranch(newName);
                 if (success) {
@@ -2724,7 +2738,7 @@ export class App {
             screenHeight: renderer.height,
             editorX: editorRect.x,
             editorWidth: editorRect.width,
-            onSubmit: async (message) => {
+            onConfirm: async (message: string) => {
               const success = await gitIntegration.amendCommit(message || undefined);
               if (success) {
                 statusBar.setMessage('Commit amended', 2000);
@@ -3229,7 +3243,7 @@ export class App {
         title: 'LSP: Show Debug Info',
         category: 'LSP',
         handler: () => {
-          lspManager.setDebug(true);
+          lspManager.setDebugEnabled(true);
           const info = lspManager.getDebugInfo();
           // Write to debug.log file
           const timestamp = new Date().toISOString();

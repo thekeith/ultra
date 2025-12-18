@@ -10,7 +10,10 @@
   "scripts": {
     "dev": "bun run src/index.ts",
     "build": "bun run build.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "docs": "bunx typedoc",
+    "docs:watch": "bunx typedoc --watch",
+    "docs:serve": "bunx typedoc && bunx serve docs/api"
   },
   "devDependencies": {
     "@types/bun": "latest",
