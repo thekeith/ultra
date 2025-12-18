@@ -44,11 +44,11 @@ export const defaultKeybindings: KeyBinding[] = [
     "command": "ultra.quit"
   },
   {
-    "key": "ctrl+r",
+    "key": "ctrl+shift+r",
     "command": "ultra.restart"
   },
   {
-    "key": "ctrl+shift+r",
+    "key": "ctrl+r",
     "command": "ultra.rebuild"
   },
   {
