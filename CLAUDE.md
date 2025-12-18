@@ -10,6 +10,7 @@ Ultra is a terminal-native code editor built with TypeScript and Bun.
 
 ## Bun Usage
 
+
 Default to using Bun instead of Node.js.
 
 - Use `bun <file>` instead of `node <file>` or `ts-node <file>`

@@ -233,6 +233,15 @@ export class FoldManager {
   getRegionAt(line: number): FoldRegion | null {
     return this.regions.find(r => r.startLine === line) || null;
   }
+
+  /**
+   * Get start lines of all currently folded regions (for serialization)
+   */
+  getFoldedLines(): number[] {
+    return this.regions
+      .filter(r => r.isFolded)
+      .map(r => r.startLine);
+  }
   
   /**
    * Recompute which lines are hidden due to folding

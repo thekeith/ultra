@@ -22,9 +22,13 @@ export class AIPanel implements MouseHandler {
   private _focused: boolean = false;
   private _visible: boolean = false;
 
+  // Preserved chat state from session restore (used when _aiChat hasn't been instantiated yet)
+  private _preservedChatState: Record<string, unknown> | null = null;
+
   // Callbacks
   private _onUpdateCallback?: () => void;
   private _onFocusCallback?: () => void;
+  private _onSessionIdCapturedCallback?: (sessionId: string) => void;
 
   constructor() {
     this.debugLog('Created');
@@ -53,7 +57,19 @@ export class AIPanel implements MouseHandler {
         this._onUpdateCallback?.();
       });
 
+      this._aiChat.onSessionIdCaptured((sessionId) => {
+        this.debugLog(`Session ID captured: ${sessionId}`);
+        this._onSessionIdCapturedCallback?.(sessionId);
+      });
+
       this.debugLog('AI chat created');
+
+      // Restore preserved state if available (from deferred session restore)
+      if (this._preservedChatState) {
+        this.debugLog('Restoring preserved chatState to newly created _aiChat');
+        this._aiChat.restore(this._preservedChatState as any);
+        // Keep _preservedChatState around for serialization until first real serialize
+      }
     }
     return this._aiChat;
   }
@@ -247,6 +263,13 @@ export class AIPanel implements MouseHandler {
     };
   }
 
+  onSessionIdCaptured(callback: (sessionId: string) => void): () => void {
+    this._onSessionIdCapturedCallback = callback;
+    return () => {
+      this._onSessionIdCapturedCallback = undefined;
+    };
+  }
+
   // ==================== Lifecycle ====================
 
   dispose(): void {
@@ -256,6 +279,7 @@ export class AIPanel implements MouseHandler {
     }
     this._onUpdateCallback = undefined;
     this._onFocusCallback = undefined;
+    this._onSessionIdCapturedCallback = undefined;
     this.debugLog('Disposed');
   }
 
@@ -272,7 +296,17 @@ export class AIPanel implements MouseHandler {
 
     // Include chat state if chat exists
     if (this._aiChat) {
-      result.chatState = this._aiChat.serialize();
+      const chatState = this._aiChat.serialize();
+      this.debugLog(`Serializing: _aiChat exists, sessionId=${chatState.data?.sessionId || 'null'}`);
+      result.chatState = chatState;
+      // Clear preserved state since we now have the real state
+      this._preservedChatState = null;
+    } else if (this._preservedChatState) {
+      // Use preserved state from session restore if _aiChat hasn't been instantiated
+      this.debugLog(`Serializing: using preserved chatState, sessionId=${(this._preservedChatState.data as any)?.sessionId || 'null'}`);
+      result.chatState = this._preservedChatState;
+    } else {
+      this.debugLog('Serializing: _aiChat is null and no preserved state');
     }
 
     return result;
@@ -282,7 +316,12 @@ export class AIPanel implements MouseHandler {
    * Restore AI panel state from session
    */
   restore(state: Record<string, unknown>): void {
-    if (!state) return;
+    if (!state) {
+      this.debugLog('Restore called with null/undefined state');
+      return;
+    }
+
+    this.debugLog(`Restore called with state: visible=${state.visible}, focused=${state.focused}, hasChatState=${!!state.chatState}`);
 
     // Restore visibility and focus state
     if (typeof state.visible === 'boolean') {
@@ -292,10 +331,25 @@ export class AIPanel implements MouseHandler {
       this._focused = state.focused;
     }
 
-    // Restore chat state
+    // Preserve chat state for later serialization even if we don't instantiate _aiChat now
     if (state.chatState && typeof state.chatState === 'object') {
-      const chat = this.ensureAIChat();
-      chat.restore(state.chatState as any);
+      const chatState = state.chatState as Record<string, unknown>;
+      const sessionId = (chatState.data as Record<string, unknown>)?.sessionId;
+      this.debugLog(`Preserving chatState with sessionId=${sessionId || 'null'}`);
+      // Store the chatState so we can serialize it even if _aiChat is never instantiated
+      this._preservedChatState = chatState;
+
+      // Only instantiate _aiChat if the panel is visible (will be used immediately)
+      // Otherwise, let it be created lazily when the panel is shown
+      if (this._visible) {
+        const chat = this.ensureAIChat();
+        chat.restore(chatState as any);
+        this.debugLog(`After restore: _aiChat.sessionId=${chat.getSessionId() || 'null'}`);
+      } else {
+        this.debugLog('Panel not visible, deferring _aiChat instantiation');
+      }
+    } else {
+      this.debugLog('No chatState to restore');
     }
 
     this.debugLog('Restored from session state');

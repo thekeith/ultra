@@ -114,6 +114,7 @@ export class App {
   // Session management
   private workspaceRoot: string = process.cwd();
   private sessionRestored: boolean = false;
+  private restoringSession: boolean = false;
   private sessionName: string | null = null;
 
   private debugLog(msg: string): void {
@@ -496,6 +497,12 @@ export class App {
 
       // Get UI state if enabled
       const saveUILayout = settings.get('session.save.uiLayout');
+      this.debugLog(`serializeSessionState: saveUILayout=${saveUILayout}`);
+
+      // Always serialize aiPanelState to preserve sessionId, regardless of saveUILayout
+      const aiPanelState = aiPanel.serialize();
+      this.debugLog(`serializeSessionState: aiPanelState.chatState exists=${!!(aiPanelState as any).chatState}, sessionId=${(aiPanelState as any).chatState?.data?.sessionId || 'null'}`);
+
       const ui = {
         sidebarVisible: saveUILayout ? settings.get('workbench.sideBar.visible') : true,
         sidebarWidth: saveUILayout ? (settings.get('ultra.sidebar.width') || 30) : 30,
@@ -506,7 +513,8 @@ export class App {
         activeSidebarPanel: 'files' as const,
         minimapEnabled: saveUILayout ? settings.get('editor.minimap.enabled') : true,
         aiPanelVisible: saveUILayout ? layoutManager.isAIPanelVisible() : false,
-        aiPanelState: saveUILayout ? aiPanel.serialize() : undefined,
+        // Always include aiPanelState to preserve Claude sessionId
+        aiPanelState,
       };
 
       // Get layout
@@ -540,6 +548,7 @@ export class App {
    * Restore editor state from session data
    */
   private async restoreSessionState(sessionData: SessionData): Promise<void> {
+    this.restoringSession = true;
     try {
       this.debugLog('Restoring session state...');
 
@@ -663,6 +672,11 @@ export class App {
         }
       }
 
+      // Always restore AI panel state to preserve sessionId, regardless of saveUILayout
+      if (sessionData.ui.aiPanelState) {
+        aiPanel.restore(sessionData.ui.aiPanelState);
+      }
+
       // Restore UI state
       if (settings.get('session.save.uiLayout')) {
         if (sessionData.ui.sidebarVisible !== settings.get('workbench.sideBar.visible')) {
@@ -678,16 +692,13 @@ export class App {
           gitPanel.show();
         }
 
-        // Restore AI panel state
-        if (sessionData.ui.aiPanelState) {
-          aiPanel.restore(sessionData.ui.aiPanelState);
-          if (sessionData.ui.aiPanelVisible) {
-            layoutManager.toggleAIPanel();
-            const aiPanelRect = layoutManager.getAIPanelRect();
-            if (aiPanelRect) {
-              aiPanel.setRect(aiPanelRect);
-              aiPanel.setVisible(true);
-            }
+        // Restore AI panel visibility (state already restored above)
+        if (sessionData.ui.aiPanelVisible) {
+          layoutManager.toggleAIPanel();
+          const aiPanelRect = layoutManager.getAIPanelRect();
+          if (aiPanelRect) {
+            aiPanel.setRect(aiPanelRect);
+            aiPanel.setVisible(true);
           }
         }
       }
@@ -704,6 +715,8 @@ export class App {
       this.debugLog('Session state restored');
     } catch (error) {
       this.debugLog(`Failed to restore session state: ${error}`);
+    } finally {
+      this.restoringSession = false;
     }
   }
 
@@ -1925,8 +1938,10 @@ export class App {
       }
       this.updateStatusBar();
       renderer.scheduleRender();
-      // Save session immediately on tab change
-      sessionManager.saveCurrentSession();
+      // Save session immediately on tab change (but not during restore)
+      if (!this.restoringSession) {
+        sessionManager.saveCurrentSession();
+      }
     });
 
     // Handle pane focus changes
@@ -1940,8 +1955,10 @@ export class App {
       }
       this.updateStatusBar();
       renderer.scheduleRender();
-      // Save session immediately on pane focus change
-      sessionManager.saveCurrentSession();
+      // Save session immediately on pane focus change (but not during restore)
+      if (!this.restoringSession) {
+        sessionManager.saveCurrentSession();
+      }
     });
 
     // Handle mouse clicks in documents
@@ -2069,6 +2086,11 @@ export class App {
       fileTree.setFocused(false);
       gitPanel.setFocused(false);
       terminalPane.setFocused(false);
+    });
+    // Save session immediately when Claude session ID is captured
+    aiPanel.onSessionIdCaptured((sessionId) => {
+      this.debugLog(`Claude session ID captured: ${sessionId}, saving Ultra session`);
+      sessionManager.saveCurrentSession();
     });
   }
 
@@ -4020,8 +4042,10 @@ export class App {
         await lspManager.openDocument(uri, document.language, document.content);
       }
 
-      // Save session immediately on file open
-      sessionManager.saveCurrentSession();
+      // Save session immediately on file open (but not during restore)
+      if (!this.restoringSession) {
+        sessionManager.saveCurrentSession();
+      }
     } catch (error) {
       console.error('Failed to open file:', error);
     }
@@ -4218,8 +4242,10 @@ export class App {
       this.updateStatusBar();
     }
 
-    // Save session immediately on file close
-    sessionManager.saveCurrentSession();
+    // Save session immediately on file close (but not during restore)
+    if (!this.restoringSession) {
+      sessionManager.saveCurrentSession();
+    }
   }
 
   /**

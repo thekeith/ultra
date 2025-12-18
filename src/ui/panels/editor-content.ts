@@ -5,7 +5,7 @@
  * Wraps a Document and provides editor-specific rendering.
  */
 
-import type { RenderContext } from '../renderer.ts';
+import { renderer, type RenderContext } from '../renderer.ts';
 import type { Rect } from '../layout.ts';
 import type { KeyEvent } from '../../terminal/input.ts';
 import type { MouseEvent } from '../mouse.ts';
@@ -442,6 +442,29 @@ export class EditorContent implements ScrollablePanelContent, FocusablePanelCont
   }
 
   /**
+   * Get git line changes.
+   */
+  getGitLineChanges(): Map<number, GitLineChange['type']> {
+    return this.gitLineChanges;
+  }
+
+  /**
+   * Toggle minimap visibility.
+   */
+  toggleMinimap(): void {
+    this.minimapEnabled = !this.minimapEnabled;
+    // Re-apply rect to update minimap positioning
+    this.setRect(this.rect);
+  }
+
+  /**
+   * Check if minimap is enabled.
+   */
+  isMinimapEnabled(): boolean {
+    return this.minimapEnabled;
+  }
+
+  /**
    * Get fold manager.
    */
   getFoldManager(): FoldManager {
@@ -563,6 +586,8 @@ export class EditorContent implements ScrollablePanelContent, FocusablePanelCont
       shikiHighlighter.setLanguage(language).then(() => {
         this.highlighterReady = true;
         this.lastLanguage = language;
+        // Schedule a re-render to apply syntax highlighting
+        renderer.scheduleRender();
       }).catch(() => {
         this.highlighterReady = false;
       });
@@ -667,6 +692,9 @@ export class EditorContent implements ScrollablePanelContent, FocusablePanelCont
 
   onActivated(): void {
     if (this._document) {
+      // Reset parsed content to force re-parse since the singleton highlighter
+      // may have tokens from a different document
+      this.lastParsedContent = '';
       this.setupHighlighting(this._document);
     }
   }
@@ -979,16 +1007,64 @@ export class EditorContent implements ScrollablePanelContent, FocusablePanelCont
       ctx.buffer(`\x1b[${screenY};${this.rect.x}H${gutterBgStr}${' '.repeat(this.gutterWidth)}${reset}`);
     }
 
-    // Render wrapped text segment
+    // Render wrapped text segment with syntax highlighting
     const textX = this.rect.x + this.gutterWidth;
     const textWidth = this.getVisibleColumnCount();
     const segmentText = line.slice(wrap.startColumn, wrap.endColumn);
 
-    const fgRgb = hexToRgb(this.theme.foreground);
-    const fg = fgRgb ? `\x1b[38;2;${fgRgb.r};${fgRgb.g};${fgRgb.b}m` : '';
+    let output = `\x1b[${screenY};${textX}H${bg}`;
 
+    if (tokens.length > 0) {
+      let col = wrap.startColumn;
+      for (const token of tokens) {
+        // Skip tokens entirely before this wrapped segment
+        if (token.end <= wrap.startColumn) continue;
+        // Stop when tokens are entirely after this wrapped segment
+        if (token.start >= wrap.endColumn) break;
+
+        // Calculate the visible portion of this token within the wrapped segment
+        const start = Math.max(token.start, wrap.startColumn);
+        const end = Math.min(token.end, wrap.endColumn);
+
+        // Pad from current column to token start with default foreground
+        if (col < start) {
+          const padding = line.slice(col, start);
+          const fgRgb = hexToRgb(this.theme.foreground);
+          const fg = fgRgb ? `\x1b[38;2;${fgRgb.r};${fgRgb.g};${fgRgb.b}m` : '';
+          output += fg + padding;
+          col = start;
+        }
+
+        // Render token with its color
+        const tokenText = line.slice(start, end);
+        const tokenRgb = hexToRgb(token.color);
+        const tokenFg = tokenRgb ? `\x1b[38;2;${tokenRgb.r};${tokenRgb.g};${tokenRgb.b}m` : '';
+        output += tokenFg + tokenText;
+        col = end;
+      }
+
+      // Pad remainder of segment with default foreground
+      if (col < wrap.endColumn) {
+        const remaining = line.slice(col, wrap.endColumn);
+        const fgRgb = hexToRgb(this.theme.foreground);
+        const fg = fgRgb ? `\x1b[38;2;${fgRgb.r};${fgRgb.g};${fgRgb.b}m` : '';
+        output += fg + remaining;
+      }
+    } else {
+      // No syntax highlighting - use default foreground
+      const fgRgb = hexToRgb(this.theme.foreground);
+      const fg = fgRgb ? `\x1b[38;2;${fgRgb.r};${fgRgb.g};${fgRgb.b}m` : '';
+      output += fg + segmentText;
+    }
+
+    // Pad to end of line
     const padding = textWidth - segmentText.length;
-    ctx.buffer(`\x1b[${screenY};${textX}H${bg}${fg}${segmentText}${padding > 0 ? ' '.repeat(padding) : ''}${reset}`);
+    if (padding > 0) {
+      output += ' '.repeat(padding);
+    }
+
+    output += reset;
+    ctx.buffer(output);
   }
 
   private getGitIndicator(line: number): string {

@@ -110,6 +110,7 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
   private _onFocusCallback?: () => void;
   private _onBlurCallback?: () => void;
   private _onExitCallback?: (code: number) => void;
+  private _onSessionIdCapturedCallback?: (sessionId: string) => void;
 
   // Throttling for updates
   private _updatePending = false;
@@ -426,6 +427,7 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
         if (capturedSessionId && responseComplete) {
           this._sessionId = capturedSessionId;
           this.debugLog(`Session ID captured and persisted: ${this._sessionId}`);
+          this._onSessionIdCapturedCallback?.(capturedSessionId);
           proc.kill();
           return;
         }
@@ -441,6 +443,7 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
     if (capturedSessionId) {
       this._sessionId = capturedSessionId;
       this.debugLog(`Session ID captured (process exited): ${this._sessionId}`);
+      this._onSessionIdCapturedCallback?.(capturedSessionId);
     } else {
       this.debugLog(`Failed to capture session ID. Full output: ${output.substring(0, 500)}`);
     }
@@ -922,6 +925,7 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
   }
 
   serialize(): ContentState {
+    this.debugLog(`Serialize called, _sessionId: ${this._sessionId || 'null'}`);
     return {
       contentType: this.contentType,
       contentId: this.contentId,
@@ -936,6 +940,14 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
   }
 
   restore(state: ContentState): void {
+    this.debugLog(`Restore called, state.data exists: ${!!state.data}, state.data.sessionId: ${state.data?.sessionId || 'null'}`);
+
+    // Guard against missing data
+    if (!state.data || typeof state.data !== 'object') {
+      this.debugLog('Warning: state.data is missing or invalid, skipping restore');
+      return;
+    }
+
     if (state.data.provider) {
       this._provider = state.data.provider as AIProvider;
     }
@@ -952,8 +964,10 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
     if (state.data.sessionId && typeof state.data.sessionId === 'string') {
       this._sessionId = state.data.sessionId;
       this.debugLog(`Restored sessionId: ${this._sessionId}`);
+    } else {
+      this.debugLog(`SessionId not restored: state.data.sessionId=${state.data.sessionId}, type=${typeof state.data.sessionId}`);
     }
-    this.debugLog('Restored from state');
+    this.debugLog(`Restore complete, _sessionId is now: ${this._sessionId || 'null'}`);
   }
 
   dispose(): void {
@@ -978,6 +992,13 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
     this._onExitCallback = callback;
     return () => {
       this._onExitCallback = undefined;
+    };
+  }
+
+  onSessionIdCaptured(callback: (sessionId: string) => void): () => void {
+    this._onSessionIdCapturedCallback = callback;
+    return () => {
+      this._onSessionIdCapturedCallback = undefined;
     };
   }
 }
