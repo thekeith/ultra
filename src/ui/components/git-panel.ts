@@ -172,10 +172,114 @@ export class GitPanel implements MouseHandler {
   }
 
   /**
+   * Get the visual row index for the currently selected item (0-based, relative to content area)
+   */
+  private getSelectedVisualRow(): number {
+    if (!this.status) return 0;
+
+    let row = 0;
+
+    // Staged section header
+    row++;
+    if (this.selectedSection === 'staged' && !this.stagedCollapsed) {
+      return row + this.selectedIndex;
+    }
+    if (!this.stagedCollapsed) {
+      row += this.status.staged.length;
+    }
+
+    // Unstaged section header
+    row++;
+    if (this.selectedSection === 'unstaged' && !this.unstagedCollapsed) {
+      return row + this.selectedIndex;
+    }
+    if (!this.unstagedCollapsed) {
+      row += this.status.unstaged.length;
+    }
+
+    // Untracked section header
+    if (this.status.untracked.length > 0) {
+      row++;
+      if (this.selectedSection === 'untracked' && !this.untrackedCollapsed) {
+        return row + this.selectedIndex;
+      }
+    }
+
+    return row;
+  }
+
+  /**
+   * Get total content height (excluding fixed header)
+   */
+  private getContentHeight(): number {
+    if (!this.status) return 1;
+
+    let height = 0;
+
+    // Staged section
+    height++; // header
+    if (!this.stagedCollapsed) height += this.status.staged.length;
+
+    // Unstaged section
+    height++; // header
+    if (!this.unstagedCollapsed) height += this.status.unstaged.length;
+
+    // Untracked section
+    if (this.status.untracked.length > 0) {
+      height++; // header
+      if (!this.untrackedCollapsed) height += this.status.untracked.length;
+    }
+
+    return height;
+  }
+
+  /**
+   * Calculate how many lines the hint bar takes
+   */
+  private getHintLineCount(): number {
+    if (!this.isFocused) return 0;
+
+    const hints = ['s:stage', 'u:unstage', 'd:discard', 'c:commit', 'S:stage all'];
+    let lineCount = 1;
+    let currentLineLength = 0;
+
+    for (const hint of hints) {
+      const addition = currentLineLength > 0 ? 2 + hint.length : 1 + hint.length;
+      if (currentLineLength + addition > this.rect.width) {
+        lineCount++;
+        currentLineLength = 1 + hint.length;
+      } else {
+        currentLineLength += addition;
+      }
+    }
+
+    return lineCount;
+  }
+
+  /**
+   * Get the visible content height (accounting for header, hints, etc.)
+   */
+  private getVisibleHeight(): number {
+    // -3 for header/branch/separator, -hintLines for bottom hints
+    return this.rect.height - 3 - this.getHintLineCount();
+  }
+
+  /**
    * Ensure selected item is visible
    */
   private ensureVisible(): void {
-    // TODO: Implement scroll adjustment
+    const selectedRow = this.getSelectedVisualRow();
+    const visibleHeight = this.getVisibleHeight();
+
+    if (selectedRow < this.scrollTop) {
+      this.scrollTop = selectedRow;
+    } else if (selectedRow >= this.scrollTop + visibleHeight) {
+      this.scrollTop = selectedRow - visibleHeight + 1;
+    }
+
+    // Clamp scrollTop
+    const maxScroll = Math.max(0, this.getContentHeight() - visibleHeight);
+    this.scrollTop = Math.max(0, Math.min(this.scrollTop, maxScroll));
   }
 
   /**
@@ -396,100 +500,76 @@ export class GitPanel implements MouseHandler {
       output += fgRgb(panelFg.r, panelFg.g, panelFg.b);
       output += ' No git repository'.padEnd(this.rect.width, ' ');
     } else {
-      // Staged changes section
-      const stagedCount = this.status.staged.length;
-      output += moveTo(this.rect.x, y);
-      output += fgRgb(titleFg.r, titleFg.g, titleFg.b);
-      const stagedHeader = ` ${this.stagedCollapsed ? '▶' : '▼'} Staged (${stagedCount})`;
-      output += stagedHeader.padEnd(this.rect.width, ' ');
-      y++;
-      
-      if (!this.stagedCollapsed) {
-        for (let i = 0; i < this.status.staged.length && y < this.rect.y + this.rect.height - 2; i++) {
-          const file = this.status.staged[i]!;
-          const isSelected = this.isFocused && this.selectedSection === 'staged' && this.selectedIndex === i;
-          
-          output += moveTo(this.rect.x, y);
+      // Calculate visible area (reserve space for hints at bottom)
+      const contentStartY = y;
+      const visibleHeight = this.getVisibleHeight();
+      let contentRow = 0; // Virtual row in content (0-indexed)
+
+      // Helper to check if a content row is visible and render it
+      const renderRow = (text: string, fg: {r:number,g:number,b:number}, isSelected: boolean = false): boolean => {
+        if (contentRow >= this.scrollTop && contentRow < this.scrollTop + visibleHeight) {
+          const screenY = contentStartY + (contentRow - this.scrollTop);
+          output += moveTo(this.rect.x, screenY);
           if (isSelected) {
             output += bgRgb(selectionBg.r, selectionBg.g, selectionBg.b);
             output += fgRgb(selectionFg.r, selectionFg.g, selectionFg.b);
           } else {
             output += bgRgb(panelBg.r, panelBg.g, panelBg.b);
-            const statusColor = file.status === 'A' ? addedFg :
-                               file.status === 'D' ? deletedFg : modifiedFg;
-            output += fgRgb(statusColor.r, statusColor.g, statusColor.b);
+            output += fgRgb(fg.r, fg.g, fg.b);
           }
-          
+          output += text.substring(0, this.rect.width).padEnd(this.rect.width, ' ');
+        }
+        contentRow++;
+        return contentRow < this.scrollTop + visibleHeight;
+      };
+
+      // Staged changes section
+      const stagedCount = this.status.staged.length;
+      const stagedHeader = ` ${this.stagedCollapsed ? '▶' : '▼'} Staged (${stagedCount})`;
+      renderRow(stagedHeader, titleFg);
+
+      if (!this.stagedCollapsed) {
+        for (let i = 0; i < this.status.staged.length; i++) {
+          const file = this.status.staged[i]!;
+          const isSelected = this.isFocused && this.selectedSection === 'staged' && this.selectedIndex === i;
+          const statusColor = file.status === 'A' ? addedFg : file.status === 'D' ? deletedFg : modifiedFg;
           const statusChar = file.status === 'A' ? '+' : file.status === 'D' ? '-' : '~';
           const fileName = path.basename(file.path);
           const line = `   ${statusChar} ${fileName}`;
-          output += line.substring(0, this.rect.width).padEnd(this.rect.width, ' ');
-          y++;
+          if (!renderRow(line, statusColor, isSelected)) break;
         }
       }
-      
+
       // Unstaged changes section
       const unstagedCount = this.status.unstaged.length;
-      if (y < this.rect.y + this.rect.height - 2) {
-        output += moveTo(this.rect.x, y);
-        output += bgRgb(panelBg.r, panelBg.g, panelBg.b);
-        output += fgRgb(titleFg.r, titleFg.g, titleFg.b);
-        const unstagedHeader = ` ${this.unstagedCollapsed ? '▶' : '▼'} Changes (${unstagedCount})`;
-        output += unstagedHeader.padEnd(this.rect.width, ' ');
-        y++;
-      }
-      
+      const unstagedHeader = ` ${this.unstagedCollapsed ? '▶' : '▼'} Changes (${unstagedCount})`;
+      renderRow(unstagedHeader, titleFg);
+
       if (!this.unstagedCollapsed) {
-        for (let i = 0; i < this.status.unstaged.length && y < this.rect.y + this.rect.height - 2; i++) {
+        for (let i = 0; i < this.status.unstaged.length; i++) {
           const file = this.status.unstaged[i]!;
           const isSelected = this.isFocused && this.selectedSection === 'unstaged' && this.selectedIndex === i;
-          
-          output += moveTo(this.rect.x, y);
-          if (isSelected) {
-            output += bgRgb(selectionBg.r, selectionBg.g, selectionBg.b);
-            output += fgRgb(selectionFg.r, selectionFg.g, selectionFg.b);
-          } else {
-            output += bgRgb(panelBg.r, panelBg.g, panelBg.b);
-            const statusColor = file.status === 'D' ? deletedFg : modifiedFg;
-            output += fgRgb(statusColor.r, statusColor.g, statusColor.b);
-          }
-          
+          const statusColor = file.status === 'D' ? deletedFg : modifiedFg;
           const statusChar = file.status === 'D' ? '-' : '~';
           const fileName = path.basename(file.path);
           const line = `   ${statusChar} ${fileName}`;
-          output += line.substring(0, this.rect.width).padEnd(this.rect.width, ' ');
-          y++;
+          if (!renderRow(line, statusColor, isSelected)) break;
         }
       }
-      
+
       // Untracked files section
       const untrackedCount = this.status.untracked.length;
-      if (untrackedCount > 0 && y < this.rect.y + this.rect.height - 2) {
-        output += moveTo(this.rect.x, y);
-        output += bgRgb(panelBg.r, panelBg.g, panelBg.b);
-        output += fgRgb(titleFg.r, titleFg.g, titleFg.b);
+      if (untrackedCount > 0) {
         const untrackedHeader = ` ${this.untrackedCollapsed ? '▶' : '▼'} Untracked (${untrackedCount})`;
-        output += untrackedHeader.padEnd(this.rect.width, ' ');
-        y++;
-        
+        renderRow(untrackedHeader, titleFg);
+
         if (!this.untrackedCollapsed) {
-          for (let i = 0; i < this.status.untracked.length && y < this.rect.y + this.rect.height - 2; i++) {
+          for (let i = 0; i < this.status.untracked.length; i++) {
             const filePath = this.status.untracked[i]!;
             const isSelected = this.isFocused && this.selectedSection === 'untracked' && this.selectedIndex === i;
-            
-            output += moveTo(this.rect.x, y);
-            if (isSelected) {
-              output += bgRgb(selectionBg.r, selectionBg.g, selectionBg.b);
-              output += fgRgb(selectionFg.r, selectionFg.g, selectionFg.b);
-            } else {
-              output += bgRgb(panelBg.r, panelBg.g, panelBg.b);
-              output += fgRgb(untrackedFg.r, untrackedFg.g, untrackedFg.b);
-            }
-            
             const fileName = path.basename(filePath);
             const line = `   ? ${fileName}`;
-            output += line.substring(0, this.rect.width).padEnd(this.rect.width, ' ');
-            y++;
+            if (!renderRow(line, untrackedFg, isSelected)) break;
           }
         }
       }
@@ -555,8 +635,11 @@ export class GitPanel implements MouseHandler {
     switch (event.name) {
       case 'MOUSE_LEFT_BUTTON_PRESSED': {
         // Calculate which line was clicked (accounting for header, branch, separator)
-        const clickY = event.y - this.rect.y - 3; // -3 for header, branch, separator
-        if (clickY < 0) return true; // Clicked on header area
+        const screenClickY = event.y - this.rect.y - 3; // -3 for header, branch, separator
+        if (screenClickY < 0) return true; // Clicked on header area
+
+        // Convert screen position to content position (add scrollTop)
+        const clickY = screenClickY + this.scrollTop;
 
         // Map click to item
         if (!this.status) return true;
@@ -640,9 +723,12 @@ export class GitPanel implements MouseHandler {
         this.scrollTop = Math.max(0, this.scrollTop - 3);
         return true;
 
-      case 'MOUSE_WHEEL_DOWN':
-        this.scrollTop += 3;
+      case 'MOUSE_WHEEL_DOWN': {
+        const visibleHeight = this.getVisibleHeight();
+        const maxScroll = Math.max(0, this.getContentHeight() - visibleHeight);
+        this.scrollTop = Math.min(this.scrollTop + 3, maxScroll);
         return true;
+      }
     }
 
     return false;

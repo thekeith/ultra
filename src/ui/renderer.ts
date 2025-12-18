@@ -185,12 +185,21 @@ export class Renderer {
       
       draw: (x: number, y: number, text: string) => {
         if (y < 1 || y > this._height || x < 1 || x > this._width) return;
-        this.outputBuffer += CURSOR.moveTo(y, x) + text;
+        // Clip text to screen width
+        const maxChars = this._width - x + 1;
+        const clippedText = text.length > maxChars ? text.substring(0, maxChars) : text;
+        if (clippedText.length === 0) return;
+        this.outputBuffer += CURSOR.moveTo(y, x) + clippedText;
       },
       
       drawStyled: (x: number, y: number, text: string, fg?: string, bg?: string, opts?: StyleOpts) => {
         if (y < 1 || y > this._height || x < 1 || x > this._width) return;
-        
+
+        // Clip text to screen width
+        const maxChars = this._width - x + 1;
+        const clippedText = text.length > maxChars ? text.substring(0, maxChars) : text;
+        if (clippedText.length === 0) return;
+
         let codes = CURSOR.moveTo(y, x);
         if (opts?.bold) codes += STYLE.bold;
         if (opts?.italic) codes += STYLE.italic;
@@ -199,16 +208,24 @@ export class Renderer {
         if (opts?.dim) codes += STYLE.dim;
         if (fg) codes += fgHex(fg);
         if (bg) codes += bgHex(bg);
-        
-        this.outputBuffer += codes + text + STYLE.reset;
+
+        this.outputBuffer += codes + clippedText + STYLE.reset;
       },
       
       fill: (x: number, y: number, width: number, height: number, char: string, fg?: string, bg?: string) => {
-        const line = char.repeat(width);
+        // Clip to screen bounds
+        if (x < 1) x = 1;
+        if (x > this._width) return;
+
+        // Clip width to screen edge
+        const clippedWidth = Math.min(width, this._width - x + 1);
+        if (clippedWidth <= 0) return;
+
+        const line = char.repeat(clippedWidth);
         let style = '';
         if (fg) style += fgHex(fg);
         if (bg) style += bgHex(bg);
-        
+
         for (let row = 0; row < height; row++) {
           const targetY = y + row;
           if (targetY < 1 || targetY > this._height) continue;

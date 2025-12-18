@@ -56,7 +56,6 @@ export class CommitDialog extends BaseDialog {
   showDialog(config: BaseDialogConfig, options: CommitDialogOptions = {}): void {
     const width = options.width || 70;
     this._visibleLines = options.lines || 5;
-    this._maxWidth = width - 4;  // -4 for borders and padding
 
     // Height: title + separator + visible lines + hint + border
     const height = this._visibleLines + 4;
@@ -70,6 +69,9 @@ export class CommitDialog extends BaseDialog {
 
     // Center vertically in upper third of screen
     this._rect.y = Math.floor(config.screenHeight / 4);
+
+    // Calculate maxWidth from ACTUAL rect width (after centerRect may have reduced it)
+    this._maxWidth = this._rect.width - 4;  // -4 for borders and padding
 
     // Initialize with message or empty
     if (options.initialMessage) {
@@ -323,14 +325,18 @@ export class CommitDialog extends BaseDialog {
         this._lines.splice(this._cursorLine + 1, 0, afterWrap);
       }
 
-      // Update cursor position
-      if (this._cursorCol >= wrapPoint) {
+      // Update cursor position - cursor was at _cursorCol, now at _cursorCol + 1 after insert
+      const newCursorPos = this._cursorCol + 1;
+      if (newCursorPos >= wrapPoint) {
+        // Cursor moved to wrapped line
         this._cursorLine++;
-        this._cursorCol = this._cursorCol - wrapPoint + (afterWrap.length - afterWrap.trimStart().length === 0 ? 0 : 0);
-        // Recalculate cursor position in the wrapped text
-        this._cursorCol = Math.min(this._cursorCol - wrapPoint + 1, afterWrap.length);
+        // Calculate position in afterWrap, accounting for trimmed leading spaces
+        const untrimmedAfter = newLine.slice(wrapPoint);
+        const trimmedSpaces = untrimmedAfter.length - afterWrap.length;
+        this._cursorCol = Math.max(0, newCursorPos - wrapPoint - trimmedSpaces);
       } else {
-        this._cursorCol++;
+        // Cursor stays on current line
+        this._cursorCol = newCursorPos;
       }
     } else {
       this._lines[this._cursorLine] = newLine;
