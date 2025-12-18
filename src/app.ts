@@ -504,7 +504,9 @@ export class App {
         gitPanelVisible: saveUILayout ? gitPanel.isOpen() : false,
         gitPanelWidth: 30,
         activeSidebarPanel: 'files' as const,
-        minimapEnabled: saveUILayout ? settings.get('editor.minimap.enabled') : true
+        minimapEnabled: saveUILayout ? settings.get('editor.minimap.enabled') : true,
+        aiPanelVisible: saveUILayout ? layoutManager.isAIPanelVisible() : false,
+        aiPanelState: saveUILayout ? aiPanel.serialize() : undefined,
       };
 
       // Get layout
@@ -674,6 +676,19 @@ export class App {
 
         if (sessionData.ui.gitPanelVisible) {
           gitPanel.show();
+        }
+
+        // Restore AI panel state
+        if (sessionData.ui.aiPanelState) {
+          aiPanel.restore(sessionData.ui.aiPanelState);
+          if (sessionData.ui.aiPanelVisible) {
+            layoutManager.toggleAIPanel();
+            const aiPanelRect = layoutManager.getAIPanelRect();
+            if (aiPanelRect) {
+              aiPanel.setRect(aiPanelRect);
+              aiPanel.setVisible(true);
+            }
+          }
         }
       }
 

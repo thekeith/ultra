@@ -258,6 +258,48 @@ export class AIPanel implements MouseHandler {
     this._onFocusCallback = undefined;
     this.debugLog('Disposed');
   }
+
+  // ==================== Serialization ====================
+
+  /**
+   * Serialize AI panel state for session persistence
+   */
+  serialize(): Record<string, unknown> {
+    const result: Record<string, unknown> = {
+      visible: this._visible,
+      focused: this._focused,
+    };
+
+    // Include chat state if chat exists
+    if (this._aiChat) {
+      result.chatState = this._aiChat.serialize();
+    }
+
+    return result;
+  }
+
+  /**
+   * Restore AI panel state from session
+   */
+  restore(state: Record<string, unknown>): void {
+    if (!state) return;
+
+    // Restore visibility and focus state
+    if (typeof state.visible === 'boolean') {
+      this._visible = state.visible;
+    }
+    if (typeof state.focused === 'boolean') {
+      this._focused = state.focused;
+    }
+
+    // Restore chat state
+    if (state.chatState && typeof state.chatState === 'object') {
+      const chat = this.ensureAIChat();
+      chat.restore(state.chatState as any);
+    }
+
+    this.debugLog('Restored from session state');
+  }
 }
 
 export const aiPanel = new AIPanel();

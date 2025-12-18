@@ -38,6 +38,8 @@ export interface AIChatContentOptions {
   customArgs?: string[];
   cwd?: string;
   mcpServerPort?: number;
+  /** Session ID for Claude --resume support */
+  sessionId?: string;
 }
 
 // ==================== Provider Configurations ====================
@@ -88,6 +90,12 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
   private _exitCode: number | null = null;
   private _title: string = 'AI Chat';
 
+  // Session ID for Claude --resume support (captured from Claude output)
+  private _sessionId: string | null = null;
+
+  // Flag to prevent concurrent start attempts
+  private _starting: boolean = false;
+
   // Theme colors
   private _bgColor: string = '#1a1a2e';
   private _fgColor: string = '#e0e0e0';
@@ -129,8 +137,26 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
       };
     }
 
+    // Session ID is only set if restored from a previous session
+    this._sessionId = options.sessionId || null;
+
     this.loadThemeColors();
-    this.debugLog('Created with provider: ' + this._provider);
+    this.debugLog(`Created with provider: ${this._provider}, sessionId: ${this._sessionId || 'none'}`);
+  }
+
+  /**
+   * Get the current session ID
+   */
+  getSessionId(): string | null {
+    return this._sessionId;
+  }
+
+  /**
+   * Set the session ID (for restoring from session state or capturing from Claude)
+   */
+  setSessionId(sessionId: string): void {
+    this._sessionId = sessionId;
+    this.debugLog(`Session ID set to: ${sessionId}`);
   }
 
   // ==================== Debug ====================
@@ -308,6 +334,8 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
 
   /**
    * Start the AI session
+   * If no session ID exists, first captures one via non-interactive mode,
+   * then restarts in interactive mode with --resume
    */
   async start(): Promise<void> {
     if (this._isRunning) {
@@ -315,20 +343,123 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
       return;
     }
 
-    this.debugLog('Starting AI session');
+    if (this._starting) {
+      this.debugLog('Already starting, ignoring duplicate start');
+      return;
+    }
+
+    this._starting = true;
+    try {
+      // For Claude Code without a session ID, first capture one
+      if (this._provider === 'claude-code' && !this._sessionId) {
+        this.debugLog('No session ID, capturing one first...');
+        await this.captureSessionId();
+      }
+
+      await this.startInteractive();
+    } finally {
+      this._starting = false;
+    }
+  }
+
+  /**
+   * Capture session ID by running Claude in non-interactive mode
+   * Waits for Claude to complete its response before returning so the session is persisted
+   */
+  private async captureSessionId(): Promise<void> {
+    this.debugLog('Starting Claude in non-interactive mode to capture session ID');
+
+    // Get initial prompt from settings
+    const initialPrompt = settings.get('ai.panel.initialPrompt' as any) as string ||
+      'You are a helpful software engineer working with another software engineer on a coding project using the Ultra IDE';
+
+    // Run claude with initial prompt in JSON mode to get session ID
+    const proc = Bun.spawn(['claude', '-p', initialPrompt, '--output-format', 'stream-json', '--verbose'], {
+      cwd: this._cwd,
+      stdout: 'pipe',
+      stderr: 'pipe',
+      env: {
+        ...process.env,
+        TERM: 'xterm-256color',
+      },
+    });
+
+    let output = '';
+    let capturedSessionId: string | null = null;
+    let responseComplete = false;
+
+    // Read all stdout
+    const reader = proc.stdout.getReader();
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = new TextDecoder().decode(value);
+        output += chunk;
+
+        // Try to parse each line as JSON
+        const lines = output.split('\n');
+        for (const line of lines) {
+          if (line.trim()) {
+            try {
+              const json = JSON.parse(line);
+
+              // Capture session_id when we see it
+              if (json.session_id && !capturedSessionId) {
+                capturedSessionId = json.session_id;
+                this.debugLog(`Found session ID: ${capturedSessionId}`);
+              }
+
+              // Wait for the result message to confirm session is persisted
+              if (json.type === 'result' && json.subtype === 'success') {
+                this.debugLog('Received success result, session should be persisted');
+                responseComplete = true;
+              }
+            } catch {
+              // Not valid JSON yet, continue
+            }
+          }
+        }
+
+        // Once we have both session ID and success result, we're done
+        if (capturedSessionId && responseComplete) {
+          this._sessionId = capturedSessionId;
+          this.debugLog(`Session ID captured and persisted: ${this._sessionId}`);
+          proc.kill();
+          return;
+        }
+      }
+    } catch (error) {
+      this.debugLog(`Error reading output: ${error}`);
+    }
+
+    // Wait for process to exit
+    await proc.exited;
+
+    // If we got a session ID but didn't see success, still use it
+    if (capturedSessionId) {
+      this._sessionId = capturedSessionId;
+      this.debugLog(`Session ID captured (process exited): ${this._sessionId}`);
+    } else {
+      this.debugLog(`Failed to capture session ID. Full output: ${output.substring(0, 500)}`);
+    }
+  }
+
+  /**
+   * Start Claude in interactive mode (with --resume if we have a session ID)
+   */
+  private async startInteractive(): Promise<void> {
+    this.debugLog(`Starting interactive session with sessionId: ${this._sessionId || 'none'}`);
     const contentRect = this.getContentRect();
 
     // Build command args
     const args = [...this._providerConfig.args];
 
-    // Add MCP server config if available
-    if (this._mcpServerPort) {
-      // Claude Code supports --mcp-config for MCP server connections
-      if (this._provider === 'claude-code') {
-        // We'll pass the MCP config as an environment variable or argument
-        // The actual MCP config will be handled by the MCP server module
-        this.debugLog(`MCP server port configured: ${this._mcpServerPort}`);
-      }
+    // Add --resume flag for Claude Code to continue the session
+    if (this._provider === 'claude-code' && this._sessionId) {
+      args.push('--resume', this._sessionId);
+      this.debugLog(`Using --resume ${this._sessionId}`);
     }
 
     // Build environment
@@ -342,12 +473,19 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
     // If MCP server is configured, add to environment
     if (this._mcpServerPort) {
       env.ULTRA_MCP_PORT = String(this._mcpServerPort);
+      this.debugLog(`MCP server port configured: ${this._mcpServerPort}`);
     }
 
-    // Create PTY - use reasonable scrollback default for AI chat
+    // Build the full command with args for Claude
+    let shellCommand = this._providerConfig.command;
+    if (args.length > 0) {
+      shellCommand = `${this._providerConfig.command} ${args.join(' ')}`;
+    }
+
+    // Create PTY
     const scrollback = 1000;
     this._pty = new PTY({
-      shell: this._providerConfig.command,
+      shell: shellCommand,
       cwd: this._cwd,
       cols: Math.max(1, contentRect.width),
       rows: Math.max(1, contentRect.height),
@@ -370,27 +508,15 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
       this._exitCode = code;
       this.debugLog(`AI exited with code: ${code}`);
       this._onExitCallback?.(code);
-      // Immediate update for exit
       this._onUpdateCallback?.();
     });
 
     try {
-      // Start the PTY with the AI command
-      // Note: PTY.start() spawns a shell, but we want to run the AI command directly
-      // We'll write the command after the shell starts
       await this._pty.start();
       this._isRunning = true;
       this._exitCode = null;
       this._title = this.getProviderName();
-
-      // If we want to run AI directly (not through shell), we'd need to modify PTY
-      // For now, we can send the command to the shell
-      // This is a workaround - ideally we'd spawn the AI command directly
-      if (args.length > 0) {
-        this._pty.write(`${args.join(' ')}\n`);
-      }
-
-      this.debugLog('AI session started');
+      this.debugLog('Interactive session started');
     } catch (error) {
       this.debugLog(`Failed to start AI: ${error}`);
       this._isRunning = false;
@@ -411,10 +537,10 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
   }
 
   /**
-   * Check if AI is running
+   * Check if AI is running or starting
    */
   isRunning(): boolean {
-    return this._isRunning;
+    return this._isRunning || this._starting;
   }
 
   /**
@@ -804,7 +930,7 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
         provider: this._provider,
         cwd: this._cwd,
         mcpServerPort: this._mcpServerPort,
-        wasRunning: this._isRunning,
+        sessionId: this._sessionId,
       },
     };
   }
@@ -822,7 +948,11 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
     if (state.title) {
       this._title = state.title;
     }
-    // Note: We don't auto-restart on restore - user must explicitly start
+    // Restore session ID for Claude --resume support
+    if (state.data.sessionId && typeof state.data.sessionId === 'string') {
+      this._sessionId = state.data.sessionId;
+      this.debugLog(`Restored sessionId: ${this._sessionId}`);
+    }
     this.debugLog('Restored from state');
   }
 
