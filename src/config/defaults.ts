@@ -467,6 +467,8 @@ export const defaultSettings: Record<string, any> = {
   "ultra.sidebar.width": 30,
   "ultra.ai.model": "claude-sonnet-4-20250514",
   "ultra.ai.apiKey": "${env:ANTHROPIC_API_KEY}",
+  "ai.panel.defaultWidth": 80,
+  "ai.panel.maxWidthPercent": 50,
   "terminal.integrated.shell": "",
   "terminal.integrated.position": "bottom",
   "terminal.integrated.defaultHeight": 24,
