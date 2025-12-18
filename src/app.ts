@@ -2339,10 +2339,16 @@ export class App {
         title: 'Save Session As...',
         category: 'Session',
         handler: async () => {
+          const editorRect = layoutManager.getEditorAreaRect();
           inputDialog.show({
             title: 'Save Session As',
             placeholder: 'Enter session name',
-            onSubmit: async (name) => {
+            initialValue: '',
+            screenWidth: renderer.width,
+            screenHeight: renderer.height,
+            editorX: editorRect.x,
+            editorWidth: editorRect.width,
+            onConfirm: async (name: string) => {
               if (name.trim()) {
                 await this.saveSessionAs(name.trim());
               }
