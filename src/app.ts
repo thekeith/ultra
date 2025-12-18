@@ -3020,6 +3020,7 @@ export class App {
             doc.selectNextOccurrence();
             paneManager.ensureCursorVisible();
             this.updateStatusBar();
+            renderer.scheduleRender();
           }
         }
       },
@@ -3033,6 +3034,7 @@ export class App {
             doc.selectAllOccurrences();
             paneManager.ensureCursorVisible();
             this.updateStatusBar();
+            renderer.scheduleRender();
           }
         }
       },
@@ -3046,6 +3048,7 @@ export class App {
             doc.addCursorAbove();
             paneManager.ensureCursorVisible();
             this.updateStatusBar();
+            renderer.scheduleRender();
           }
         }
       },
@@ -3059,6 +3062,7 @@ export class App {
             doc.addCursorBelow();
             paneManager.ensureCursorVisible();
             this.updateStatusBar();
+            renderer.scheduleRender();
           }
         }
       },
@@ -3072,6 +3076,7 @@ export class App {
             doc.splitSelectionIntoLines();
             paneManager.ensureCursorVisible();
             this.updateStatusBar();
+            renderer.scheduleRender();
           }
         }
       },

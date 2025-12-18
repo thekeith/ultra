@@ -1054,8 +1054,9 @@ export class Pane implements MouseHandler {
     lineTokens: HighlightToken[]
   ): void {
     const line = doc.getLine(lineNum);
-    const cursor = doc.primaryCursor;
-    const isCurrentLine = lineNum === cursor.position.line;
+    const cursors = doc.cursors;
+    // Check if ANY cursor is on this line
+    const isCurrentLine = cursors.some(c => c.position.line === lineNum);
     
     // Calculate gutter parts
     const digits = Math.max(3, String(doc.lineCount).length);
@@ -1152,7 +1153,7 @@ export class Pane implements MouseHandler {
       
       // Render truncated text with syntax highlighting
       if (lineTokens.length > 0) {
-        output += this.renderTextWithSelection(truncatedText, lineTokens, startCol, truncatedText.length, -1, -1, lineBg, null);
+        output += this.renderTextWithSelection(truncatedText, lineTokens, startCol, truncatedText.length, null, lineBg, null);
       } else {
         const fgColor = hexToRgb(this.theme.foreground);
         if (fgColor) output += `\x1b[38;2;${fgColor.r};${fgColor.g};${fgColor.b}m`;
@@ -1186,37 +1187,46 @@ export class Pane implements MouseHandler {
     if (isCurrentLine && this.isFocused) {
       lineBg = hexToRgb(this.theme.lineHighlightBackground);
     }
-    
-    // Get selection range for this line (if any)
-    let selStart = -1;
-    let selEnd = -1;
-    if (hasSelection(cursor.selection)) {
-      const selection = getSelectionRange(cursor.selection);
-      const { start, end } = selection;
-      if (lineNum >= start.line && lineNum <= end.line) {
-        selStart = lineNum === start.line ? start.column : 0;
-        selEnd = lineNum === end.line ? end.column : line.length;
-        // Adjust for scroll
-        selStart = Math.max(0, selStart - this.scrollLeft);
-        selEnd = Math.max(0, selEnd - this.scrollLeft);
-      }
-    }
-    
-    const selBg = hexToRgb(this.theme.selectionBackground);
-    
-    // Content with syntax highlighting and selection
+
+    // Content dimensions
     const contentWidth = rect.width - this.gutterWidth;
     const startCol = this.scrollLeft;
     const visibleText = line.substring(startCol, startCol + contentWidth);
-    
+
+    // Get selection ranges for this line from ALL cursors
+    let selectedCols: Set<number> | null = null;
+    let maxSelEnd = -1;  // Track max selection end for padding
+    for (const cursor of cursors) {
+      if (hasSelection(cursor.selection)) {
+        const selection = getSelectionRange(cursor.selection!);
+        const { start, end } = selection;
+        if (lineNum >= start.line && lineNum <= end.line) {
+          let selStart = lineNum === start.line ? start.column : 0;
+          let selEnd = lineNum === end.line ? end.column : line.length;
+          // Adjust for scroll
+          selStart = Math.max(0, selStart - this.scrollLeft);
+          selEnd = Math.max(0, selEnd - this.scrollLeft);
+          // Add all columns in this range to the set
+          if (selEnd > selStart) {
+            if (!selectedCols) selectedCols = new Set();
+            for (let col = selStart; col < selEnd; col++) {
+              selectedCols.add(col);
+            }
+            if (selEnd > maxSelEnd) maxSelEnd = selEnd;
+          }
+        }
+      }
+    }
+
+    const selBg = hexToRgb(this.theme.selectionBackground);
+
     // Render text character by character with appropriate backgrounds
     output += this.renderTextWithSelection(
       visibleText,
       lineTokens,
       startCol,
       contentWidth,
-      selStart,
-      selEnd,
+      selectedCols,
       lineBg,
       selBg
     );
@@ -1224,35 +1234,20 @@ export class Pane implements MouseHandler {
     // Pad rest of line (with selection bg if selection extends past text)
     const padding = contentWidth - visibleText.length;
     if (padding > 0) {
-      // Check if selection extends into padding area
       const paddingStart = visibleText.length;
-      const paddingEnd = paddingStart + padding;
-      
-      if (selStart >= 0 && selEnd > paddingStart && selStart < paddingEnd && selBg) {
-        // Some of the padding is selected
-        const selPaddingStart = Math.max(0, selStart - paddingStart);
-        const selPaddingEnd = Math.min(padding, selEnd - paddingStart);
-        
-        // Non-selected padding before selection
-        if (selPaddingStart > 0) {
-          if (lineBg) {
-            output += `\x1b[48;2;${lineBg.r};${lineBg.g};${lineBg.b}m`;
-          }
-          output += ' '.repeat(selPaddingStart);
-        }
-        
-        // Selected padding
-        output += `\x1b[48;2;${selBg.r};${selBg.g};${selBg.b}m`;
-        output += ' '.repeat(selPaddingEnd - selPaddingStart);
-        
-        // Non-selected padding after selection
-        if (selPaddingEnd < padding) {
-          if (lineBg) {
-            output += `\x1b[48;2;${lineBg.r};${lineBg.g};${lineBg.b}m`;
+
+      // Check if any selection extends into padding area
+      if (selectedCols && maxSelEnd > paddingStart && selBg) {
+        // Render padding character by character based on selection
+        for (let i = 0; i < padding; i++) {
+          const col = paddingStart + i;
+          if (selectedCols.has(col)) {
+            output += `\x1b[48;2;${selBg.r};${selBg.g};${selBg.b}m `;
+          } else if (lineBg) {
+            output += `\x1b[48;2;${lineBg.r};${lineBg.g};${lineBg.b}m `;
           } else {
-            output += '\x1b[49m';  // Default background
+            output += '\x1b[49m ';
           }
-          output += ' '.repeat(padding - selPaddingEnd);
         }
       } else {
         // No selection in padding
@@ -1276,8 +1271,9 @@ export class Pane implements MouseHandler {
     lineTokens: HighlightToken[]
   ): void {
     const line = doc.getLine(wrap.bufferLine);
-    const cursor = doc.primaryCursor;
-    const isCurrentLine = wrap.bufferLine === cursor.position.line;
+    const cursors = doc.cursors;
+    // Check if ANY cursor is on this line
+    const isCurrentLine = cursors.some(c => c.position.line === wrap.bufferLine);
 
     // Calculate gutter parts
     const digits = Math.max(3, String(doc.lineCount).length);
@@ -1355,28 +1351,36 @@ export class Pane implements MouseHandler {
       lineBg = hexToRgb(this.theme.lineHighlightBackground);
     }
 
-    // Get selection range for this line segment
-    let selStart = -1;
-    let selEnd = -1;
-    if (hasSelection(cursor.selection)) {
-      const selection = getSelectionRange(cursor.selection);
-      const { start, end } = selection;
-      if (wrap.bufferLine >= start.line && wrap.bufferLine <= end.line) {
-        const lineSelStart = wrap.bufferLine === start.line ? start.column : 0;
-        const lineSelEnd = wrap.bufferLine === end.line ? end.column : line.length;
-        // Map selection to this wrap segment
-        if (lineSelEnd > wrap.startColumn && lineSelStart < wrap.endColumn) {
-          selStart = Math.max(0, lineSelStart - wrap.startColumn);
-          selEnd = Math.min(wrap.endColumn - wrap.startColumn, lineSelEnd - wrap.startColumn);
+    // Content dimensions
+    const contentWidth = rect.width - this.gutterWidth;
+    const visibleText = line.substring(wrap.startColumn, wrap.endColumn);
+
+    // Get selection ranges for this line segment from ALL cursors
+    let selectedCols: Set<number> | null = null;
+    for (const cursor of cursors) {
+      if (hasSelection(cursor.selection)) {
+        const selection = getSelectionRange(cursor.selection!);
+        const { start, end } = selection;
+        if (wrap.bufferLine >= start.line && wrap.bufferLine <= end.line) {
+          const lineSelStart = wrap.bufferLine === start.line ? start.column : 0;
+          const lineSelEnd = wrap.bufferLine === end.line ? end.column : line.length;
+          // Map selection to this wrap segment
+          if (lineSelEnd > wrap.startColumn && lineSelStart < wrap.endColumn) {
+            const selStart = Math.max(0, lineSelStart - wrap.startColumn);
+            const selEnd = Math.min(wrap.endColumn - wrap.startColumn, lineSelEnd - wrap.startColumn);
+            // Add all columns in this range to the set
+            if (selEnd > selStart) {
+              if (!selectedCols) selectedCols = new Set();
+              for (let col = selStart; col < selEnd; col++) {
+                selectedCols.add(col);
+              }
+            }
+          }
         }
       }
     }
 
     const selBg = hexToRgb(this.theme.selectionBackground);
-
-    // Content with syntax highlighting and selection
-    const contentWidth = rect.width - this.gutterWidth;
-    const visibleText = line.substring(wrap.startColumn, wrap.endColumn);
 
     // Render text with selection
     output += this.renderTextWithSelection(
@@ -1384,8 +1388,7 @@ export class Pane implements MouseHandler {
       lineTokens,
       wrap.startColumn,
       contentWidth,
-      selStart,
-      selEnd,
+      selectedCols,
       lineBg,
       selBg
     );
@@ -1408,48 +1411,47 @@ export class Pane implements MouseHandler {
     tokens: HighlightToken[],
     startCol: number,
     maxWidth: number,
-    selStart: number,
-    selEnd: number,
+    selectedCols: Set<number> | null,
     lineBg: { r: number; g: number; b: number } | null,
     selBg: { r: number; g: number; b: number } | null
   ): string {
     if (text.length === 0) return '';
-    
+
     let result = '';
     const defaultFg = hexToRgb(this.theme.foreground);
-    
+
     // Build a color map for each character position
     const charColors: (string | null)[] = new Array(text.length).fill(null);
-    
+
     // Apply syntax highlighting colors
     for (const token of tokens) {
       const tokenStart = Math.max(0, token.start - startCol);
       const tokenEnd = Math.min(text.length, token.end - startCol);
-      
+
       if (tokenEnd <= 0 || tokenStart >= text.length) continue;
-      
+
       for (let i = tokenStart; i < tokenEnd; i++) {
         charColors[i] = token.color;
       }
     }
-    
+
     // Render character by character, grouping by same style
     let currentFg: string | null = null;
     let currentBg: 'line' | 'selection' | 'none' = 'none';
     let pendingText = '';
-    
+
     const flushPending = () => {
       if (pendingText.length === 0) return;
-      
+
       let style = '';
-      
+
       // Set background
       if (currentBg === 'selection' && selBg) {
         style += `\x1b[48;2;${selBg.r};${selBg.g};${selBg.b}m`;
       } else if (currentBg === 'line' && lineBg) {
         style += `\x1b[48;2;${lineBg.r};${lineBg.g};${lineBg.b}m`;
       }
-      
+
       // Set foreground
       if (currentFg) {
         const rgb = hexToRgb(currentFg);
@@ -1459,27 +1461,27 @@ export class Pane implements MouseHandler {
       } else if (defaultFg) {
         style += `\x1b[38;2;${defaultFg.r};${defaultFg.g};${defaultFg.b}m`;
       }
-      
+
       result += style + pendingText;
       pendingText = '';
     };
-    
+
     for (let i = 0; i < text.length && i < maxWidth; i++) {
       const char = text[i]!;
       const fg = charColors[i];
-      const isSelected = selStart >= 0 && i >= selStart && i < selEnd;
+      const isSelected = selectedCols !== null && selectedCols.has(i);
       const bg: 'line' | 'selection' | 'none' = isSelected ? 'selection' : (lineBg ? 'line' : 'none');
-      
+
       // Check if style changed
       if (fg !== currentFg || bg !== currentBg) {
         flushPending();
         currentFg = fg;
         currentBg = bg;
       }
-      
+
       pendingText += char;
     }
-    
+
     flushPending();
     return result;
   }
@@ -1488,35 +1490,37 @@ export class Pane implements MouseHandler {
     // Only render cursor in focused pane
     if (!this.isFocused) return;
 
-    const cursor = doc.primaryCursor;
-    let screenLine: number;
-    let screenCol: number;
-
-    if (this.isWordWrapEnabled()) {
-      // Find the screen line for this cursor
-      screenLine = this.bufferToScreenLine(cursor.position.line, cursor.position.column) - this.scrollTop;
-
-      // Find the column within the wrapped segment
-      const wrapIndex = this.bufferToScreenLine(cursor.position.line, cursor.position.column);
-      if (wrapIndex < this.wrappedLines.length) {
-        const wrap = this.wrappedLines[wrapIndex]!;
-        screenCol = cursor.position.column - wrap.startColumn;
-      } else {
-        screenCol = cursor.position.column;
-      }
-    } else {
-      screenLine = cursor.position.line - this.scrollTop;
-      screenCol = cursor.position.column - this.scrollLeft;
-    }
-
-    if (screenLine < 0 || screenLine >= rect.height) return;
-    if (screenCol < 0 || screenCol >= this.getVisibleColumnCount()) return;
-
-    const cursorX = rect.x + this.gutterWidth + screenCol;
-    const cursorY = rect.y + screenLine;
-
     const cursorColor = hexToRgb(this.theme.cursorForeground);
-    if (cursorColor) {
+    if (!cursorColor) return;
+
+    // Render ALL cursors, not just the primary
+    for (const cursor of doc.cursors) {
+      let screenLine: number;
+      let screenCol: number;
+
+      if (this.isWordWrapEnabled()) {
+        // Find the screen line for this cursor
+        screenLine = this.bufferToScreenLine(cursor.position.line, cursor.position.column) - this.scrollTop;
+
+        // Find the column within the wrapped segment
+        const wrapIndex = this.bufferToScreenLine(cursor.position.line, cursor.position.column);
+        if (wrapIndex < this.wrappedLines.length) {
+          const wrap = this.wrappedLines[wrapIndex]!;
+          screenCol = cursor.position.column - wrap.startColumn;
+        } else {
+          screenCol = cursor.position.column;
+        }
+      } else {
+        screenLine = cursor.position.line - this.scrollTop;
+        screenCol = cursor.position.column - this.scrollLeft;
+      }
+
+      if (screenLine < 0 || screenLine >= rect.height) continue;
+      if (screenCol < 0 || screenCol >= this.getVisibleColumnCount()) continue;
+
+      const cursorX = rect.x + this.gutterWidth + screenCol;
+      const cursorY = rect.y + screenLine;
+
       ctx.buffer(`\x1b[${cursorY};${cursorX}H\x1b[48;2;${cursorColor.r};${cursorColor.g};${cursorColor.b}m \x1b[0m`);
     }
   }
