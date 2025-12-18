@@ -200,6 +200,8 @@ export class AIPanel implements MouseHandler {
   }
 
   containsPoint(x: number, y: number): boolean {
+    // Early return if not visible - don't claim any mouse events
+    if (!this._visible) return false;
     return (
       x >= this._rect.x &&
       x < this._rect.x + this._rect.width &&

@@ -103,6 +103,11 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
   private _onBlurCallback?: () => void;
   private _onExitCallback?: (code: number) => void;
 
+  // Throttling for updates
+  private _updatePending = false;
+  private _lastUpdateTime = 0;
+  private static readonly UPDATE_THROTTLE_MS = 16; // ~60fps max
+
   constructor(contentId: string, options: AIChatContentOptions = {}) {
     this.contentId = contentId;
     this._provider = options.provider || 'claude-code';
@@ -270,6 +275,35 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
     this._onUpdateCallback?.();
   }
 
+  // ==================== Update Throttling ====================
+
+  /**
+   * Throttle updates to prevent excessive rendering during rapid terminal output
+   */
+  private throttledUpdate(): void {
+    const now = Date.now();
+    const elapsed = now - this._lastUpdateTime;
+
+    if (elapsed >= AIChatContent.UPDATE_THROTTLE_MS) {
+      // Enough time has passed, update immediately
+      this._lastUpdateTime = now;
+      this._updatePending = false;
+      this._onUpdateCallback?.();
+    } else if (!this._updatePending) {
+      // Schedule an update for later
+      this._updatePending = true;
+      const delay = AIChatContent.UPDATE_THROTTLE_MS - elapsed;
+      setTimeout(() => {
+        if (this._updatePending) {
+          this._updatePending = false;
+          this._lastUpdateTime = Date.now();
+          this._onUpdateCallback?.();
+        }
+      }, delay);
+    }
+    // If update is already pending, skip (it will fire soon)
+  }
+
   // ==================== AI Control ====================
 
   /**
@@ -321,14 +355,14 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
       env,
     });
 
-    // Set up callbacks
+    // Set up callbacks with throttling
     this._pty.onUpdate(() => {
-      this._onUpdateCallback?.();
+      this.throttledUpdate();
     });
 
     this._pty.onTitle((title) => {
       this._title = title || this.getProviderName();
-      this._onUpdateCallback?.();
+      this.throttledUpdate();
     });
 
     this._pty.onExit((code) => {
@@ -336,6 +370,7 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
       this._exitCode = code;
       this.debugLog(`AI exited with code: ${code}`);
       this._onExitCallback?.(code);
+      // Immediate update for exit
       this._onUpdateCallback?.();
     });
 
@@ -586,6 +621,19 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
     ctx.buffer(output);
   }
 
+  // Color cache for performance
+  private _colorCache = new Map<string, { r: number; g: number; b: number } | null>();
+
+  private getCachedRgb(hex: string | undefined): { r: number; g: number; b: number } | null {
+    if (!hex) return null;
+    let result = this._colorCache.get(hex);
+    if (result === undefined) {
+      result = hexToRgb(hex);
+      this._colorCache.set(hex, result);
+    }
+    return result;
+  }
+
   private renderContent(ctx: RenderContext): void {
     const contentRect = this.getContentRect();
 
@@ -598,30 +646,39 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
     const cursor = this._pty.getCursor();
     const viewOffset = this._pty.getViewOffset();
 
-    const defaultBg = hexToRgb(this._bgColor);
-    const defaultFg = hexToRgb(this._fgColor);
+    const defaultBg = this.getCachedRgb(this._bgColor);
+    const defaultFg = this.getCachedRgb(this._fgColor);
+    const cursorRgb = this.getCachedRgb(this._cursorColor);
+
+    // Pre-calculate default background escape sequence
+    const defaultBgEsc = defaultBg ? `\x1b[48;2;${defaultBg.r};${defaultBg.g};${defaultBg.b}m` : '';
 
     for (let y = 0; y < contentRect.height; y++) {
       const line = buffer[y];
       if (!line) {
-        // Empty line
-        let output = `\x1b[${contentRect.y + y};${contentRect.x}H`;
-        if (defaultBg) output += `\x1b[48;2;${defaultBg.r};${defaultBg.g};${defaultBg.b}m`;
-        output += ' '.repeat(contentRect.width);
-        output += '\x1b[0m';
-        ctx.buffer(output);
+        // Empty line - use pre-calculated escape
+        ctx.buffer(`\x1b[${contentRect.y + y};${contentRect.x}H${defaultBgEsc}${' '.repeat(contentRect.width)}\x1b[0m`);
         continue;
       }
 
       let output = `\x1b[${contentRect.y + y};${contentRect.x}H`;
 
-      for (let x = 0; x < Math.min(line.length, contentRect.width); x++) {
+      // Track current state to avoid redundant escape codes
+      let currentFg: string | null = null;
+      let currentBg: string | null = null;
+      let currentBold = false;
+      let currentDim = false;
+      let currentItalic = false;
+      let currentUnderline = false;
+
+      const lineLen = Math.min(line.length, contentRect.width);
+      for (let x = 0; x < lineLen; x++) {
         const cell = line[x]!;
         const isCursor = this._focused && viewOffset === 0 && y === cursor.y && x === cursor.x;
 
-        // Determine colors
-        let fg = cell.fg ? hexToRgb(cell.fg) : defaultFg;
-        let bg = cell.bg ? hexToRgb(cell.bg) : defaultBg;
+        // Determine colors using cache
+        let fg = cell.fg ? this.getCachedRgb(cell.fg) : defaultFg;
+        let bg = cell.bg ? this.getCachedRgb(cell.bg) : defaultBg;
 
         // Handle inverse
         if (cell.inverse) {
@@ -630,48 +687,72 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
 
         // Cursor rendering
         if (isCursor) {
-          const cursorRgb = hexToRgb(this._cursorColor);
           bg = cursorRgb;
           fg = defaultBg;
         }
 
-        // Apply colors
-        if (bg) output += `\x1b[48;2;${bg.r};${bg.g};${bg.b}m`;
-        if (fg) output += `\x1b[38;2;${fg.r};${fg.g};${fg.b}m`;
+        // Build escape codes only when needed
+        const fgKey = fg ? `${fg.r},${fg.g},${fg.b}` : '';
+        const bgKey = bg ? `${bg.r},${bg.g},${bg.b}` : '';
 
-        // Apply attributes
-        if (cell.bold) output += '\x1b[1m';
-        if (cell.dim) output += '\x1b[2m';
-        if (cell.italic) output += '\x1b[3m';
-        if (cell.underline) output += '\x1b[4m';
+        if (bgKey !== currentBg) {
+          if (bg) output += `\x1b[48;2;${bg.r};${bg.g};${bg.b}m`;
+          currentBg = bgKey;
+        }
+        if (fgKey !== currentFg) {
+          if (fg) output += `\x1b[38;2;${fg.r};${fg.g};${fg.b}m`;
+          currentFg = fgKey;
+        }
+
+        // Apply attributes only when they change
+        if (cell.bold !== currentBold) {
+          output += cell.bold ? '\x1b[1m' : '\x1b[22m';
+          currentBold = cell.bold;
+        }
+        if (cell.dim !== currentDim) {
+          output += cell.dim ? '\x1b[2m' : '\x1b[22m';
+          currentDim = cell.dim;
+        }
+        if (cell.italic !== currentItalic) {
+          output += cell.italic ? '\x1b[3m' : '\x1b[23m';
+          currentItalic = cell.italic;
+        }
+        if (cell.underline !== currentUnderline) {
+          output += cell.underline ? '\x1b[4m' : '\x1b[24m';
+          currentUnderline = cell.underline;
+        }
 
         output += cell.char;
-        output += '\x1b[0m';
       }
 
       // Fill remaining width
-      const remaining = contentRect.width - Math.min(line.length, contentRect.width);
+      const remaining = contentRect.width - lineLen;
       if (remaining > 0) {
-        if (defaultBg) output += `\x1b[48;2;${defaultBg.r};${defaultBg.g};${defaultBg.b}m`;
+        // Reset to default background for padding
+        if (defaultBg && currentBg !== `${defaultBg.r},${defaultBg.g},${defaultBg.b}`) {
+          output += `\x1b[48;2;${defaultBg.r};${defaultBg.g};${defaultBg.b}m`;
+        }
         output += ' '.repeat(remaining);
-        output += '\x1b[0m';
       }
 
+      // Reset at end of line
+      output += '\x1b[0m';
       ctx.buffer(output);
     }
   }
 
   private renderEmptyState(ctx: RenderContext, contentRect: Rect): void {
-    const bg = hexToRgb(this._bgColor);
-    const fg = hexToRgb(this._fgColor);
+    const bg = this.getCachedRgb(this._bgColor);
+    const fg = this.getCachedRgb(this._fgColor);
+
+    // Pre-calculate escape sequences
+    const bgEsc = bg ? `\x1b[48;2;${bg.r};${bg.g};${bg.b}m` : '';
+    const fgEsc = fg ? `\x1b[38;2;${fg.r};${fg.g};${fg.b}m` : '';
+    const spaces = ' '.repeat(contentRect.width);
 
     // Fill background
     for (let y = 0; y < contentRect.height; y++) {
-      let output = `\x1b[${contentRect.y + y};${contentRect.x}H`;
-      if (bg) output += `\x1b[48;2;${bg.r};${bg.g};${bg.b}m`;
-      output += ' '.repeat(contentRect.width);
-      output += '\x1b[0m';
-      ctx.buffer(output);
+      ctx.buffer(`\x1b[${contentRect.y + y};${contentRect.x}H${bgEsc}${spaces}\x1b[0m`);
     }
 
     // Center message
@@ -692,9 +773,7 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
       const y = startY + i;
 
       if (y >= contentRect.y && y < contentRect.y + contentRect.height) {
-        let output = `\x1b[${y};${x}H`;
-        if (bg) output += `\x1b[48;2;${bg.r};${bg.g};${bg.b}m`;
-        if (fg) output += `\x1b[38;2;${fg.r};${fg.g};${fg.b}m`;
+        let output = `\x1b[${y};${x}H${bgEsc}${fgEsc}`;
         if (i === 0) output += '\x1b[1m'; // Bold title
         output += line;
         output += '\x1b[0m';
