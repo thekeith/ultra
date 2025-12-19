@@ -140,7 +140,7 @@ class ScreenBuffer {
       const extra = this.buffer.splice(0, this.buffer.length - rows);
       this.scrollback.push(...extra);
     }
-    
+
     // Clamp cursor
     this.cursorX = Math.min(this.cursorX, cols - 1);
     this.cursorY = Math.min(this.cursorY, rows - 1);

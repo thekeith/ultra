@@ -771,21 +771,22 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
       return;
     }
 
+    // Ensure PTY is sized correctly before rendering
+    this._pty.resize(contentRect.width, contentRect.height);
+
     const buffer = this._pty.getBuffer();
-    const cursor = this._pty.getCursor();
-    const viewOffset = this._pty.getViewOffset();
 
     const defaultBg = this.getCachedRgb(this._bgColor);
     const defaultFg = this.getCachedRgb(this._fgColor);
-    const cursorRgb = this.getCachedRgb(this._cursorColor);
 
     // Pre-calculate default background escape sequence
     const defaultBgEsc = defaultBg ? `\x1b[48;2;${defaultBg.r};${defaultBg.g};${defaultBg.b}m` : '';
 
+    // Render terminal buffer content as-is - let the TUI app (Claude) handle its own cursor
     for (let y = 0; y < contentRect.height; y++) {
       const line = buffer[y];
       if (!line) {
-        // Empty line - use pre-calculated escape
+        // Empty line
         ctx.buffer(`\x1b[${contentRect.y + y};${contentRect.x}H${defaultBgEsc}${' '.repeat(contentRect.width)}\x1b[0m`);
         continue;
       }
@@ -803,21 +804,14 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
       const lineLen = Math.min(line.length, contentRect.width);
       for (let x = 0; x < lineLen; x++) {
         const cell = line[x]!;
-        const isCursor = this._focused && viewOffset === 0 && y === cursor.y && x === cursor.x;
 
         // Determine colors using cache
         let fg = cell.fg ? this.getCachedRgb(cell.fg) : defaultFg;
         let bg = cell.bg ? this.getCachedRgb(cell.bg) : defaultBg;
 
-        // Handle inverse
+        // Handle inverse (used by TUI apps for cursor/selection highlighting)
         if (cell.inverse) {
           [fg, bg] = [bg, fg];
-        }
-
-        // Cursor rendering
-        if (isCursor) {
-          bg = cursorRgb;
-          fg = defaultBg;
         }
 
         // Build escape codes only when needed
@@ -854,10 +848,9 @@ export class AIChatContent implements ScrollablePanelContent, FocusablePanelCont
         output += cell.char;
       }
 
-      // Fill remaining width
+      // Fill remaining width with default background
       const remaining = contentRect.width - lineLen;
       if (remaining > 0) {
-        // Reset to default background for padding
         if (defaultBg && currentBg !== `${defaultBg.r},${defaultBg.g},${defaultBg.b}`) {
           output += `\x1b[48;2;${defaultBg.r};${defaultBg.g};${defaultBg.b}m`;
         }

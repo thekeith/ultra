@@ -1,6 +1,6 @@
 # Ultra
 
-_v0.8.0_
+_v0.8.1_
 
 A terminal-native code editor with Sublime Text ergonomics, VS Code configuration compatibility, and modern IDE features. Built with Bun for maximum performance. AI is integrated directly into the UX and forms a core part of Ultra's value.
 
@@ -326,5 +326,4 @@ Ultra is built on several key architectural patterns:
 ## License
 
 Copyright 2025, Zorz LLC, All Rights Reserved
-
 
