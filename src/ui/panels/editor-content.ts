@@ -891,19 +891,18 @@ export class EditorContent implements ScrollablePanelContent, FocusablePanelCont
     screenY: number,
     tokens: HighlightToken[]
   ): void {
-    // This is a simplified version - full implementation would be migrated from Pane
     const line = doc.getLine(bufferLine);
     const cursor = doc.primaryCursor;
     const isCurrentLine = cursor.position.line === bufferLine;
 
     // Get colors
-    const bgRgb = hexToRgb(isCurrentLine && this.focused ? this.theme.lineHighlightBackground : this.theme.background);
     const lineNumColor = isCurrentLine && this.focused
       ? hexToRgb(this.theme.lineNumberActiveForeground)
       : hexToRgb(this.theme.lineNumberForeground);
     const gutterBg = hexToRgb(this.theme.gutterBackground);
+    const lineBg = isCurrentLine && this.focused ? hexToRgb(this.theme.lineHighlightBackground) : null;
+    const selBg = hexToRgb(this.theme.selectionBackground);
 
-    const bg = bgRgb ? `\x1b[48;2;${bgRgb.r};${bgRgb.g};${bgRgb.b}m` : '';
     const gutterBgStr = gutterBg ? `\x1b[48;2;${gutterBg.r};${gutterBg.g};${gutterBg.b}m` : '';
     const lineNumFg = lineNumColor ? `\x1b[38;2;${lineNumColor.r};${lineNumColor.g};${lineNumColor.b}m` : '';
     const reset = '\x1b[0m';
@@ -915,58 +914,51 @@ export class EditorContent implements ScrollablePanelContent, FocusablePanelCont
 
     ctx.buffer(`\x1b[${screenY};${this.rect.x}H${gutterBgStr}${gitIndicator}${lineNumFg}${lineNumStr}${foldIndicator} ${reset}`);
 
-    // Render line content
+    // Content dimensions
     const textX = this.rect.x + this.gutterWidth;
     const textWidth = this.getVisibleColumnCount();
     const visibleText = line.slice(this.scrollLeft, this.scrollLeft + textWidth);
 
-    // Apply syntax highlighting tokens
-    let output = `\x1b[${screenY};${textX}H${bg}`;
+    // Get selection ranges for this line
+    const { selectedCols, maxSelEnd } = this.getSelectedColumnsForLine(doc, bufferLine, line.length, this.scrollLeft);
 
-    if (tokens.length > 0) {
-      let col = this.scrollLeft;
-      for (const token of tokens) {
-        if (token.end <= this.scrollLeft) continue;
-        if (token.start >= this.scrollLeft + textWidth) break;
+    // Render line content with selection
+    let output = `\x1b[${screenY};${textX}H`;
+    output += this.renderTextWithSelection(
+      visibleText,
+      tokens,
+      this.scrollLeft,
+      textWidth,
+      selectedCols,
+      lineBg,
+      selBg
+    );
 
-        const start = Math.max(token.start, this.scrollLeft);
-        const end = Math.min(token.end, this.scrollLeft + textWidth);
-
-        // Pad to token start
-        if (col < start) {
-          const padding = line.slice(col, start);
-          const fgRgb = hexToRgb(this.theme.foreground);
-          const fg = fgRgb ? `\x1b[38;2;${fgRgb.r};${fgRgb.g};${fgRgb.b}m` : '';
-          output += fg + padding;
-          col = start;
-        }
-
-        // Render token
-        const tokenText = line.slice(start, end);
-        const tokenRgb = hexToRgb(token.color);
-        const tokenFg = tokenRgb ? `\x1b[38;2;${tokenRgb.r};${tokenRgb.g};${tokenRgb.b}m` : '';
-        output += tokenFg + tokenText;
-        col = end;
-      }
-
-      // Pad remainder
-      if (col < this.scrollLeft + textWidth) {
-        const remaining = line.slice(col, this.scrollLeft + textWidth);
-        const fgRgb = hexToRgb(this.theme.foreground);
-        const fg = fgRgb ? `\x1b[38;2;${fgRgb.r};${fgRgb.g};${fgRgb.b}m` : '';
-        output += fg + remaining;
-      }
-    } else {
-      // No syntax highlighting
-      const fgRgb = hexToRgb(this.theme.foreground);
-      const fg = fgRgb ? `\x1b[38;2;${fgRgb.r};${fgRgb.g};${fgRgb.b}m` : '';
-      output += fg + visibleText;
-    }
-
-    // Pad to end of line
+    // Pad rest of line (with selection bg if selection extends past text)
     const padding = textWidth - visibleText.length;
     if (padding > 0) {
-      output += ' '.repeat(padding);
+      const paddingStart = visibleText.length;
+
+      // Check if any selection extends into padding area
+      if (selectedCols && maxSelEnd > paddingStart && selBg) {
+        // Render padding character by character based on selection
+        for (let i = 0; i < padding; i++) {
+          const col = paddingStart + i;
+          if (selectedCols.has(col)) {
+            output += `\x1b[48;2;${selBg.r};${selBg.g};${selBg.b}m `;
+          } else if (lineBg) {
+            output += `\x1b[48;2;${lineBg.r};${lineBg.g};${lineBg.b}m `;
+          } else {
+            output += '\x1b[49m ';
+          }
+        }
+      } else {
+        // No selection in padding
+        if (lineBg) {
+          output += `\x1b[48;2;${lineBg.r};${lineBg.g};${lineBg.b}m`;
+        }
+        output += ' '.repeat(padding);
+      }
     }
 
     output += reset;
@@ -980,18 +972,17 @@ export class EditorContent implements ScrollablePanelContent, FocusablePanelCont
     screenY: number,
     tokens: HighlightToken[]
   ): void {
-    // Simplified wrapped line rendering
     const line = doc.getLine(wrap.bufferLine);
     const cursor = doc.primaryCursor;
     const isCurrentLine = cursor.position.line === wrap.bufferLine;
 
-    const bgRgb = hexToRgb(isCurrentLine && this.focused ? this.theme.lineHighlightBackground : this.theme.background);
     const lineNumColor = isCurrentLine && this.focused
       ? hexToRgb(this.theme.lineNumberActiveForeground)
       : hexToRgb(this.theme.lineNumberForeground);
     const gutterBg = hexToRgb(this.theme.gutterBackground);
+    const lineBg = isCurrentLine && this.focused ? hexToRgb(this.theme.lineHighlightBackground) : null;
+    const selBg = hexToRgb(this.theme.selectionBackground);
 
-    const bg = bgRgb ? `\x1b[48;2;${bgRgb.r};${bgRgb.g};${bgRgb.b}m` : '';
     const gutterBgStr = gutterBg ? `\x1b[48;2;${gutterBg.r};${gutterBg.g};${gutterBg.b}m` : '';
     const lineNumFg = lineNumColor ? `\x1b[38;2;${lineNumColor.r};${lineNumColor.g};${lineNumColor.b}m` : '';
     const reset = '\x1b[0m';
@@ -1007,59 +998,44 @@ export class EditorContent implements ScrollablePanelContent, FocusablePanelCont
       ctx.buffer(`\x1b[${screenY};${this.rect.x}H${gutterBgStr}${' '.repeat(this.gutterWidth)}${reset}`);
     }
 
-    // Render wrapped text segment with syntax highlighting
+    // Content dimensions
     const textX = this.rect.x + this.gutterWidth;
     const textWidth = this.getVisibleColumnCount();
     const segmentText = line.slice(wrap.startColumn, wrap.endColumn);
 
-    let output = `\x1b[${screenY};${textX}H${bg}`;
+    // Get selection ranges for this wrapped segment
+    // For wrapped lines, we need to adjust selection relative to the wrap segment
+    const { selectedCols: fullLineSelectedCols } = this.getSelectedColumnsForLine(doc, wrap.bufferLine, line.length, 0);
 
-    if (tokens.length > 0) {
-      let col = wrap.startColumn;
-      for (const token of tokens) {
-        // Skip tokens entirely before this wrapped segment
-        if (token.end <= wrap.startColumn) continue;
-        // Stop when tokens are entirely after this wrapped segment
-        if (token.start >= wrap.endColumn) break;
-
-        // Calculate the visible portion of this token within the wrapped segment
-        const start = Math.max(token.start, wrap.startColumn);
-        const end = Math.min(token.end, wrap.endColumn);
-
-        // Pad from current column to token start with default foreground
-        if (col < start) {
-          const padding = line.slice(col, start);
-          const fgRgb = hexToRgb(this.theme.foreground);
-          const fg = fgRgb ? `\x1b[38;2;${fgRgb.r};${fgRgb.g};${fgRgb.b}m` : '';
-          output += fg + padding;
-          col = start;
+    // Convert full-line selection to segment-relative selection
+    let selectedCols: Set<number> | null = null;
+    if (fullLineSelectedCols) {
+      for (let col = wrap.startColumn; col < wrap.endColumn; col++) {
+        if (fullLineSelectedCols.has(col)) {
+          if (!selectedCols) selectedCols = new Set();
+          selectedCols.add(col - wrap.startColumn);
         }
-
-        // Render token with its color
-        const tokenText = line.slice(start, end);
-        const tokenRgb = hexToRgb(token.color);
-        const tokenFg = tokenRgb ? `\x1b[38;2;${tokenRgb.r};${tokenRgb.g};${tokenRgb.b}m` : '';
-        output += tokenFg + tokenText;
-        col = end;
       }
-
-      // Pad remainder of segment with default foreground
-      if (col < wrap.endColumn) {
-        const remaining = line.slice(col, wrap.endColumn);
-        const fgRgb = hexToRgb(this.theme.foreground);
-        const fg = fgRgb ? `\x1b[38;2;${fgRgb.r};${fgRgb.g};${fgRgb.b}m` : '';
-        output += fg + remaining;
-      }
-    } else {
-      // No syntax highlighting - use default foreground
-      const fgRgb = hexToRgb(this.theme.foreground);
-      const fg = fgRgb ? `\x1b[38;2;${fgRgb.r};${fgRgb.g};${fgRgb.b}m` : '';
-      output += fg + segmentText;
     }
+
+    // Render wrapped text segment with selection
+    let output = `\x1b[${screenY};${textX}H`;
+    output += this.renderTextWithSelection(
+      segmentText,
+      tokens,
+      wrap.startColumn,
+      textWidth,
+      selectedCols,
+      lineBg,
+      selBg
+    );
 
     // Pad to end of line
     const padding = textWidth - segmentText.length;
     if (padding > 0) {
+      if (lineBg) {
+        output += `\x1b[48;2;${lineBg.r};${lineBg.g};${lineBg.b}m`;
+      }
       output += ' '.repeat(padding);
     }
 
@@ -1299,6 +1275,128 @@ export class EditorContent implements ScrollablePanelContent, FocusablePanelCont
       line,
       column: Math.min(column, lineLength),
     };
+  }
+
+  // ==================== Selection Rendering ====================
+
+  /**
+   * Render text with selection highlighting
+   */
+  private renderTextWithSelection(
+    text: string,
+    tokens: HighlightToken[],
+    startCol: number,
+    maxWidth: number,
+    selectedCols: Set<number> | null,
+    lineBg: { r: number; g: number; b: number } | null,
+    selBg: { r: number; g: number; b: number } | null
+  ): string {
+    if (text.length === 0) return '';
+
+    let result = '';
+    const defaultFg = hexToRgb(this.theme.foreground);
+
+    // Build a color map for each character position
+    const charColors: (string | null)[] = new Array<string | null>(text.length).fill(null);
+
+    // Apply syntax highlighting colors
+    for (const token of tokens) {
+      const tokenStart = Math.max(0, token.start - startCol);
+      const tokenEnd = Math.min(text.length, token.end - startCol);
+
+      if (tokenEnd <= 0 || tokenStart >= text.length) continue;
+
+      for (let i = tokenStart; i < tokenEnd; i++) {
+        charColors[i] = token.color ?? null;
+      }
+    }
+
+    // Render character by character, grouping by same style
+    let currentFg: string | null = null;
+    let currentBg: 'line' | 'selection' | 'none' = 'none';
+    let pendingText = '';
+
+    const flushPending = () => {
+      if (pendingText.length === 0) return;
+
+      let style = '';
+
+      // Set background
+      if (currentBg === 'selection' && selBg) {
+        style += `\x1b[48;2;${selBg.r};${selBg.g};${selBg.b}m`;
+      } else if (currentBg === 'line' && lineBg) {
+        style += `\x1b[48;2;${lineBg.r};${lineBg.g};${lineBg.b}m`;
+      }
+
+      // Set foreground
+      if (currentFg) {
+        const rgb = hexToRgb(currentFg);
+        if (rgb) {
+          style += `\x1b[38;2;${rgb.r};${rgb.g};${rgb.b}m`;
+        }
+      } else if (defaultFg) {
+        style += `\x1b[38;2;${defaultFg.r};${defaultFg.g};${defaultFg.b}m`;
+      }
+
+      result += style + pendingText;
+      pendingText = '';
+    };
+
+    for (let i = 0; i < text.length && i < maxWidth; i++) {
+      const char = text[i]!;
+      const fg = charColors[i] ?? null;
+      const isSelected = selectedCols !== null && selectedCols.has(i);
+      const bg: 'line' | 'selection' | 'none' = isSelected ? 'selection' : (lineBg ? 'line' : 'none');
+
+      // Check if style changed
+      if (fg !== currentFg || bg !== currentBg) {
+        flushPending();
+        currentFg = fg;
+        currentBg = bg;
+      }
+
+      pendingText += char;
+    }
+
+    flushPending();
+    return result;
+  }
+
+  /**
+   * Get selected columns for a line from all cursors
+   */
+  private getSelectedColumnsForLine(
+    doc: Document,
+    lineNum: number,
+    lineLength: number,
+    scrollLeft: number
+  ): { selectedCols: Set<number> | null; maxSelEnd: number } {
+    let selectedCols: Set<number> | null = null;
+    let maxSelEnd = -1;
+
+    for (const cursor of doc.cursors) {
+      if (hasSelection(cursor.selection)) {
+        const selection = getSelectionRange(cursor.selection!);
+        const { start, end } = selection;
+        if (lineNum >= start.line && lineNum <= end.line) {
+          let selStart = lineNum === start.line ? start.column : 0;
+          let selEnd = lineNum === end.line ? end.column : lineLength;
+          // Adjust for scroll
+          selStart = Math.max(0, selStart - scrollLeft);
+          selEnd = Math.max(0, selEnd - scrollLeft);
+          // Add all columns in this range to the set
+          if (selEnd > selStart) {
+            if (!selectedCols) selectedCols = new Set();
+            for (let col = selStart; col < selEnd; col++) {
+              selectedCols.add(col);
+            }
+            if (selEnd > maxSelEnd) maxSelEnd = selEnd;
+          }
+        }
+      }
+    }
+
+    return { selectedCols, maxSelEnd };
   }
 
   // ==================== Cleanup ====================
