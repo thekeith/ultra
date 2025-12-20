@@ -23,6 +23,8 @@ import { LocalLSPService } from '../../src/services/lsp/service.ts';
 import { LSPServiceAdapter } from '../../src/services/lsp/adapter.ts';
 import { LocalSyntaxService } from '../../src/services/syntax/service.ts';
 import { SyntaxServiceAdapter } from '../../src/services/syntax/adapter.ts';
+import { LocalTerminalService } from '../../src/services/terminal/service.ts';
+import { TerminalServiceAdapter } from '../../src/services/terminal/adapter.ts';
 
 /**
  * Options for creating a TestECPClient.
@@ -75,6 +77,8 @@ export class TestECPClient {
   private lspAdapter: LSPServiceAdapter;
   private syntaxService: LocalSyntaxService;
   private syntaxAdapter: SyntaxServiceAdapter;
+  private terminalService: LocalTerminalService;
+  private terminalAdapter: TerminalServiceAdapter;
   private notifications: ECPNotification[] = [];
   private requestId = 0;
   private captureNotifications: boolean;
@@ -93,6 +97,7 @@ export class TestECPClient {
     this.lspService = new LocalLSPService();
     this.lspService.setWorkspaceRoot(this.workspaceRoot);
     this.syntaxService = new LocalSyntaxService();
+    this.terminalService = new LocalTerminalService();
 
     // Initialize adapters
     this.documentAdapter = new DocumentServiceAdapter(this.documentService);
@@ -101,6 +106,7 @@ export class TestECPClient {
     this.sessionAdapter = new SessionServiceAdapter(this.sessionService);
     this.lspAdapter = new LSPServiceAdapter(this.lspService);
     this.syntaxAdapter = new SyntaxServiceAdapter(this.syntaxService);
+    this.terminalAdapter = new TerminalServiceAdapter(this.terminalService);
 
     // Capture notifications
     if (this.captureNotifications) {
@@ -111,6 +117,9 @@ export class TestECPClient {
         this.notifications.push(notification);
       });
       this.lspAdapter.setNotificationHandler((notification) => {
+        this.notifications.push(notification as ECPNotification);
+      });
+      this.terminalAdapter.setNotificationHandler((notification) => {
         this.notifications.push(notification as ECPNotification);
       });
     }
@@ -164,8 +173,8 @@ export class TestECPClient {
       };
     }
 
-    // GitServiceAdapter, SessionServiceAdapter, LSPServiceAdapter, and SyntaxServiceAdapter have a different response format
-    if (adapter instanceof GitServiceAdapter || adapter instanceof SessionServiceAdapter || adapter instanceof LSPServiceAdapter || adapter instanceof SyntaxServiceAdapter) {
+    // GitServiceAdapter, SessionServiceAdapter, LSPServiceAdapter, SyntaxServiceAdapter, and TerminalServiceAdapter have a different response format
+    if (adapter instanceof GitServiceAdapter || adapter instanceof SessionServiceAdapter || adapter instanceof LSPServiceAdapter || adapter instanceof SyntaxServiceAdapter || adapter instanceof TerminalServiceAdapter) {
       const result = await adapter.handleRequest(method, params);
       if ('error' in result) {
         return {
@@ -237,7 +246,7 @@ export class TestECPClient {
   /**
    * Get a service directly (for unit testing).
    */
-  getService<T>(name: 'document' | 'file' | 'git' | 'session' | 'lsp' | 'syntax'): T {
+  getService<T>(name: 'document' | 'file' | 'git' | 'session' | 'lsp' | 'syntax' | 'terminal'): T {
     switch (name) {
       case 'document':
         return this.documentService as unknown as T;
@@ -251,6 +260,8 @@ export class TestECPClient {
         return this.lspService as unknown as T;
       case 'syntax':
         return this.syntaxService as unknown as T;
+      case 'terminal':
+        return this.terminalService as unknown as T;
       default:
         throw new Error(`Unknown service: ${name}`);
     }
@@ -273,6 +284,9 @@ export class TestECPClient {
     // Shutdown LSP service
     await this.lspService.shutdown();
 
+    // Close all terminals
+    this.terminalService.closeAll();
+
     // Clear notifications
     this.notifications = [];
   }
@@ -280,7 +294,7 @@ export class TestECPClient {
   /**
    * Route method to appropriate adapter.
    */
-  private getAdapterForMethod(method: string): DocumentServiceAdapter | FileServiceAdapter | GitServiceAdapter | SessionServiceAdapter | LSPServiceAdapter | SyntaxServiceAdapter | null {
+  private getAdapterForMethod(method: string): DocumentServiceAdapter | FileServiceAdapter | GitServiceAdapter | SessionServiceAdapter | LSPServiceAdapter | SyntaxServiceAdapter | TerminalServiceAdapter | null {
     if (method.startsWith('document/')) {
       return this.documentAdapter;
     }
@@ -304,6 +318,10 @@ export class TestECPClient {
 
     if (method.startsWith('syntax/')) {
       return this.syntaxAdapter;
+    }
+
+    if (method.startsWith('terminal/')) {
+      return this.terminalAdapter;
     }
 
     return null;
