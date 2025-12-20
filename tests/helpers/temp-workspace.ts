@@ -111,6 +111,8 @@ export async function createTempWorkspace(options: {
       await Bun.$`git -C ${path} init`.quiet();
       await Bun.$`git -C ${path} config user.email "test@example.com"`.quiet();
       await Bun.$`git -C ${path} config user.name "Test User"`.quiet();
+      // Disable GPG signing for tests
+      await Bun.$`git -C ${path} config commit.gpgsign false`.quiet();
     },
 
     async gitAdd(paths: string[]): Promise<void> {

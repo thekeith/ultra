@@ -15,6 +15,8 @@ import {
 } from '../../src/services/document/adapter.ts';
 import { FileServiceImpl } from '../../src/services/file/service.ts';
 import { FileServiceAdapter } from '../../src/services/file/adapter.ts';
+import { GitCliService } from '../../src/services/git/cli.ts';
+import { GitServiceAdapter } from '../../src/services/git/adapter.ts';
 
 /**
  * Options for creating a TestECPClient.
@@ -59,6 +61,8 @@ export class TestECPClient {
   private documentAdapter: DocumentServiceAdapter;
   private fileService: FileServiceImpl;
   private fileAdapter: FileServiceAdapter;
+  private gitService: GitCliService;
+  private gitAdapter: GitServiceAdapter;
   private notifications: ECPNotification[] = [];
   private requestId = 0;
   private captureNotifications: boolean;
@@ -71,10 +75,12 @@ export class TestECPClient {
     // Initialize services
     this.documentService = new LocalDocumentService();
     this.fileService = new FileServiceImpl();
+    this.gitService = new GitCliService();
 
     // Initialize adapters
     this.documentAdapter = new DocumentServiceAdapter(this.documentService);
     this.fileAdapter = new FileServiceAdapter(this.fileService);
+    this.gitAdapter = new GitServiceAdapter(this.gitService);
 
     // Capture notifications
     if (this.captureNotifications) {
@@ -82,6 +88,9 @@ export class TestECPClient {
         this.notifications.push(notification);
       });
       this.fileAdapter.setNotificationHandler((notification) => {
+        this.notifications.push(notification);
+      });
+      this.gitAdapter.setNotificationHandler((notification) => {
         this.notifications.push(notification);
       });
     }
@@ -181,12 +190,14 @@ export class TestECPClient {
   /**
    * Get a service directly (for unit testing).
    */
-  getService<T>(name: 'document' | 'file'): T {
+  getService<T>(name: 'document' | 'file' | 'git'): T {
     switch (name) {
       case 'document':
         return this.documentService as unknown as T;
       case 'file':
         return this.fileService as unknown as T;
+      case 'git':
+        return this.gitService as unknown as T;
       default:
         throw new Error(`Unknown service: ${name}`);
     }
@@ -206,6 +217,9 @@ export class TestECPClient {
     this.fileService.dispose();
     this.fileAdapter.dispose();
 
+    // Dispose git service resources
+    this.gitAdapter.dispose();
+
     // Clear notifications
     this.notifications = [];
   }
@@ -213,7 +227,9 @@ export class TestECPClient {
   /**
    * Route method to appropriate adapter.
    */
-  private getAdapterForMethod(method: string): DocumentServiceAdapter | FileServiceAdapter | null {
+  private getAdapterForMethod(
+    method: string
+  ): DocumentServiceAdapter | FileServiceAdapter | GitServiceAdapter | null {
     if (method.startsWith('document/')) {
       return this.documentAdapter;
     }
@@ -222,8 +238,9 @@ export class TestECPClient {
       return this.fileAdapter;
     }
 
-    // Add more adapters as services are implemented
-    // if (method.startsWith('git/')) return this.gitAdapter;
+    if (method.startsWith('git/')) {
+      return this.gitAdapter;
+    }
 
     return null;
   }
