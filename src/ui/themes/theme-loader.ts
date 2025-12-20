@@ -207,17 +207,6 @@ export class ThemeLoader {
   }
 
   /**
-   * Get a subtle focus accent color for borders/indicators.
-   * Returns a slightly dimmed version of the focus border color.
-   * Use this for left-edge focus borders on panels.
-   */
-  getFocusAccentColor(): string {
-    const focusBorder = this.getColor('focusBorder');
-    // Dim the focus border color to 80% - subtle but still visible
-    return this.adjustBrightness(focusBorder, -20);
-  }
-
-  /**
    * Get token color for a scope
    */
   getTokenColor(scope: string): TokenColorSettings {

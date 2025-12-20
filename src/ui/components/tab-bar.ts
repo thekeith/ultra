@@ -178,17 +178,6 @@ export class TabBar implements MouseHandler {
   }
 
   /**
-   * Dim a color by a factor
-   */
-  private dimColor(color: { r: number; g: number; b: number }, factor: number): { r: number; g: number; b: number } {
-    return {
-      r: Math.floor(color.r * factor),
-      g: Math.floor(color.g * factor),
-      b: Math.floor(color.b * factor)
-    };
-  }
-
-  /**
    * Format tab content to fit within max width
    */
   private formatTabContent(tab: Tab, maxWidth: number): string {

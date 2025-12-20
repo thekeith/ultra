@@ -4,7 +4,7 @@
  * VS Code-style file tree sidebar showing project directory structure.
  */
 
-import type { RenderContext } from '../renderer.ts';
+import { renderer, type RenderContext } from '../renderer.ts';
 import type { Rect } from '../layout.ts';
 import type { MouseHandler, MouseEvent } from '../mouse.ts';
 import { themeLoader } from '../themes/theme-loader.ts';
@@ -114,7 +114,13 @@ export class FileTree implements MouseHandler {
    * Set focus state
    */
   setFocused(focused: boolean): void {
+    const wasFocused = this.isFocused;
     this.isFocused = focused;
+
+    // Trigger re-render to update focus-dependent colors (background highlighting)
+    if (focused !== wasFocused) {
+      renderer.scheduleRender();
+    }
   }
 
   /**
