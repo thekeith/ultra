@@ -13,6 +13,8 @@ import {
   type ECPResponse,
   type ECPNotification,
 } from '../../src/services/document/adapter.ts';
+import { FileServiceImpl } from '../../src/services/file/service.ts';
+import { FileServiceAdapter } from '../../src/services/file/adapter.ts';
 
 /**
  * Options for creating a TestECPClient.
@@ -55,6 +57,8 @@ export interface TestECPClientOptions {
 export class TestECPClient {
   private documentService: LocalDocumentService;
   private documentAdapter: DocumentServiceAdapter;
+  private fileService: FileServiceImpl;
+  private fileAdapter: FileServiceAdapter;
   private notifications: ECPNotification[] = [];
   private requestId = 0;
   private captureNotifications: boolean;
@@ -66,13 +70,18 @@ export class TestECPClient {
 
     // Initialize services
     this.documentService = new LocalDocumentService();
+    this.fileService = new FileServiceImpl();
 
     // Initialize adapters
     this.documentAdapter = new DocumentServiceAdapter(this.documentService);
+    this.fileAdapter = new FileServiceAdapter(this.fileService);
 
     // Capture notifications
     if (this.captureNotifications) {
       this.documentAdapter.setNotificationHandler((notification) => {
+        this.notifications.push(notification);
+      });
+      this.fileAdapter.setNotificationHandler((notification) => {
         this.notifications.push(notification);
       });
     }
@@ -172,10 +181,12 @@ export class TestECPClient {
   /**
    * Get a service directly (for unit testing).
    */
-  getService<T>(name: 'document'): T {
+  getService<T>(name: 'document' | 'file'): T {
     switch (name) {
       case 'document':
         return this.documentService as unknown as T;
+      case 'file':
+        return this.fileService as unknown as T;
       default:
         throw new Error(`Unknown service: ${name}`);
     }
@@ -191,6 +202,10 @@ export class TestECPClient {
       await this.documentService.close(doc.documentId);
     }
 
+    // Dispose file service resources
+    this.fileService.dispose();
+    this.fileAdapter.dispose();
+
     // Clear notifications
     this.notifications = [];
   }
@@ -198,13 +213,16 @@ export class TestECPClient {
   /**
    * Route method to appropriate adapter.
    */
-  private getAdapterForMethod(method: string): DocumentServiceAdapter | null {
+  private getAdapterForMethod(method: string): DocumentServiceAdapter | FileServiceAdapter | null {
     if (method.startsWith('document/')) {
       return this.documentAdapter;
     }
 
+    if (method.startsWith('file/')) {
+      return this.fileAdapter;
+    }
+
     // Add more adapters as services are implemented
-    // if (method.startsWith('file/')) return this.fileAdapter;
     // if (method.startsWith('git/')) return this.gitAdapter;
 
     return null;
