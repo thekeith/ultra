@@ -989,10 +989,12 @@ export class EditorContent implements ScrollablePanelContent, FocusablePanelCont
       ? hexToRgb(this.theme.lineNumberActiveForeground)
       : hexToRgb(this.theme.lineNumberForeground);
     const gutterBg = hexToRgb(this.theme.gutterBackground);
+    const defaultBg = hexToRgb(this.theme.background);
     const lineBg = isCurrentLine && this.focused ? hexToRgb(this.theme.lineHighlightBackground) : null;
     const selBg = hexToRgb(this.theme.selectionBackground);
 
     const gutterBgStr = gutterBg ? `\x1b[48;2;${gutterBg.r};${gutterBg.g};${gutterBg.b}m` : '';
+    const defaultBgStr = defaultBg ? `\x1b[48;2;${defaultBg.r};${defaultBg.g};${defaultBg.b}m` : '';
     const lineNumFg = lineNumColor ? `\x1b[38;2;${lineNumColor.r};${lineNumColor.g};${lineNumColor.b}m` : '';
     const reset = '\x1b[0m';
 
@@ -1020,7 +1022,8 @@ export class EditorContent implements ScrollablePanelContent, FocusablePanelCont
       textWidth,
       selectedCols,
       lineBg,
-      selBg
+      selBg,
+      defaultBg
     );
 
     // Pad rest of line (with selection bg if selection extends past text)
@@ -1038,13 +1041,15 @@ export class EditorContent implements ScrollablePanelContent, FocusablePanelCont
           } else if (lineBg) {
             output += `\x1b[48;2;${lineBg.r};${lineBg.g};${lineBg.b}m `;
           } else {
-            output += '\x1b[49m ';
+            output += `${defaultBgStr} `;
           }
         }
       } else {
-        // No selection in padding
+        // No selection in padding - use line highlight or default background
         if (lineBg) {
           output += `\x1b[48;2;${lineBg.r};${lineBg.g};${lineBg.b}m`;
+        } else {
+          output += defaultBgStr;
         }
         output += ' '.repeat(padding);
       }
@@ -1069,10 +1074,12 @@ export class EditorContent implements ScrollablePanelContent, FocusablePanelCont
       ? hexToRgb(this.theme.lineNumberActiveForeground)
       : hexToRgb(this.theme.lineNumberForeground);
     const gutterBg = hexToRgb(this.theme.gutterBackground);
+    const defaultBg = hexToRgb(this.theme.background);
     const lineBg = isCurrentLine && this.focused ? hexToRgb(this.theme.lineHighlightBackground) : null;
     const selBg = hexToRgb(this.theme.selectionBackground);
 
     const gutterBgStr = gutterBg ? `\x1b[48;2;${gutterBg.r};${gutterBg.g};${gutterBg.b}m` : '';
+    const defaultBgStr = defaultBg ? `\x1b[48;2;${defaultBg.r};${defaultBg.g};${defaultBg.b}m` : '';
     const lineNumFg = lineNumColor ? `\x1b[38;2;${lineNumColor.r};${lineNumColor.g};${lineNumColor.b}m` : '';
     const reset = '\x1b[0m';
 
@@ -1116,14 +1123,17 @@ export class EditorContent implements ScrollablePanelContent, FocusablePanelCont
       textWidth,
       selectedCols,
       lineBg,
-      selBg
+      selBg,
+      defaultBg
     );
 
-    // Pad to end of line
+    // Pad to end of line - use line highlight or default background
     const padding = textWidth - segmentText.length;
     if (padding > 0) {
       if (lineBg) {
         output += `\x1b[48;2;${lineBg.r};${lineBg.g};${lineBg.b}m`;
+      } else {
+        output += defaultBgStr;
       }
       output += ' '.repeat(padding);
     }
@@ -1457,7 +1467,8 @@ export class EditorContent implements ScrollablePanelContent, FocusablePanelCont
     maxWidth: number,
     selectedCols: Set<number> | null,
     lineBg: { r: number; g: number; b: number } | null,
-    selBg: { r: number; g: number; b: number } | null
+    selBg: { r: number; g: number; b: number } | null,
+    defaultBg: { r: number; g: number; b: number } | null
   ): string {
     if (text.length === 0) return '';
 
@@ -1481,7 +1492,7 @@ export class EditorContent implements ScrollablePanelContent, FocusablePanelCont
 
     // Render character by character, grouping by same style
     let currentFg: string | null = null;
-    let currentBg: 'line' | 'selection' | 'none' = 'none';
+    let currentBg: 'line' | 'selection' | 'default' = 'default';
     let pendingText = '';
 
     const flushPending = () => {
@@ -1494,6 +1505,8 @@ export class EditorContent implements ScrollablePanelContent, FocusablePanelCont
         style += `\x1b[48;2;${selBg.r};${selBg.g};${selBg.b}m`;
       } else if (currentBg === 'line' && lineBg) {
         style += `\x1b[48;2;${lineBg.r};${lineBg.g};${lineBg.b}m`;
+      } else if (defaultBg) {
+        style += `\x1b[48;2;${defaultBg.r};${defaultBg.g};${defaultBg.b}m`;
       }
 
       // Set foreground
@@ -1514,7 +1527,7 @@ export class EditorContent implements ScrollablePanelContent, FocusablePanelCont
       const char = text[i]!;
       const fg = charColors[i] ?? null;
       const isSelected = selectedCols !== null && selectedCols.has(i);
-      const bg: 'line' | 'selection' | 'none' = isSelected ? 'selection' : (lineBg ? 'line' : 'none');
+      const bg: 'line' | 'selection' | 'default' = isSelected ? 'selection' : (lineBg ? 'line' : 'default');
 
       // Check if style changed
       if (fg !== currentFg || bg !== currentBg) {

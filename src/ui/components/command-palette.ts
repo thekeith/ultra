@@ -19,6 +19,7 @@ import type { KeyEvent } from '../../terminal/input.ts';
 import type { Command } from '../../input/commands.ts';
 import { SearchableDialog, type SearchableDialogConfig, type ItemDisplayConfig, type ScoredItem } from './searchable-dialog.ts';
 import { RenderUtils } from '../render-utils.ts';
+import { keymap } from '../../input/keymap.ts';
 
 /**
  * Custom palette item (for non-command selections)
@@ -485,18 +486,23 @@ export class CommandPalette extends SearchableDialog<PaletteEntry> {
         const icon = CATEGORY_ICONS[cmd.category || ''] || '';
         ctx.drawStyled(this._rect.x + 2, y, icon, colors.hintForeground, bgColor);
 
+        // Get keyboard shortcut for this command
+        const binding = keymap.getBindingForCommand(cmd.id);
+        const shortcut = binding ? keymap.formatForDisplay(binding.key) : '';
+        const shortcutWidth = shortcut.length;
+
         // Command title
         const titleColor = isSelected ? colors.selectedForeground : colors.foreground;
-        const maxTitleLen = listWidth - 20;
+        const maxTitleLen = listWidth - 6 - shortcutWidth - 2;  // icon + padding + shortcut + margin
         const displayTitle = RenderUtils.truncateText(cmd.title, maxTitleLen);
         ctx.drawStyled(this._rect.x + 5, y, displayTitle, titleColor, bgColor);
 
-        // Category label (right-aligned)
-        if (cmd.category) {
-          const categoryColor = colors.hintForeground;
-          const categoryX = this._rect.x + listWidth - cmd.category.length - 1;
-          if (categoryX > this._rect.x + 5 + displayTitle.length + 2) {
-            ctx.drawStyled(categoryX, y, cmd.category, categoryColor, bgColor);
+        // Keyboard shortcut (right-aligned)
+        if (shortcut) {
+          const shortcutColor = colors.hintForeground;
+          const shortcutX = this._rect.x + listWidth - shortcutWidth - 1;
+          if (shortcutX > this._rect.x + 5 + displayTitle.length + 2) {
+            ctx.drawStyled(shortcutX, y, shortcut, shortcutColor, bgColor);
           }
         }
       }
