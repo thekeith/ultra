@@ -200,6 +200,26 @@ export class EditorContent implements ScrollablePanelContent, FocusablePanelCont
     this.foldingEnabled = settings.get('editor.folding') ?? true;
   }
 
+  /**
+   * Reload settings from config. Call this when settings change.
+   */
+  reloadSettings(): void {
+    this.minimapEnabled = settings.get('editor.minimap.enabled') ?? true;
+    this.foldingEnabled = settings.get('editor.folding') ?? true;
+    this.minimap.loadSettings();
+    // Update gutter width in case line numbers setting changed
+    this.updateGutterWidth();
+    // Force re-layout to account for minimap/gutter visibility changes
+    this.setRect(this.rect);
+  }
+
+  /**
+   * Get line numbers display mode
+   */
+  private getLineNumbersMode(): 'on' | 'off' | 'relative' {
+    return settings.get('editor.lineNumbers') ?? 'on';
+  }
+
   private setupMinimapCallbacks(): void {
     this.minimap.onScroll((line) => {
       this.setScrollTop(line);
@@ -444,17 +464,26 @@ export class EditorContent implements ScrollablePanelContent, FocusablePanelCont
   }
 
   /**
-   * Update gutter width based on line count.
+   * Update gutter width based on line count and settings.
    */
   private updateGutterWidth(): void {
     const doc = this._document;
+    const lineNumbersMode = this.getLineNumbersMode();
+
     if (!doc) {
-      this.gutterWidth = 6;
+      // Default: git indicator + 3 digits (or none) + fold indicator + space
+      this.gutterWidth = lineNumbersMode === 'off' ? 3 : 6;
       return;
     }
-    const lineCount = doc.lineCount;
-    const digits = Math.max(3, String(lineCount).length);
-    this.gutterWidth = digits + 3; // 1 git indicator + digits + fold indicator + space
+
+    if (lineNumbersMode === 'off') {
+      // git indicator + fold indicator + space
+      this.gutterWidth = 3;
+    } else {
+      const lineCount = doc.lineCount;
+      const digits = Math.max(3, String(lineCount).length);
+      this.gutterWidth = digits + 3; // 1 git indicator + digits + fold indicator + space
+    }
   }
 
   /**
@@ -998,10 +1027,20 @@ export class EditorContent implements ScrollablePanelContent, FocusablePanelCont
     const lineNumFg = lineNumColor ? `\x1b[38;2;${lineNumColor.r};${lineNumColor.g};${lineNumColor.b}m` : '';
     const reset = '\x1b[0m';
 
-    // Render gutter (git indicator + line number + fold indicator)
+    // Render gutter (git indicator + optional line number + fold indicator)
     const gitIndicator = this.getGitIndicator(bufferLine + 1);  // Git uses 1-based line numbers
-    const lineNumStr = String(bufferLine + 1).padStart(this.gutterWidth - 3, ' ');
     const foldIndicator = this.getFoldIndicator(bufferLine);
+    const lineNumbersMode = this.getLineNumbersMode();
+
+    let lineNumStr = '';
+    if (lineNumbersMode === 'on') {
+      lineNumStr = String(bufferLine + 1).padStart(this.gutterWidth - 3, ' ');
+    } else if (lineNumbersMode === 'relative') {
+      const cursorLine = cursor.position.line;
+      const displayNum = bufferLine === cursorLine ? bufferLine + 1 : Math.abs(bufferLine - cursorLine);
+      lineNumStr = String(displayNum).padStart(this.gutterWidth - 3, ' ');
+    }
+    // For 'off', lineNumStr stays empty and gutterWidth is smaller
 
     ctx.buffer(`\x1b[${screenY};${this.rect.x}H${gutterBgStr}${gitIndicator}${lineNumFg}${lineNumStr}${foldIndicator} ${reset}`);
 
@@ -1084,10 +1123,20 @@ export class EditorContent implements ScrollablePanelContent, FocusablePanelCont
     const reset = '\x1b[0m';
 
     // Gutter only shows line number on first wrap
+    const lineNumbersMode = this.getLineNumbersMode();
     if (wrap.isFirstWrap) {
       const gitIndicator = this.getGitIndicator(wrap.bufferLine + 1);  // Git uses 1-based line numbers
-      const lineNumStr = String(wrap.bufferLine + 1).padStart(this.gutterWidth - 3, ' ');
       const foldIndicator = this.getFoldIndicator(wrap.bufferLine);
+
+      let lineNumStr = '';
+      if (lineNumbersMode === 'on') {
+        lineNumStr = String(wrap.bufferLine + 1).padStart(this.gutterWidth - 3, ' ');
+      } else if (lineNumbersMode === 'relative') {
+        const cursorLine = cursor.position.line;
+        const displayNum = wrap.bufferLine === cursorLine ? wrap.bufferLine + 1 : Math.abs(wrap.bufferLine - cursorLine);
+        lineNumStr = String(displayNum).padStart(this.gutterWidth - 3, ' ');
+      }
+
       ctx.buffer(`\x1b[${screenY};${this.rect.x}H${gutterBgStr}${gitIndicator}${lineNumFg}${lineNumStr}${foldIndicator} ${reset}`);
     } else {
       // Continuation line - empty gutter

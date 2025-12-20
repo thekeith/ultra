@@ -2226,6 +2226,22 @@ export class App {
   }
 
   /**
+   * Check if a setting key requires editor reload
+   */
+  private isEditorDisplaySetting(key: string): boolean {
+    const editorDisplaySettings = [
+      'editor.minimap.enabled',
+      'editor.minimap.width',
+      'editor.minimap.side',
+      'editor.lineNumbers',
+      'editor.wordWrap',
+      'editor.folding',
+      'editor.renderWhitespace',
+    ];
+    return editorDisplaySettings.includes(key);
+  }
+
+  /**
    * Setup settings dialog callbacks
    */
   private setupSettingsCallbacks(): void {
@@ -2248,6 +2264,9 @@ export class App {
             onConfirm: async (newValue: boolean) => {
               await userConfigManager.saveSetting(meta.key, newValue);
               settingsDialog.refreshItems();
+              if (this.isEditorDisplaySetting(meta.key)) {
+                paneManager.reloadEditorSettings();
+              }
               statusBar.setMessage(`${meta.label}: ${newValue ? 'On' : 'Off'}`, 2000);
               renderer.scheduleRender();
             },
@@ -2274,6 +2293,9 @@ export class App {
             onConfirm: async (newValue: string | number) => {
               await userConfigManager.saveSetting(meta.key, newValue);
               settingsDialog.refreshItems();
+              if (this.isEditorDisplaySetting(meta.key)) {
+                paneManager.reloadEditorSettings();
+              }
               statusBar.setMessage(`${meta.label}: ${newValue}`, 2000);
               renderer.scheduleRender();
             },
@@ -2321,6 +2343,9 @@ export class App {
             onConfirm: async (newValue: string | number) => {
               await userConfigManager.saveSetting(meta.key, newValue);
               settingsDialog.refreshItems();
+              if (this.isEditorDisplaySetting(meta.key)) {
+                paneManager.reloadEditorSettings();
+              }
               statusBar.setMessage(`${meta.label} updated`, 2000);
               renderer.scheduleRender();
             },
@@ -2333,6 +2358,7 @@ export class App {
         case 'enum':
           // Use command palette to show options
           if (meta.options && meta.options.length > 0) {
+            const settingKey = meta.key;  // Capture for closure
             const items = meta.options.map(opt => ({
               id: opt,
               title: opt,
@@ -2340,6 +2366,9 @@ export class App {
               handler: async () => {
                 await userConfigManager.saveSetting(meta.key, opt);
                 settingsDialog.refreshItems();
+                if (this.isEditorDisplaySetting(settingKey)) {
+                  paneManager.reloadEditorSettings();
+                }
                 statusBar.setMessage(`${meta.label}: ${opt}`, 2000);
                 renderer.scheduleRender();
               }
@@ -3675,9 +3704,13 @@ export class App {
         id: 'ultra.toggleMinimap',
         title: 'Toggle Minimap',
         category: 'View',
-        handler: () => {
-          paneManager.toggleMinimap();
-          sessionManager.saveCurrentSession();
+        handler: async () => {
+          const current = settings.get('editor.minimap.enabled');
+          const newValue = !current;
+          await userConfigManager.saveSetting('editor.minimap.enabled', newValue);
+          paneManager.reloadEditorSettings();
+          statusBar.setMessage(`Minimap: ${newValue ? 'On' : 'Off'}`, 2000);
+          renderer.scheduleRender();
         }
       },
       
@@ -3927,6 +3960,7 @@ export class App {
           const current = settings.get('editor.wordWrap');
           const newValue = current === 'on' ? 'off' : 'on';
           await userConfigManager.saveSetting('editor.wordWrap', newValue);
+          paneManager.reloadEditorSettings();
           statusBar.setMessage(`Word Wrap: ${newValue}`, 2000);
           renderer.scheduleRender();
         }
@@ -3939,6 +3973,7 @@ export class App {
           const current = settings.get('editor.lineNumbers');
           const newValue = current === 'on' ? 'off' : 'on';
           await userConfigManager.saveSetting('editor.lineNumbers', newValue);
+          paneManager.reloadEditorSettings();
           statusBar.setMessage(`Line Numbers: ${newValue}`, 2000);
           renderer.scheduleRender();
         }

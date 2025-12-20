@@ -722,6 +722,18 @@ export class Pane implements MouseHandler {
     return activeContent?.getGutterWidth() ?? 6;
   }
 
+  // ==================== Settings ====================
+
+  /**
+   * Reload settings on all editor contents in this pane.
+   * Call this when display-related settings change.
+   */
+  reloadEditorSettings(): void {
+    for (const tab of this.tabs) {
+      tab.editorContent.reloadSettings();
+    }
+  }
+
   // ==================== Debug ====================
 
   private debugLog(message: string): void {

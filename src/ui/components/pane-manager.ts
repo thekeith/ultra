@@ -812,6 +812,16 @@ export class PaneManager implements MouseHandler {
     this.getActivePane().toggleMinimap();
   }
 
+  /**
+   * Reload editor settings on all panes.
+   * Call this when display-related settings change (minimap, line numbers, etc.)
+   */
+  reloadEditorSettings(): void {
+    for (const pane of this.panes.values()) {
+      pane.reloadEditorSettings();
+    }
+  }
+
   // ==================== Folding ====================
 
   /**
