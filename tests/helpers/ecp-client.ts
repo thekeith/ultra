@@ -1,38 +1,17 @@
 /**
  * Test ECP Client
  *
- * A testing utility that provides a clean interface for testing ECP
- * services without terminal I/O. Sends JSON-RPC requests directly
- * to service adapters and collects notifications.
+ * A testing utility that wraps ECPServer for testing ECP
+ * services. Collects notifications for assertions.
  */
 
-import { LocalDocumentService } from '../../src/services/document/local.ts';
-import {
-  DocumentServiceAdapter,
-  type ECPRequest,
-  type ECPResponse,
-  type ECPNotification,
-} from '../../src/services/document/adapter.ts';
-import { FileServiceImpl } from '../../src/services/file/service.ts';
-import { FileServiceAdapter } from '../../src/services/file/adapter.ts';
-import { GitCliService } from '../../src/services/git/cli.ts';
-import { GitServiceAdapter } from '../../src/services/git/adapter.ts';
-import { LocalSessionService } from '../../src/services/session/local.ts';
-import { SessionServiceAdapter } from '../../src/services/session/adapter.ts';
-import { LocalLSPService } from '../../src/services/lsp/service.ts';
-import { LSPServiceAdapter } from '../../src/services/lsp/adapter.ts';
-import { LocalSyntaxService } from '../../src/services/syntax/service.ts';
-import { SyntaxServiceAdapter } from '../../src/services/syntax/adapter.ts';
-import { LocalTerminalService } from '../../src/services/terminal/service.ts';
-import { TerminalServiceAdapter } from '../../src/services/terminal/adapter.ts';
+import { ECPServer, type ECPServerOptions } from '../../src/ecp/server.ts';
+import type { ECPResponse, ECPNotification } from '../../src/ecp/types.ts';
 
 /**
  * Options for creating a TestECPClient.
  */
-export interface TestECPClientOptions {
-  /** Workspace root for file operations */
-  workspaceRoot?: string;
-
+export interface TestECPClientOptions extends ECPServerOptions {
   /** Whether to capture notifications */
   captureNotifications?: boolean;
 }
@@ -65,62 +44,26 @@ export interface TestECPClientOptions {
  * ```
  */
 export class TestECPClient {
-  private documentService: LocalDocumentService;
-  private documentAdapter: DocumentServiceAdapter;
-  private fileService: FileServiceImpl;
-  private fileAdapter: FileServiceAdapter;
-  private gitService: GitCliService;
-  private gitAdapter: GitServiceAdapter;
-  private sessionService: LocalSessionService;
-  private sessionAdapter: SessionServiceAdapter;
-  private lspService: LocalLSPService;
-  private lspAdapter: LSPServiceAdapter;
-  private syntaxService: LocalSyntaxService;
-  private syntaxAdapter: SyntaxServiceAdapter;
-  private terminalService: LocalTerminalService;
-  private terminalAdapter: TerminalServiceAdapter;
+  private server: ECPServer;
   private notifications: ECPNotification[] = [];
-  private requestId = 0;
   private captureNotifications: boolean;
-  private workspaceRoot: string;
-  private initialized = false;
 
   constructor(options: TestECPClientOptions = {}) {
-    this.workspaceRoot = options.workspaceRoot ?? process.cwd();
     this.captureNotifications = options.captureNotifications ?? true;
 
-    // Initialize services
-    this.documentService = new LocalDocumentService();
-    this.fileService = new FileServiceImpl();
-    this.gitService = new GitCliService();
-    this.sessionService = new LocalSessionService();
-    this.lspService = new LocalLSPService();
-    this.lspService.setWorkspaceRoot(this.workspaceRoot);
-    this.syntaxService = new LocalSyntaxService();
-    this.terminalService = new LocalTerminalService();
-
-    // Initialize adapters
-    this.documentAdapter = new DocumentServiceAdapter(this.documentService);
-    this.fileAdapter = new FileServiceAdapter(this.fileService);
-    this.gitAdapter = new GitServiceAdapter(this.gitService);
-    this.sessionAdapter = new SessionServiceAdapter(this.sessionService);
-    this.lspAdapter = new LSPServiceAdapter(this.lspService);
-    this.syntaxAdapter = new SyntaxServiceAdapter(this.syntaxService);
-    this.terminalAdapter = new TerminalServiceAdapter(this.terminalService);
+    // Create ECP server
+    this.server = new ECPServer({
+      workspaceRoot: options.workspaceRoot,
+    });
 
     // Capture notifications
     if (this.captureNotifications) {
-      this.documentAdapter.setNotificationHandler((notification) => {
-        this.notifications.push(notification);
-      });
-      this.fileAdapter.setNotificationHandler((notification) => {
-        this.notifications.push(notification);
-      });
-      this.lspAdapter.setNotificationHandler((notification) => {
-        this.notifications.push(notification as ECPNotification);
-      });
-      this.terminalAdapter.setNotificationHandler((notification) => {
-        this.notifications.push(notification as ECPNotification);
+      this.server.onNotification((method, params) => {
+        this.notifications.push({
+          jsonrpc: '2.0',
+          method,
+          params,
+        });
       });
     }
   }
@@ -129,10 +72,7 @@ export class TestECPClient {
    * Initialize async services (call before using session methods).
    */
   async initSession(): Promise<void> {
-    if (!this.initialized) {
-      await this.sessionService.init(this.workspaceRoot);
-      this.initialized = true;
-    }
+    await this.server.initialize();
   }
 
   /**
@@ -140,57 +80,14 @@ export class TestECPClient {
    * Throws an error if the request fails.
    */
   async request<T = unknown>(method: string, params?: unknown): Promise<T> {
-    const response = await this.requestRaw<T>(method, params);
-
-    if (response.error) {
-      throw new Error(`ECP Error [${response.error.code}]: ${response.error.message}`);
-    }
-
-    return response.result as T;
+    return this.server.request<T>(method, params);
   }
 
   /**
    * Send a request and get the full response (including errors).
    */
   async requestRaw<T = unknown>(method: string, params?: unknown): Promise<ECPResponse> {
-    const request: ECPRequest = {
-      jsonrpc: '2.0',
-      id: ++this.requestId,
-      method,
-      params,
-    };
-
-    // Route to appropriate adapter
-    const adapter = this.getAdapterForMethod(method);
-    if (!adapter) {
-      return {
-        jsonrpc: '2.0',
-        id: request.id,
-        error: {
-          code: -32601,
-          message: `Method not found: ${method}`,
-        },
-      };
-    }
-
-    // GitServiceAdapter, SessionServiceAdapter, LSPServiceAdapter, SyntaxServiceAdapter, and TerminalServiceAdapter have a different response format
-    if (adapter instanceof GitServiceAdapter || adapter instanceof SessionServiceAdapter || adapter instanceof LSPServiceAdapter || adapter instanceof SyntaxServiceAdapter || adapter instanceof TerminalServiceAdapter) {
-      const result = await adapter.handleRequest(method, params);
-      if ('error' in result) {
-        return {
-          jsonrpc: '2.0',
-          id: request.id,
-          error: result.error,
-        };
-      }
-      return {
-        jsonrpc: '2.0',
-        id: request.id,
-        result: result.result,
-      };
-    }
-
-    return adapter.handleRequest(request);
+    return this.server.requestRaw(method, params);
   }
 
   /**
@@ -247,84 +144,15 @@ export class TestECPClient {
    * Get a service directly (for unit testing).
    */
   getService<T>(name: 'document' | 'file' | 'git' | 'session' | 'lsp' | 'syntax' | 'terminal'): T {
-    switch (name) {
-      case 'document':
-        return this.documentService as unknown as T;
-      case 'file':
-        return this.fileService as unknown as T;
-      case 'git':
-        return this.gitService as unknown as T;
-      case 'session':
-        return this.sessionService as unknown as T;
-      case 'lsp':
-        return this.lspService as unknown as T;
-      case 'syntax':
-        return this.syntaxService as unknown as T;
-      case 'terminal':
-        return this.terminalService as unknown as T;
-      default:
-        throw new Error(`Unknown service: ${name}`);
-    }
+    return this.server.getService<T>(name);
   }
 
   /**
    * Shutdown the client and clean up resources.
    */
   async shutdown(): Promise<void> {
-    // Close all open documents
-    const documents = this.documentService.listOpen();
-    for (const doc of documents) {
-      await this.documentService.close(doc.documentId);
-    }
-
-    // Dispose file service resources
-    this.fileService.dispose();
-    this.fileAdapter.dispose();
-
-    // Shutdown LSP service
-    await this.lspService.shutdown();
-
-    // Close all terminals
-    this.terminalService.closeAll();
-
-    // Clear notifications
+    await this.server.shutdown();
     this.notifications = [];
-  }
-
-  /**
-   * Route method to appropriate adapter.
-   */
-  private getAdapterForMethod(method: string): DocumentServiceAdapter | FileServiceAdapter | GitServiceAdapter | SessionServiceAdapter | LSPServiceAdapter | SyntaxServiceAdapter | TerminalServiceAdapter | null {
-    if (method.startsWith('document/')) {
-      return this.documentAdapter;
-    }
-
-    if (method.startsWith('file/')) {
-      return this.fileAdapter;
-    }
-
-    if (method.startsWith('git/')) {
-      return this.gitAdapter;
-    }
-
-    if (method.startsWith('config/') || method.startsWith('session/') ||
-        method.startsWith('keybindings/') || method.startsWith('theme/')) {
-      return this.sessionAdapter;
-    }
-
-    if (method.startsWith('lsp/')) {
-      return this.lspAdapter;
-    }
-
-    if (method.startsWith('syntax/')) {
-      return this.syntaxAdapter;
-    }
-
-    if (method.startsWith('terminal/')) {
-      return this.terminalAdapter;
-    }
-
-    return null;
   }
 }
 
