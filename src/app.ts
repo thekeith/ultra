@@ -3701,6 +3701,84 @@ export class App {
         }
       },
       {
+        id: 'ultra.gitMergeBranch',
+        title: 'Git: Merge Branch',
+        category: 'Git',
+        handler: async () => {
+          const branches = await gitIntegration.getBranches();
+          const nonCurrentBranches = branches.filter(b => !b.current);
+
+          if (nonCurrentBranches.length === 0) {
+            statusBar.setMessage('No branches to merge', 2000);
+            return;
+          }
+
+          const editorRect = layoutManager.getEditorAreaRect();
+
+          // Create palette items with handlers
+          const items = nonCurrentBranches.map(b => ({
+            id: b.name,
+            title: b.name,
+            category: undefined,
+            handler: async () => {
+              statusBar.setMessage(`Merging ${b.name}...`, 0);
+              renderer.scheduleRender();
+
+              const result = await gitIntegration.merge(b.name);
+
+              if (result.success) {
+                statusBar.setMessage(`Merged ${b.name} successfully`, 2000);
+                // Reload all open documents as files may have changed
+                await paneManager.reloadAllDocuments();
+                await this.updateGitStatus();
+              } else if (result.conflicts.length > 0) {
+                statusBar.setMessage(`Merge conflicts in: ${result.conflicts.join(', ')}`, 5000);
+                // Reload documents to show conflict markers
+                await paneManager.reloadAllDocuments();
+                await this.updateGitStatus();
+              } else {
+                statusBar.setMessage(`Merge failed: ${result.message}`, 3000);
+              }
+              renderer.scheduleRender();
+            }
+          }));
+
+          commandPalette.showWithItems(
+            items,
+            'Merge Branch',
+            '',
+            editorRect.x,
+            editorRect.width
+          );
+          renderer.scheduleRender();
+        }
+      },
+      {
+        id: 'ultra.gitAbortMerge',
+        title: 'Git: Abort Merge',
+        category: 'Git',
+        handler: async () => {
+          const isMerging = await gitIntegration.isMergeInProgress();
+
+          if (!isMerging) {
+            statusBar.setMessage('No merge in progress', 2000);
+            return;
+          }
+
+          const success = await gitIntegration.abortMerge();
+
+          if (success) {
+            statusBar.setMessage('Merge aborted', 2000);
+            // Reload all documents to restore pre-merge state
+            await paneManager.reloadAllDocuments();
+            await this.updateGitStatus();
+          } else {
+            statusBar.setMessage('Failed to abort merge', 3000);
+          }
+          renderer.scheduleRender();
+        }
+      },
+      {
         id: 'ultra.toggleMinimap',
         title: 'Toggle Minimap',
         category: 'View',

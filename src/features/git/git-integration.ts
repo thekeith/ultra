@@ -974,6 +974,96 @@ export class GitIntegration {
   }
 
   /**
+   * Merge a branch into the current branch
+   * Returns success status and any conflict file paths
+   */
+  async merge(branchName: string): Promise<{ success: boolean; conflicts: string[]; message: string }> {
+    if (!this.workspaceRoot) {
+      return { success: false, conflicts: [], message: 'No workspace root' };
+    }
+    try {
+      const result = await $`git -C ${this.workspaceRoot} merge ${branchName}`.quiet();
+
+      if (result.exitCode === 0) {
+        this.invalidateCache();
+        return { success: true, conflicts: [], message: 'Merge completed successfully' };
+      }
+
+      // Check for conflicts
+      const conflicts = await this.getMergeConflicts();
+      if (conflicts.length > 0) {
+        return {
+          success: false,
+          conflicts,
+          message: `Merge conflicts in ${conflicts.length} file(s)`
+        };
+      }
+
+      return { success: false, conflicts: [], message: 'Merge failed' };
+    } catch (error) {
+      debugLog(`[Git] Merge failed: ${error}`);
+      // Check for conflicts even on exception
+      const conflicts = await this.getMergeConflicts();
+      if (conflicts.length > 0) {
+        return {
+          success: false,
+          conflicts,
+          message: `Merge conflicts in ${conflicts.length} file(s)`
+        };
+      }
+      return { success: false, conflicts: [], message: String(error) };
+    }
+  }
+
+  /**
+   * Check if a merge is currently in progress
+   */
+  async isMergeInProgress(): Promise<boolean> {
+    if (!this.workspaceRoot) return false;
+    try {
+      // Check for .git/MERGE_HEAD file which indicates merge in progress
+      const result = await $`git -C ${this.workspaceRoot} rev-parse -q --verify MERGE_HEAD`.quiet();
+      return result.exitCode === 0;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Get list of files with merge conflicts
+   */
+  async getMergeConflicts(): Promise<string[]> {
+    if (!this.workspaceRoot) return [];
+    try {
+      // List unmerged files
+      const result = await $`git -C ${this.workspaceRoot} diff --name-only --diff-filter=U`.quiet();
+      if (result.exitCode !== 0) return [];
+      return result.text().trim().split('\n').filter(f => f);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Abort an in-progress merge
+   */
+  async abortMerge(): Promise<boolean> {
+    if (!this.workspaceRoot) return false;
+    try {
+      const result = await $`git -C ${this.workspaceRoot} merge --abort`.quiet();
+
+      if (result.exitCode === 0) {
+        this.invalidateCache();
+        return true;
+      }
+      return false;
+    } catch (error) {
+      debugLog(`[Git] Abort merge failed: ${error}`);
+      return false;
+    }
+  }
+
+  /**
    * Amend the last commit
    */
   async amendCommit(message?: string): Promise<boolean> {
