@@ -39,15 +39,19 @@ Implement the TUI (Terminal User Interface) layer for Ultra 1.0. The TUI is comp
 
 ## Directory Structure
 ```
-src/tui/
+src/clients/tui/
 ├── index.ts                    # TUI entry point
 ├── window.ts                   # Window manager
 ├── types.ts                    # Core types
+├── ansi/                       # Consolidated ANSI utilities
+│   ├── index.ts                # Unified exports
+│   ├── sequences.ts            # Raw ANSI escape codes (cursor, clear, modes)
+│   ├── colors.ts               # Color conversion (hex, rgb, named colors)
+│   └── styles.ts               # Text styling (bold, italic, underline, etc.)
 ├── rendering/
 │   ├── renderer.ts             # Main render loop with dirty tracking
 │   ├── buffer.ts               # Double-buffered screen buffer
-│   ├── primitives.ts           # Box drawing, text, colors
-│   └── theme.ts                # Theme/color management
+│   └── primitives.ts           # Box drawing, text rendering
 ├── layout/
 │   ├── pane.ts                 # Pane container
 │   ├── pane-container.ts       # Split pane management
@@ -60,9 +64,10 @@ src/tui/
 │   ├── file-tree.ts            # File explorer
 │   ├── git-panel.ts            # Git status/changes
 │   ├── git-diff-view.ts        # Diff viewer (read-only)
-│   ├── agent-chat.ts           # AI agent chat
+│   ├── agent-chat.ts           # AI agent interactive chat
 │   ├── terminal-session.ts     # Embedded terminal
-│   ├── search-find-results.ts  # Search results
+│   ├── search-results.ts       # Document search results
+│   ├── project-search.ts       # Project-wide search (TBD)
 │   └── diagnostics-view.ts     # Problems/errors
 ├── overlays/
 │   ├── overlay-manager.ts      # Z-order overlay management
@@ -75,7 +80,7 @@ src/tui/
 │   ├── status-bar.ts           # Status bar component
 │   └── status-history.ts       # Expandable history
 ├── input/
-│   ├── input-handler.ts        # Keyboard/mouse routing
+│   ├── input-handler.ts        # Keyboard/mouse routing (based on src/terminal/input.ts)
 │   ├── focus-manager.ts        # Global focus tracking
 │   ├── pane-navigation.ts      # Pane navigation mode
 │   └── keybindings.ts          # Keybinding definitions
@@ -83,11 +88,13 @@ src/tui/
     └── layout-serializer.ts    # Serialize/deserialize layout
 ```
 
+> **Note**: The `input/input-handler.ts` is based on the existing `src/terminal/input.ts` implementation, refactored and robustified for the new architecture.
+
 ---
 
 ## Core Types
 
-### src/tui/types.ts
+### src/clients/tui/types.ts
 ```typescript
 // ============================================
 // Geometry
@@ -121,7 +128,8 @@ export type ElementType =
   | 'GitDiffView'
   | 'AgentChat'
   | 'TerminalSession'
-  | 'SearchFindResults'
+  | 'SearchResults'
+  | 'ProjectSearch'  // TBD - placeholder for project-wide search
   | 'DiagnosticsView';
 
 export interface ElementConfig {
@@ -218,24 +226,26 @@ export interface ElementLifecycle {
 
 ## Base Element Class
 
-### src/tui/elements/base.ts
+### src/clients/tui/elements/base.ts
 ```typescript
-import type { 
-  Rect, 
-  Size, 
-  ElementType, 
+import type {
+  Rect,
+  Size,
+  ElementType,
   ElementLifecycle,
   KeyEvent,
   MouseEvent,
   Cell,
 } from '../types';
 import type { ScreenBuffer } from '../rendering/buffer';
-import type { ECP } from '../../ecp/client';
+import type { ECPServer } from '../../../ecp/server';
+import type { Theme } from '../../../services/session/types';
 
 export interface ElementContext {
-  ecp: ECP;                          // ECP client for commands
-  markDirty: (region?: Rect) => void; // Mark for re-render
-  requestFocus: () => void;           // Request focus
+  ecp: ECPServer;                       // ECP server for commands
+  theme: Theme;                         // Current theme from Session Service
+  markDirty: (region?: Rect) => void;   // Mark for re-render
+  requestFocus: () => void;             // Request focus
   updateTitle: (title: string) => void;
   updateStatus: (status: string) => void; // For accordion headers
 }
@@ -372,7 +382,7 @@ export abstract class BaseElement implements ElementLifecycle {
 
 ## Window Manager
 
-### src/tui/window.ts
+### src/clients/tui/window.ts
 ```typescript
 import type { Size, LayoutConfig, KeyEvent, MouseEvent } from './types';
 import { PaneContainer } from './layout/pane-container';
@@ -380,10 +390,11 @@ import { StatusBar } from './status-bar/status-bar';
 import { OverlayManager } from './overlays/overlay-manager';
 import { FocusManager } from './input/focus-manager';
 import { Renderer } from './rendering/renderer';
-import type { ECP } from '../ecp/client';
+import type { ECPServer } from '../../ecp/server';
+import type { Theme } from '../../services/session/types';
 
 export interface WindowConfig {
-  ecp: ECP;
+  ecp: ECPServer;
   initialLayout?: LayoutConfig;
 }
 
@@ -394,19 +405,39 @@ export class Window {
   private overlayManager: OverlayManager;
   private focusManager: FocusManager;
   private renderer: Renderer;
-  private ecp: ECP;
-  
+  private ecp: ECPServer;
+  private theme: Theme;
+
   constructor(config: WindowConfig) {
     this.ecp = config.ecp;
-    this.renderer = new Renderer();
+    this.theme = this.loadThemeFromSession();
+    this.renderer = new Renderer(this.theme);
     this.focusManager = new FocusManager();
-    this.overlayManager = new OverlayManager(this.renderer);
-    this.statusBar = new StatusBar(this.ecp);
-    this.paneContainer = new PaneContainer(this.ecp, this.focusManager);
-    
+    this.overlayManager = new OverlayManager(this.renderer, this.theme);
+    this.statusBar = new StatusBar(this.ecp, this.theme);
+    this.paneContainer = new PaneContainer(this.ecp, this.focusManager, this.theme);
+
+    // Subscribe to theme changes via ECP
+    this.subscribeToThemeChanges();
+
     if (config.initialLayout) {
       this.loadLayout(config.initialLayout);
     }
+  }
+
+  private loadThemeFromSession(): Theme {
+    // Load theme from Session Service via ECP
+    return this.ecp.request('theme/getCurrent');
+  }
+
+  private subscribeToThemeChanges(): void {
+    this.ecp.onNotification((method, params) => {
+      if (method === 'theme/changed') {
+        this.theme = params as Theme;
+        this.renderer.setTheme(this.theme);
+        this.render();
+      }
+    });
   }
   
   // ============================================
@@ -650,19 +681,20 @@ export class Window {
 
 ## Pane Container
 
-### src/tui/layout/pane-container.ts
+### src/clients/tui/layout/pane-container.ts
 ```typescript
-import type { 
-  Rect, 
-  SplitDirection, 
-  PaneConfig, 
+import type {
+  Rect,
+  SplitDirection,
+  PaneConfig,
   SplitConfig,
   ElementType,
 } from '../types';
 import { Pane } from './pane';
 import type { ScreenBuffer } from '../rendering/buffer';
-import type { ECP } from '../../ecp/client';
+import type { ECPServer } from '../../../ecp/server';
 import type { FocusManager } from '../input/focus-manager';
+import type { Theme } from '../../../services/session/types';
 
 type LayoutNode = Pane | SplitNode;
 
@@ -679,14 +711,16 @@ export class PaneContainer {
   private root: LayoutNode | null = null;
   private panes: Map<string, Pane> = new Map();
   private bounds: Rect = { x: 0, y: 0, width: 0, height: 0 };
-  private ecp: ECP;
+  private ecp: ECPServer;
   private focusManager: FocusManager;
+  private theme: Theme;
   private nextPaneId = 1;
   private nextSplitId = 1;
-  
-  constructor(ecp: ECP, focusManager: FocusManager) {
+
+  constructor(ecp: ECPServer, focusManager: FocusManager, theme: Theme) {
     this.ecp = ecp;
     this.focusManager = focusManager;
+    this.theme = theme;
   }
   
   // ============================================
@@ -930,23 +964,27 @@ export class PaneContainer {
   
   private renderDividers(split: SplitNode, buffer: ScreenBuffer): void {
     const { direction, bounds, children } = split;
-    
+
     let offset = direction === 'horizontal' ? bounds.y : bounds.x;
     const totalSize = direction === 'horizontal' ? bounds.height : bounds.width;
-    
+
+    // Use theme colors for dividers
+    const dividerFg = this.theme.colors['panel.border'] || this.theme.colors['editorGroup.border'];
+    const dividerBg = this.theme.colors['editor.background'];
+
     for (let i = 1; i < children.length; i++) {
       const size = Math.floor(totalSize * split.ratios[i - 1]);
       offset += size;
-      
+
       if (direction === 'horizontal') {
         // Horizontal divider
         for (let x = bounds.x; x < bounds.x + bounds.width; x++) {
-          buffer.set(x, offset, { char: '─', fg: 'gray', bg: 'default' });
+          buffer.set(x, offset, { char: '─', fg: dividerFg, bg: dividerBg });
         }
       } else {
         // Vertical divider
         for (let y = bounds.y; y < bounds.y + bounds.height; y++) {
-          buffer.set(offset, y, { char: '│', fg: 'gray', bg: 'default' });
+          buffer.set(offset, y, { char: '│', fg: dividerFg, bg: dividerBg });
         }
       }
     }
@@ -1042,20 +1080,21 @@ export class PaneContainer {
 
 ## Pane (Tab/Accordion Container)
 
-### src/tui/layout/pane.ts
+### src/clients/tui/layout/pane.ts
 ```typescript
-import type { 
-  Rect, 
-  Size, 
-  ContainerMode, 
-  PaneConfig, 
+import type {
+  Rect,
+  Size,
+  ContainerMode,
+  PaneConfig,
   ElementType,
   ElementConfig,
 } from '../types';
 import type { BaseElement, ElementContext } from '../elements/base';
 import type { ScreenBuffer } from '../rendering/buffer';
-import type { ECP } from '../../ecp/client';
+import type { ECPServer } from '../../../ecp/server';
 import type { FocusManager } from '../input/focus-manager';
+import type { Theme } from '../../../services/session/types';
 import { createElement } from '../elements/factory';
 
 interface PaneCallbacks {
@@ -1064,26 +1103,29 @@ interface PaneCallbacks {
 
 export class Pane {
   readonly id: string;
-  
+
   private mode: ContainerMode = 'tabs';
   private elements: BaseElement[] = [];
   private activeElementIndex = 0;        // For tabs
   private expandedElementIds: Set<string> = new Set();  // For accordion
   private bounds: Rect = { x: 0, y: 0, width: 0, height: 0 };
-  private ecp: ECP;
+  private ecp: ECPServer;
   private focusManager: FocusManager;
+  private theme: Theme;
   private callbacks: PaneCallbacks;
   private nextElementId = 1;
-  
+
   constructor(
-    id: string, 
-    ecp: ECP, 
+    id: string,
+    ecp: ECPServer,
     focusManager: FocusManager,
+    theme: Theme,
     callbacks: PaneCallbacks
   ) {
     this.id = id;
     this.ecp = ecp;
     this.focusManager = focusManager;
+    this.theme = theme;
     this.callbacks = callbacks;
   }
   
@@ -1383,35 +1425,43 @@ export class Pane {
   private renderTabBar(buffer: ScreenBuffer): void {
     const y = this.bounds.y;
     let x = this.bounds.x;
-    
+
+    // Theme colors for tabs
+    const activeTabBg = this.theme.colors['tab.activeBackground'];
+    const activeTabFg = this.theme.colors['tab.activeForeground'];
+    const inactiveTabBg = this.theme.colors['tab.inactiveBackground'];
+    const inactiveTabFg = this.theme.colors['tab.inactiveForeground'];
+    const tabBorderColor = this.theme.colors['tab.border'];
+    const tabBarBg = this.theme.colors['editorGroupHeader.tabsBackground'];
+
     for (let i = 0; i < this.elements.length; i++) {
       const element = this.elements[i];
       const isActive = i === this.activeElementIndex;
       const title = this.truncateTitle(element.getTitle(), 20);
-      
-      // Tab background
-      const bg = isActive ? 'blue' : 'gray';
-      const fg = isActive ? 'white' : 'black';
-      
+
+      // Tab background/foreground from theme
+      const bg = isActive ? activeTabBg : inactiveTabBg;
+      const fg = isActive ? activeTabFg : inactiveTabFg;
+
       // Tab content: " title [x] "
       const tabContent = ` ${title} × `;
-      
+
       for (let j = 0; j < tabContent.length && x + j < this.bounds.x + this.bounds.width; j++) {
         buffer.set(x + j, y, { char: tabContent[j], fg, bg });
       }
-      
+
       x += tabContent.length;
-      
+
       // Separator
       if (i < this.elements.length - 1 && x < this.bounds.x + this.bounds.width) {
-        buffer.set(x, y, { char: '│', fg: 'gray', bg: 'default' });
+        buffer.set(x, y, { char: '│', fg: tabBorderColor, bg: tabBarBg });
         x += 1;
       }
     }
-    
+
     // Fill rest of tab bar
     while (x < this.bounds.x + this.bounds.width) {
-      buffer.set(x, y, { char: ' ', fg: 'default', bg: 'default' });
+      buffer.set(x, y, { char: ' ', fg: tabBarBg, bg: tabBarBg });
       x++;
     }
   }
@@ -1435,36 +1485,42 @@ export class Pane {
   }
   
   private renderAccordionHeader(
-    buffer: ScreenBuffer, 
-    element: BaseElement, 
+    buffer: ScreenBuffer,
+    element: BaseElement,
     y: number,
     isExpanded: boolean
   ): void {
     const icon = isExpanded ? '▼' : '▶';
     const title = element.getTitle();
     const status = element.getStatus();
-    
+
+    // Theme colors for accordion headers
+    const headerBg = this.theme.colors['sideBarSectionHeader.background'];
+    const headerFg = this.theme.colors['sideBarSectionHeader.foreground'];
+    const iconColor = this.theme.colors['icon.foreground'] || this.theme.colors['foreground'];
+    const statusColor = this.theme.colors['descriptionForeground'];
+
     let x = this.bounds.x;
-    
+
     // Icon
-    buffer.set(x, y, { char: icon, fg: 'cyan', bg: 'default' });
+    buffer.set(x, y, { char: icon, fg: iconColor, bg: headerBg });
     x += 2;
-    
+
     // Title
     const maxTitleLen = this.bounds.width - 4 - (status ? status.length + 2 : 0);
     const displayTitle = this.truncateTitle(title, maxTitleLen);
-    
+
     for (const char of displayTitle) {
       if (x >= this.bounds.x + this.bounds.width) break;
-      buffer.set(x, y, { char, fg: 'white', bg: 'default' });
+      buffer.set(x, y, { char, fg: headerFg, bg: headerBg });
       x++;
     }
-    
+
     // Status (right-aligned)
     if (status) {
       const statusX = this.bounds.x + this.bounds.width - status.length - 1;
       for (let i = 0; i < status.length; i++) {
-        buffer.set(statusX + i, y, { char: status[i], fg: 'yellow', bg: 'default' });
+        buffer.set(statusX + i, y, { char: status[i], fg: statusColor, bg: headerBg });
       }
     }
   }
@@ -1548,7 +1604,8 @@ export class Pane {
       GitDiffView: 'Diff',
       AgentChat: 'Agent',
       TerminalSession: 'Terminal',
-      SearchFindResults: 'Search',
+      SearchResults: 'Search',
+      ProjectSearch: 'Find in Files',
       DiagnosticsView: 'Problems',
     };
     return titles[type];
@@ -1569,7 +1626,7 @@ export class Pane {
 
 ## Screen Buffer (Double Buffering)
 
-### src/tui/rendering/buffer.ts
+### src/clients/tui/rendering/buffer.ts
 ```typescript
 import type { Cell, Rect, Size } from '../types';
 
@@ -1742,18 +1799,26 @@ export class ScreenBuffer {
 
 ## Renderer
 
-### src/tui/rendering/renderer.ts
+### src/clients/tui/rendering/renderer.ts
 ```typescript
 import type { Size, Cell } from '../types';
 import { ScreenBuffer } from './buffer';
+import type { Theme } from '../../../services/session/types';
+import { colorToRgb } from '../ansi/colors';
 
 export class Renderer {
   private buffer: ScreenBuffer;
   private size: Size = { width: 80, height: 24 };
+  private theme: Theme;
   private initialized = false;
-  
-  constructor() {
+
+  constructor(theme: Theme) {
+    this.theme = theme;
     this.buffer = new ScreenBuffer(this.size);
+  }
+
+  setTheme(theme: Theme): void {
+    this.theme = theme;
   }
   
   initialize(size: Size): void {
@@ -1908,7 +1973,7 @@ export class Renderer {
 
 ## Overlay Manager
 
-### src/tui/overlays/overlay-manager.ts
+### src/clients/tui/overlays/overlay-manager.ts
 ```typescript
 import type { Rect, Size, KeyEvent, MouseEvent } from '../types';
 import type { ScreenBuffer } from '../rendering/buffer';
@@ -2083,11 +2148,12 @@ export class OverlayManager {
 
 ## Status Bar
 
-### src/tui/status-bar/status-bar.ts
+### src/clients/tui/status-bar/status-bar.ts
 ```typescript
 import type { Rect, KeyEvent, MouseEvent } from '../types';
 import type { ScreenBuffer } from '../rendering/buffer';
-import type { ECP } from '../../ecp/client';
+import type { ECPServer } from '../../../ecp/server';
+import type { Theme } from '../../../services/session/types';
 
 interface StatusItem {
   id: string;
@@ -2109,11 +2175,13 @@ export class StatusBar {
   private expanded = false;
   private expandedHeight = 10;
   private scrollOffset = 0;
-  private ecp: ECP;
-  
-  constructor(ecp: ECP) {
+  private ecp: ECPServer;
+  private theme: Theme;
+
+  constructor(ecp: ECPServer, theme: Theme) {
     this.ecp = ecp;
-    
+    this.theme = theme;
+
     // Default items
     this.items = [
       { id: 'branch', content: '', align: 'left', priority: 1 },
@@ -2178,38 +2246,42 @@ export class StatusBar {
   
   private renderCollapsed(buffer: ScreenBuffer): void {
     const y = this.bounds.y;
-    
+
+    // Theme colors for status bar
+    const statusBarBg = this.theme.colors['statusBar.background'];
+    const statusBarFg = this.theme.colors['statusBar.foreground'];
+
     // Background
     for (let x = this.bounds.x; x < this.bounds.x + this.bounds.width; x++) {
-      buffer.set(x, y, { char: ' ', fg: 'white', bg: '#1e1e1e' });
+      buffer.set(x, y, { char: ' ', fg: statusBarFg, bg: statusBarBg });
     }
-    
+
     // Left items
     let leftX = this.bounds.x + 1;
     const leftItems = this.items
       .filter(i => i.align === 'left' && i.content)
       .sort((a, b) => a.priority - b.priority);
-    
+
     for (const item of leftItems) {
       for (const char of item.content) {
         if (leftX >= this.bounds.x + this.bounds.width / 2) break;
-        buffer.set(leftX++, y, { char, fg: 'white', bg: '#1e1e1e' });
+        buffer.set(leftX++, y, { char, fg: statusBarFg, bg: statusBarBg });
       }
       leftX += 2;  // Separator
     }
-    
+
     // Right items
     let rightX = this.bounds.x + this.bounds.width - 1;
     const rightItems = this.items
       .filter(i => i.align === 'right' && i.content)
       .sort((a, b) => a.priority - b.priority);
-    
+
     for (const item of rightItems.reverse()) {
       rightX -= item.content.length;
       if (rightX < this.bounds.x + this.bounds.width / 2) break;
-      
+
       for (let i = 0; i < item.content.length; i++) {
-        buffer.set(rightX + i, y, { char: item.content[i], fg: 'white', bg: '#1e1e1e' });
+        buffer.set(rightX + i, y, { char: item.content[i], fg: statusBarFg, bg: statusBarBg });
       }
       rightX -= 2;  // Separator
     }
@@ -2218,32 +2290,39 @@ export class StatusBar {
   private renderExpanded(buffer: ScreenBuffer): void {
     // Header line (same as collapsed)
     this.renderCollapsed(buffer);
-    
+
+    // Theme colors for history panel
+    const panelBg = this.theme.colors['panel.background'];
+    const panelFg = this.theme.colors['panel.foreground'] || this.theme.colors['foreground'];
+    const errorFg = this.theme.colors['errorForeground'];
+    const warningFg = this.theme.colors['editorWarning.foreground'];
+    const infoFg = this.theme.colors['descriptionForeground'];
+
     // History area
     const historyStart = this.bounds.y + 1;
     const historyHeight = this.bounds.height - 1;
-    
+
     // Background
     for (let y = historyStart; y < historyStart + historyHeight; y++) {
       for (let x = this.bounds.x; x < this.bounds.x + this.bounds.width; x++) {
-        buffer.set(x, y, { char: ' ', fg: 'white', bg: '#252526' });
+        buffer.set(x, y, { char: ' ', fg: panelFg, bg: panelBg });
       }
     }
-    
+
     // History entries (scrollable)
     const visibleEntries = this.history.slice(
       Math.max(0, this.history.length - historyHeight - this.scrollOffset),
       this.history.length - this.scrollOffset
     );
-    
+
     let y = historyStart;
     for (const entry of visibleEntries) {
       if (y >= historyStart + historyHeight) break;
-      
+
       const timeStr = entry.timestamp.toLocaleTimeString();
-      const fg = entry.type === 'error' ? 'red' : entry.type === 'warning' ? 'yellow' : 'gray';
-      
-      buffer.writeString(this.bounds.x + 1, y, `[${timeStr}] ${entry.message}`, fg, '#252526');
+      const fg = entry.type === 'error' ? errorFg : entry.type === 'warning' ? warningFg : infoFg;
+
+      buffer.writeString(this.bounds.x + 1, y, `[${timeStr}] ${entry.message}`, fg, panelBg);
       y++;
     }
   }
@@ -2278,7 +2357,7 @@ export class StatusBar {
 
 ## Focus Manager
 
-### src/tui/input/focus-manager.ts
+### src/clients/tui/input/focus-manager.ts
 ```typescript
 import type { KeyEvent, MouseEvent } from '../types';
 import type { BaseElement } from '../elements/base';
@@ -2432,7 +2511,7 @@ export class FocusManager {
 
 ## Element Factory
 
-### src/tui/elements/factory.ts
+### src/clients/tui/elements/factory.ts
 ```typescript
 import type { ElementType } from '../types';
 import type { BaseElement, ElementContext } from './base';
@@ -2442,7 +2521,8 @@ import { GitPanel } from './git-panel';
 import { GitDiffView } from './git-diff-view';
 import { AgentChat } from './agent-chat';
 import { TerminalSession } from './terminal-session';
-import { SearchFindResults } from './search-find-results';
+import { SearchResults } from './search-results';
+import { ProjectSearch } from './project-search';
 import { DiagnosticsView } from './diagnostics-view';
 
 type ElementConstructor = new (
@@ -2459,7 +2539,8 @@ const elementRegistry = new Map<ElementType, ElementConstructor>([
   ['GitDiffView', GitDiffView],
   ['AgentChat', AgentChat],
   ['TerminalSession', TerminalSession],
-  ['SearchFindResults', SearchFindResults],
+  ['SearchResults', SearchResults],
+  ['ProjectSearch', ProjectSearch],  // TBD - placeholder implementation
   ['DiagnosticsView', DiagnosticsView],
 ]);
 
@@ -2496,7 +2577,7 @@ export function registerElementType(
 
 ## Layout Presets
 
-### src/tui/layout/layout-presets.ts
+### src/clients/tui/layout/layout-presets.ts
 ```typescript
 import type { LayoutConfig, PaneConfig, SplitConfig } from '../types';
 
@@ -2696,11 +2777,172 @@ export function getDefaultPreset(): LayoutPreset {
 ## Notes
 
 - All elements extend `BaseElement` and can be subclassed for custom functionality
-- Elements communicate with services via ECP client, never directly
-- Session service extracts layout state via `window.getLayout()`
+- Elements communicate with services via ECP server, never directly
+- Layout state persisted via `layout-serializer.ts` (not Session Service)
 - Dirty region tracking minimizes terminal writes
 - Double buffering prevents flicker
 - Focus is global (one element active at a time)
 - Pane navigation mode (Ctrl+G) allows keyboard-only pane switching
 - Tab overflow handling is configurable (scroll/dropdown/truncate)
-- Borders are configurable (will be added to theme settings)
+- **All colors come from Session Service themes - no hardcoded colors**
+
+---
+
+## Vim Mode Extensibility
+
+The TUI architecture is designed to make vim mode implementation straightforward in the future:
+
+### Design Considerations
+
+1. **Input Layer Abstraction**: The `input-handler.ts` processes raw input and produces `KeyEvent` objects. Vim mode can intercept at this layer.
+
+2. **Mode State**: Add a mode manager that tracks current mode (normal, insert, visual, command):
+   ```typescript
+   type VimMode = 'normal' | 'insert' | 'visual' | 'visual-line' | 'command';
+
+   interface VimModeManager {
+     currentMode: VimMode;
+     onModeChange(callback: (mode: VimMode) => void): Unsubscribe;
+     setMode(mode: VimMode): void;
+   }
+   ```
+
+3. **Key Binding Priority**: Vim keybindings take precedence when vim mode is enabled. The focus manager can check vim mode before routing to elements.
+
+4. **Element Support**: `DocumentEditor` will need vim-specific methods:
+   - Motion commands (w, b, e, 0, $, gg, G)
+   - Operators (d, c, y)
+   - Text objects (iw, aw, i", a")
+   - Registers for yank/paste
+   - Marks and jumps
+
+5. **Status Line Integration**: Status bar shows current mode with appropriate theme color.
+
+6. **Command Line**: `:` commands use an overlay input field, similar to command palette.
+
+### Implementation Path
+
+1. Add `VimModeManager` to `Window`
+2. Extend `BaseElement` with optional vim mode handlers
+3. Implement vim keybindings in `DocumentEditor` first
+4. Add visual feedback for mode changes
+5. Implement `:` command parsing
+
+---
+
+## AgentChat Element
+
+The `AgentChat` element provides an interactive AI chat interface within the editor.
+
+### Scope
+
+- **Purpose**: Interactive AI chat where the agent interacts with Ultra via ECP
+- **Inspiration**: Current AI pane implementation - will be implemented and refined iteratively
+
+### Core Features
+
+1. **Message Display**: Render conversation history with user/assistant message styling
+2. **Input Field**: Multi-line text input at bottom of element
+3. **Streaming Response**: Display AI responses as they stream in
+4. **Code Blocks**: Syntax-highlighted code blocks in messages
+5. **Actions**: Agent can perform actions (file edits, terminal commands) via ECP
+
+### ECP Integration
+
+```typescript
+// AgentChat uses these ECP methods:
+interface AgentChatECPMethods {
+  // Send message and receive streaming response
+  'agent/sendMessage': (params: { message: string }) => AsyncIterable<AgentResponse>;
+
+  // Agent actions (agent requests, TUI confirms with user)
+  'agent/fileEdit': (params: FileEditParams) => Promise<void>;
+  'agent/terminalCommand': (params: CommandParams) => Promise<CommandResult>;
+
+  // Session management
+  'agent/newSession': () => Promise<{ sessionId: string }>;
+  'agent/loadSession': (params: { sessionId: string }) => Promise<void>;
+}
+```
+
+### UI Layout
+
+```
+┌─────────────────────────────────────┐
+│ Agent                           [⚙] │
+├─────────────────────────────────────┤
+│ User: How do I add a new route?     │
+│                                     │
+│ Agent: To add a new route, you'll   │
+│ need to modify the router config... │
+│                                     │
+│ ```typescript                       │
+│ router.get('/api/users', handler)   │
+│ ```                                 │
+│                                     │
+│ Should I create this file for you?  │
+│ [Yes] [No] [Edit first]            │
+├─────────────────────────────────────┤
+│ > Type your message...              │
+│                                  [↵] │
+└─────────────────────────────────────┘
+```
+
+---
+
+## Search Architecture
+
+### Document Search (SearchResults)
+
+The `SearchResults` element handles find-in-document search:
+
+- Activated via Ctrl+F in `DocumentEditor`
+- Shows matches with context
+- Supports regex and case sensitivity
+- Integrates with document selection/navigation via ECP
+
+### Project-Wide Search (ProjectSearch) - TBD
+
+The `ProjectSearch` element handles find-across-files:
+
+- Placeholder implementation for now
+- Will use `file/search` ECP method when implemented
+- Features to design:
+  - File pattern filtering (glob support)
+  - Exclude patterns (respects .gitignore)
+  - Replace across files
+  - Search results grouping by file
+  - Preview with context
+
+This will be designed in detail when the File Service search capabilities are expanded.
+
+---
+
+## Mouse Support
+
+Full mouse support is implemented across all TUI elements:
+
+### Supported Interactions
+
+| Element | Click | Double-Click | Drag | Scroll | Right-Click |
+|---------|-------|--------------|------|--------|-------------|
+| DocumentEditor | Position cursor | Select word | Select text | Scroll content | Context menu |
+| FileTree | Select item | Open file | - | Scroll list | Context menu |
+| GitPanel | Select file | Open diff | - | Scroll list | Context menu |
+| GitDiffView | - | - | - | Scroll diff | - |
+| AgentChat | - | Select text | - | Scroll history | Copy text |
+| TerminalSession | - | Select text | Select text | Scroll buffer | Paste |
+| TabBar | Switch tab | - | Reorder tabs | - | Close tab |
+| AccordionHeader | Toggle section | - | - | - | - |
+| StatusBar | Toggle expand | - | - | Scroll history | - |
+| Pane Dividers | - | - | Resize panes | - | - |
+| Overlays | Button clicks | - | - | Scroll lists | Dismiss |
+| Scrollbars | Jump to position | - | Drag thumb | - | - |
+
+### Mouse Mode Settings
+
+Mouse tracking is enabled via ANSI escape sequences:
+- `\x1b[?1000h` - Basic mouse tracking
+- `\x1b[?1006h` - SGR extended mode (supports coordinates > 223)
+
+The `input-handler.ts` parses mouse events and routes them through the focus system.
