@@ -71,6 +71,9 @@ export class CommitDialog extends PromiseDialog<CommitResult> {
   /** Max visible lines in message area */
   private maxVisibleLines: number = 8;
 
+  /** Input area width for wrapping */
+  private inputWidth: number = 60;
+
   constructor(id: string, callbacks: OverlayManagerCallbacks) {
     super(id, callbacks);
   }
@@ -267,11 +270,101 @@ export class CommitDialog extends PromiseDialog<CommitResult> {
   }
 
   private ensureCursorVisible(): void {
-    if (this.cursorLine < this.scrollOffset) {
-      this.scrollOffset = this.cursorLine;
-    } else if (this.cursorLine >= this.scrollOffset + this.maxVisibleLines) {
-      this.scrollOffset = this.cursorLine - this.maxVisibleLines + 1;
+    // Calculate visual row for cursor position
+    const { visualRow } = this.getVisualPosition(this.cursorLine, this.cursorCol);
+
+    if (visualRow < this.scrollOffset) {
+      this.scrollOffset = visualRow;
+    } else if (visualRow >= this.scrollOffset + this.maxVisibleLines) {
+      this.scrollOffset = visualRow - this.maxVisibleLines + 1;
     }
+  }
+
+  /**
+   * Wrap a single line into multiple visual lines.
+   * Uses word boundaries when possible.
+   */
+  private wrapLine(line: string, width: number): string[] {
+    if (width <= 0) return [line];
+    if (line.length <= width) return [line];
+
+    const wrapped: string[] = [];
+    let remaining = line;
+
+    while (remaining.length > width) {
+      // Try to find a word boundary
+      let breakPoint = width;
+      const lastSpace = remaining.lastIndexOf(' ', width);
+      if (lastSpace > width * 0.4) {
+        // Found a reasonable word boundary
+        breakPoint = lastSpace;
+      }
+
+      wrapped.push(remaining.slice(0, breakPoint));
+      remaining = remaining.slice(breakPoint).trimStart();
+    }
+
+    if (remaining.length > 0 || wrapped.length === 0) {
+      wrapped.push(remaining);
+    }
+
+    return wrapped;
+  }
+
+  /**
+   * Get all lines wrapped for display.
+   * Returns array of { text, logicalLine, startCol }.
+   */
+  private getWrappedLines(): Array<{ text: string; logicalLine: number; startCol: number }> {
+    const result: Array<{ text: string; logicalLine: number; startCol: number }> = [];
+    const wrapWidth = this.inputWidth - 2; // Account for padding
+
+    for (let i = 0; i < this.lines.length; i++) {
+      const line = this.lines[i] ?? '';
+      const wrapped = this.wrapLine(line, wrapWidth);
+      let col = 0;
+
+      for (const wrappedLine of wrapped) {
+        result.push({ text: wrappedLine, logicalLine: i, startCol: col });
+        col += wrappedLine.length + (wrappedLine.length < wrapWidth ? 0 : 0);
+        // Account for trimmed spaces in word wrap
+        const nextStart = line.indexOf(wrappedLine, col - wrappedLine.length) + wrappedLine.length;
+        while (nextStart < line.length && line[nextStart] === ' ' && col < nextStart + 1) {
+          col++;
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Convert logical (line, col) to visual (row, col).
+   */
+  private getVisualPosition(logicalLine: number, logicalCol: number): { visualRow: number; visualCol: number } {
+    const wrapped = this.getWrappedLines();
+    let visualRow = 0;
+
+    for (const wrap of wrapped) {
+      if (wrap.logicalLine === logicalLine) {
+        const lineEnd = wrap.startCol + wrap.text.length;
+        if (logicalCol >= wrap.startCol && logicalCol <= lineEnd) {
+          return { visualRow, visualCol: logicalCol - wrap.startCol };
+        }
+        // Continue to check if cursor is beyond this wrapped segment
+        if (logicalCol > lineEnd && wrap.logicalLine === logicalLine) {
+          visualRow++;
+          continue;
+        }
+      } else if (wrap.logicalLine < logicalLine) {
+        visualRow++;
+      } else {
+        break;
+      }
+    }
+
+    // Fallback: cursor at end of last wrapped line for this logical line
+    return { visualRow: Math.max(0, visualRow - 1), visualCol: logicalCol };
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -330,29 +423,34 @@ export class CommitDialog extends PromiseDialog<CommitResult> {
     // Message input area
     const messageHeight = content.height - (y - content.y) - 2;
     this.maxVisibleLines = Math.max(1, messageHeight);
-    const inputWidth = content.width;
+    this.inputWidth = content.width;
 
     // Draw input background
     for (let row = 0; row < this.maxVisibleLines; row++) {
-      for (let col = 0; col < inputWidth; col++) {
+      for (let col = 0; col < this.inputWidth; col++) {
         buffer.set(content.x + col, y + row, { char: ' ', fg, bg: inputBg });
       }
     }
 
-    // Render message lines
-    for (let row = 0; row < this.maxVisibleLines; row++) {
-      const lineIndex = this.scrollOffset + row;
-      if (lineIndex >= this.lines.length) break;
+    // Get wrapped lines and cursor visual position
+    const wrappedLines = this.getWrappedLines();
+    const { visualRow: cursorVisualRow, visualCol: cursorVisualCol } =
+      this.getVisualPosition(this.cursorLine, this.cursorCol);
 
-      const line = this.lines[lineIndex] ?? '';
-      const displayLine = line.slice(0, inputWidth - 1);
+    // Render wrapped message lines
+    for (let row = 0; row < this.maxVisibleLines; row++) {
+      const wrapIndex = this.scrollOffset + row;
+      if (wrapIndex >= wrappedLines.length) break;
+
+      const wrap = wrappedLines[wrapIndex]!;
+      const displayLine = wrap.text.slice(0, this.inputWidth - 2);
       buffer.writeString(content.x + 1, y + row, displayLine, fg, inputBg);
 
-      // Cursor
-      if (lineIndex === this.cursorLine) {
-        const cursorX = content.x + 1 + this.cursorCol;
-        if (cursorX < content.x + inputWidth) {
-          const cursorChar = line[this.cursorCol] ?? ' ';
+      // Cursor - check if this visual row contains the cursor
+      if (wrapIndex === cursorVisualRow) {
+        const cursorX = content.x + 1 + cursorVisualCol;
+        if (cursorX < content.x + this.inputWidth - 1) {
+          const cursorChar = wrap.text[cursorVisualCol] ?? ' ';
           buffer.set(cursorX, y + row, { char: cursorChar, fg: inputBg, bg: focusBorder });
         }
       }
