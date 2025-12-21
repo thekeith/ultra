@@ -79,7 +79,7 @@ function ansiToHex(code: number): string | null {
 /**
  * Simple screen buffer for terminal rendering
  */
-class ScreenBuffer {
+export class ScreenBuffer {
   private buffer: TerminalCell[][];
   private scrollback: TerminalCell[][] = [];
   private viewOffset: number = 0;  // How many lines scrolled back (0 = showing current)
@@ -466,12 +466,19 @@ class ScreenBuffer {
   getViewOffset(): number {
     return this.viewOffset;
   }
+
+  /**
+   * Get total number of lines (scrollback + visible buffer)
+   */
+  getTotalLines(): number {
+    return this.scrollback.length + this.buffer.length;
+  }
 }
 
 /**
  * Simple ANSI escape sequence parser
  */
-class AnsiParser {
+export class AnsiParser {
   private state: 'normal' | 'escape' | 'csi' | 'osc' = 'normal';
   private csiParams: string = '';
   private oscData: string = '';
@@ -811,6 +818,13 @@ export class PTY {
    */
   getViewOffset(): number {
     return this.screen.getViewOffset();
+  }
+
+  /**
+   * Get total number of lines (scrollback + visible)
+   */
+  getTotalLines(): number {
+    return this.screen.getTotalLines();
   }
 
   /**

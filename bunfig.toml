@@ -1,0 +1,11 @@
+# Bun configuration for Ultra
+
+[test]
+root = "./tests"
+preload = ["./tests/setup.ts"]
+
+# Path aliases for cleaner imports in tests
+[test.resolver]
+"@/*" = ["./src/*"]
+"@test/*" = ["./tests/helpers/*"]
+"@fixtures/*" = ["./tests/fixtures/*"]
