@@ -5,6 +5,7 @@
  * Implements a tree structure where leaves are Panes and nodes are splits.
  */
 
+import { debugLog } from '../../../debug.ts';
 import type {
   Rect,
   SplitDirection,
@@ -170,7 +171,9 @@ export class PaneContainer implements FocusResolver {
     return {
       onDirty: () => this.callbacks.onDirty(),
       onFocusRequest: (elementId) => {
-        this.focusManager?.focusElement(elementId);
+        debugLog(`[PaneContainer] Focus request for element: ${elementId} in pane: ${paneId}`);
+        const result = this.focusManager?.focusElement(elementId);
+        debugLog(`[PaneContainer] Focus result: ${result}`);
       },
       getThemeColor: (key, fallback) => this.callbacks.getThemeColor(key, fallback),
       onElementClose: (elementId, element) => {

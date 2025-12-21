@@ -361,11 +361,14 @@ export class FileTree extends BaseElement {
 
   render(buffer: ScreenBuffer): void {
     const { x, y, width, height } = this.bounds;
-    const bg = this.ctx.getThemeColor('sideBar.background', '#252526');
+    // Use slightly lighter background when focused
+    const baseBg = this.ctx.getThemeColor('sideBar.background', '#252526');
+    const focusBg = this.ctx.getThemeColor('list.hoverBackground', '#2a2d2e');
+    const bg = this.focused ? focusBg : baseBg;
     const fg = this.ctx.getThemeColor('sideBar.foreground', '#cccccc');
     const selectedBg = this.ctx.getThemeColor('list.activeSelectionBackground', '#094771');
     const selectedFg = this.ctx.getThemeColor('list.activeSelectionForeground', '#ffffff');
-    const hoverBg = this.ctx.getThemeColor('list.hoverBackground', '#2a2d2e');
+    const hoverBg = this.ctx.getThemeColor('list.inactiveSelectionBackground', '#37373d');
     const gitModified = this.ctx.getThemeColor('gitDecoration.modifiedResourceForeground', '#e2c08d');
     const gitAdded = this.ctx.getThemeColor('gitDecoration.addedResourceForeground', '#81b88b');
     const gitDeleted = this.ctx.getThemeColor('gitDecoration.deletedResourceForeground', '#c74e39');
@@ -584,11 +587,15 @@ export class FileTree extends BaseElement {
     }
 
     if (event.type === 'scroll') {
-      // Use scrollDirection (1=down, -1=up), multiply by 3 for faster scroll
-      const direction = (event.scrollDirection ?? 1) * 3;
-      this.scrollTop = Math.max(0, Math.min(this.scrollTop + direction, this.viewNodes.length - this.bounds.height));
-      this.ctx.markDirty();
-      return true;
+      // Check if scroll is within our bounds
+      if (event.x >= this.bounds.x && event.x < this.bounds.x + this.bounds.width &&
+          event.y >= this.bounds.y && event.y < this.bounds.y + this.bounds.height) {
+        // Use scrollDirection (1=down, -1=up), multiply by 3 for faster scroll
+        const direction = (event.scrollDirection ?? 1) * 3;
+        this.scrollTop = Math.max(0, Math.min(this.scrollTop + direction, this.viewNodes.length - this.bounds.height));
+        this.ctx.markDirty();
+        return true;
+      }
     }
 
     return false;

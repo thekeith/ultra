@@ -118,6 +118,7 @@ export class Window {
       onElementClose: config.onElementClose,
     };
     this.paneContainer = createPaneContainer(paneContainerCallbacks);
+    this.paneContainer.setFocusManager(this.focusManager);
     this.focusManager.setResolver(this.paneContainer);
 
     // Create status bar

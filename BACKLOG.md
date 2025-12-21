@@ -1,0 +1,22 @@
+# Ultra 1.0 Backlog
+
+Issues and improvements to address in future sessions.
+
+## TUI
+
+- [ ] **Git panel hint bar truncation** - The keyboard shortcut hints at the bottom of the git panel are truncated to fit narrow widths. Need a better solution that either:
+  - Dynamically shows fewer hints based on available width
+  - Uses abbreviated key names (e.g., `s` instead of `s:stage`)
+  - Shows hints in a tooltip/overlay on hover or key press
+  - Scrolls horizontally or wraps to additional lines
+
+- [ ] **Consolidate list item selection rendering** - Both `FileTree` and `GitPanel` have similar logic for rendering selected items with active/inactive backgrounds. Consider:
+  - Adding a helper method to `BaseElement` for list item colors
+  - Creating a `ListElement` base class with shared selection rendering
+  - Extracting theme color constants for list selection states
+
+## Services
+
+## ECP
+
+## Testing

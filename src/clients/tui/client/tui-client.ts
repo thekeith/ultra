@@ -113,6 +113,12 @@ export class TUIClient {
   /** Sidebar pane ID */
   private sidebarPaneId: string | null = null;
 
+  /** Git status polling interval */
+  private gitStatusInterval: ReturnType<typeof setInterval> | null = null;
+
+  /** Git status polling rate in ms */
+  private static readonly GIT_STATUS_POLL_INTERVAL = 1000;
+
   constructor(options: TUIClientOptions = {}) {
     this.workingDirectory = options.workingDirectory ?? process.cwd();
     this.debug = options.debug ?? false;
@@ -199,6 +205,9 @@ export class TUIClient {
     // Setup initial layout
     await this.setupInitialLayout();
 
+    // Start git status polling
+    this.startGitStatusPolling();
+
     // Initial render
     this.render();
 
@@ -212,6 +221,9 @@ export class TUIClient {
     if (!this.running) return;
 
     this.running = false;
+
+    // Stop git status polling
+    this.stopGitStatusPolling();
 
     // Stop input handler
     this.inputHandler.stop();
@@ -599,7 +611,9 @@ export class TUIClient {
    */
   private async loadGitStatus(gitPanel: GitPanel): Promise<void> {
     try {
-      const status = await gitCliService.status(this.workingDirectory);
+      this.log(`Loading git status for: ${this.workingDirectory}`);
+      const status = await gitCliService.status(this.workingDirectory, true); // Force refresh
+      this.log(`Git status: branch=${status.branch}, staged=${status.staged.length}, unstaged=${status.unstaged.length}, untracked=${status.untracked.length}`);
 
       // Map service GitStatus to GitPanel's GitState
       gitPanel.setGitState({
@@ -650,6 +664,38 @@ export class TUIClient {
           }
         }
       }
+    }
+  }
+
+  /**
+   * Start polling for git status changes.
+   */
+  private startGitStatusPolling(): void {
+    // Clear any existing interval
+    this.stopGitStatusPolling();
+
+    // Poll at regular intervals
+    this.gitStatusInterval = setInterval(() => {
+      // Don't poll if not running
+      if (!this.running) return;
+
+      // Refresh git status (fire and forget, don't await)
+      this.refreshGitStatus().catch((err) => {
+        this.log(`Git status poll error: ${err}`);
+      });
+    }, TUIClient.GIT_STATUS_POLL_INTERVAL);
+
+    this.log(`Git status polling started (${TUIClient.GIT_STATUS_POLL_INTERVAL}ms)`);
+  }
+
+  /**
+   * Stop polling for git status changes.
+   */
+  private stopGitStatusPolling(): void {
+    if (this.gitStatusInterval) {
+      clearInterval(this.gitStatusInterval);
+      this.gitStatusInterval = null;
+      this.log('Git status polling stopped');
     }
   }
 

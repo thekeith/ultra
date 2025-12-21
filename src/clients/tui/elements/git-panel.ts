@@ -325,6 +325,18 @@ export class GitPanel extends BaseElement {
   }
 
   /**
+   * Stage all unstaged and untracked files.
+   */
+  stageAll(): void {
+    for (const change of this.state.unstaged) {
+      this.callbacks.onStage?.(change.path);
+    }
+    for (const change of this.state.untracked) {
+      this.callbacks.onStage?.(change.path);
+    }
+  }
+
+  /**
    * Discard changes to selected file.
    */
   discardChanges(): void {
@@ -360,7 +372,9 @@ export class GitPanel extends BaseElement {
    * Ensure selected item is visible.
    */
   private ensureVisible(): void {
-    const viewportHeight = this.bounds.height - 2; // Account for header
+    // Account for header (1) and hint bar (2 when focused)
+    const hintBarHeight = this.focused ? 2 : 0;
+    const viewportHeight = this.bounds.height - 1 - hintBarHeight;
 
     if (this.selectedIndex < this.scrollTop) {
       this.scrollTop = this.selectedIndex;
@@ -375,12 +389,22 @@ export class GitPanel extends BaseElement {
 
   render(buffer: ScreenBuffer): void {
     const { x, y, width, height } = this.bounds;
-    const bg = this.ctx.getThemeColor('sideBar.background', '#252526');
+
+    // Debug: log bounds and view nodes
+    if (height === 0) {
+      return; // Nothing to render
+    }
+
+    // Use slightly lighter background when focused
+    const baseBg = this.ctx.getThemeColor('sideBar.background', '#252526');
+    const focusBg = this.ctx.getThemeColor('list.hoverBackground', '#2a2d2e');
+    const bg = this.focused ? focusBg : baseBg;
     const fg = this.ctx.getThemeColor('sideBar.foreground', '#cccccc');
     const headerBg = this.ctx.getThemeColor('sideBarSectionHeader.background', '#383838');
     const headerFg = this.ctx.getThemeColor('sideBarSectionHeader.foreground', '#cccccc');
     const selectedBg = this.ctx.getThemeColor('list.activeSelectionBackground', '#094771');
     const selectedFg = this.ctx.getThemeColor('list.activeSelectionForeground', '#ffffff');
+    const inactiveSelectionBg = this.ctx.getThemeColor('list.inactiveSelectionBackground', '#37373d');
 
     // Colors for git status
     const stagedColor = this.ctx.getThemeColor('gitDecoration.addedResourceForeground', '#81b88b');
@@ -405,9 +429,10 @@ export class GitPanel extends BaseElement {
     if (this.state.rebasing) headerText += ' REBASING';
     buffer.writeString(x, y, headerText.padEnd(width, ' '), headerFg, headerBg);
 
-    // Render view nodes
+    // Render view nodes (reserve 2 rows for hint bar at bottom when focused)
     const contentStart = y + 1;
-    const contentHeight = height - 1;
+    const hintBarHeight = this.focused ? 2 : 0;
+    const contentHeight = Math.max(0, height - 1 - hintBarHeight);
 
     for (let row = 0; row < contentHeight; row++) {
       const viewIdx = this.scrollTop + row;
@@ -429,8 +454,8 @@ export class GitPanel extends BaseElement {
           x,
           screenY,
           line,
-          isSelected && this.focused ? selectedFg : headerFg,
-          isSelected && this.focused ? selectedBg : headerBg
+          isSelected ? selectedFg : headerFg,
+          isSelected ? (this.focused ? selectedBg : inactiveSelectionBg) : headerBg
         );
       } else if (node.change) {
         // Render file entry
@@ -470,8 +495,8 @@ export class GitPanel extends BaseElement {
           x,
           screenY,
           line,
-          isSelected && this.focused ? selectedFg : fileColor,
-          isSelected && this.focused ? selectedBg : bg
+          isSelected ? selectedFg : fileColor,
+          isSelected ? (this.focused ? selectedBg : inactiveSelectionBg) : bg
         );
       }
     }
@@ -481,6 +506,37 @@ export class GitPanel extends BaseElement {
       const msg = 'No changes';
       const msgX = x + Math.floor((width - msg.length) / 2);
       buffer.writeString(msgX, contentStart + 2, msg, '#888888', bg);
+    }
+
+    // Render keyboard hints bar at bottom (only when focused, 2 lines)
+    // Hints go immediately after content area, within bounds
+    if (this.focused && contentHeight >= 1) {
+      const hintBg = this.ctx.getThemeColor('statusBar.background', '#007acc');
+      const hintFg = this.ctx.getThemeColor('statusBar.foreground', '#ffffff');
+
+      // Build hints - 2 lines, truncated to fit width
+      // Line 1: s:stage, S:stage-all, u:unstage, d:discard
+      // Line 2: c:commit, r:refresh, o:open, Enter:diff
+      let line1 = ' s:stage S:all u:unstage d:discard';
+      let line2 = ' c:commit r:refresh o:open';
+
+      // Truncate and pad to exact width
+      if (line1.length > width) line1 = line1.slice(0, width);
+      if (line2.length > width) line2 = line2.slice(0, width);
+      line1 = line1.padEnd(width, ' ').slice(0, width);
+      line2 = line2.padEnd(width, ' ').slice(0, width);
+
+      // Position hints right after content, strictly within bounds
+      const hintY1 = contentStart + contentHeight;
+      const hintY2 = hintY1 + 1;
+
+      // Only draw if within allocated bounds (y to y+height-1 inclusive)
+      if (hintY1 < y + height) {
+        buffer.writeString(x, hintY1, line1, hintFg, hintBg);
+      }
+      if (hintY2 < y + height) {
+        buffer.writeString(x, hintY2, line2, hintFg, hintBg);
+      }
     }
   }
 
@@ -559,20 +615,39 @@ export class GitPanel extends BaseElement {
       }
       return true;
     }
-    if (event.key === ' ') {
-      this.stageOrUnstage();
+    // s: stage file (unstaged/untracked only)
+    if (event.key === 's' && !event.shift && !event.ctrl) {
+      const node = this.getSelectedNode();
+      if (node?.type === 'file' && node.section !== 'staged') {
+        this.callbacks.onStage?.(node.change!.path);
+      }
       return true;
     }
+    // S: stage all
+    if (event.key === 'S' || (event.key === 's' && event.shift)) {
+      this.stageAll();
+      return true;
+    }
+    // u: unstage file (staged only)
+    if (event.key === 'u' && !event.ctrl) {
+      const node = this.getSelectedNode();
+      if (node?.type === 'file' && node.section === 'staged') {
+        this.callbacks.onUnstage?.(node.change!.path);
+      }
+      return true;
+    }
+    // d: discard changes
     if (event.key === 'd' && !event.ctrl) {
       this.discardChanges();
       return true;
     }
-    if (event.key === 'o' || event.key === 'e') {
-      this.openFile();
+    // c: commit
+    if (event.key === 'c' && !event.ctrl) {
+      this.callbacks.onCommit?.();
       return true;
     }
-    if (event.key === 'c' && event.ctrl) {
-      this.callbacks.onCommit?.();
+    if (event.key === 'o' || event.key === 'e') {
+      this.openFile();
       return true;
     }
     if (event.key === 'r' && !event.ctrl) {
@@ -599,26 +674,55 @@ export class GitPanel extends BaseElement {
     return false;
   }
 
+  /** Last click time for double-click detection */
+  private lastClickTime = 0;
+  /** Last clicked index for double-click detection */
+  private lastClickIndex = -1;
+
   override handleMouse(event: MouseEvent): boolean {
     if (event.type === 'press' && event.button === 'left') {
-      const relY = event.y - this.bounds.y - 1; // Subtract header
-      if (relY >= 0) {
-        const viewIdx = this.scrollTop + relY;
-        if (viewIdx >= 0 && viewIdx < this.viewNodes.length) {
-          this.selectedIndex = viewIdx;
-          this.ctx.requestFocus();
-          this.ctx.markDirty();
-          return true;
+      // Check if click is within our bounds
+      if (event.x >= this.bounds.x && event.x < this.bounds.x + this.bounds.width &&
+          event.y >= this.bounds.y && event.y < this.bounds.y + this.bounds.height) {
+        // Always request focus when clicked
+        this.ctx.requestFocus();
+
+        const relY = event.y - this.bounds.y - 1; // Subtract internal header row
+        if (relY >= 0 && this.viewNodes.length > 0) {
+          const viewIdx = this.scrollTop + relY;
+          if (viewIdx >= 0 && viewIdx < this.viewNodes.length) {
+            const now = Date.now();
+            const isDoubleClick = viewIdx === this.lastClickIndex && (now - this.lastClickTime) < 300;
+
+            this.selectedIndex = viewIdx;
+
+            // Double-click opens file
+            if (isDoubleClick) {
+              const node = this.viewNodes[viewIdx];
+              if (node?.type === 'file' && node.change) {
+                this.callbacks.onOpenFile?.(node.change.path);
+              }
+            }
+
+            this.lastClickTime = now;
+            this.lastClickIndex = viewIdx;
+          }
         }
+        this.ctx.markDirty();
+        return true;
       }
     }
 
     if (event.type === 'scroll') {
-      // Use scrollDirection (1=down, -1=up), multiply by 3 for faster scroll
-      const delta = (event.scrollDirection ?? 1) * 3;
-      this.scrollTop = Math.max(0, Math.min(this.scrollTop + delta, this.viewNodes.length - (this.bounds.height - 1)));
-      this.ctx.markDirty();
-      return true;
+      // Check if scroll is within our bounds
+      if (event.x >= this.bounds.x && event.x < this.bounds.x + this.bounds.width &&
+          event.y >= this.bounds.y && event.y < this.bounds.y + this.bounds.height) {
+        // Use scrollDirection (1=down, -1=up), multiply by 3 for faster scroll
+        const delta = (event.scrollDirection ?? 1) * 3;
+        this.scrollTop = Math.max(0, Math.min(this.scrollTop + delta, this.viewNodes.length - (this.bounds.height - 1)));
+        this.ctx.markDirty();
+        return true;
+      }
     }
 
     return false;

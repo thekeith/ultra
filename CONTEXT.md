@@ -5,6 +5,7 @@ Ultra is a terminal-based code editor written in TypeScript, compiled to a singl
 
 ## Architecture
 
+
 ### Core Structure
 - **Entry**: `src/index.ts` → `src/app.ts` (App class)
 - **Bundler**: `build.ts` compiles everything to `./ultra` binary
