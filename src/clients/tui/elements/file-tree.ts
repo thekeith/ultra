@@ -548,28 +548,44 @@ export class FileTree extends BaseElement {
     return false;
   }
 
+  /** Last click time for double-click detection */
+  private lastClickTime = 0;
+  /** Last clicked index for double-click detection */
+  private lastClickIndex = -1;
+
   override handleMouse(event: MouseEvent): boolean {
     if (event.type === 'press' && event.button === 'left') {
       const relY = event.y - this.bounds.y;
       const viewIdx = this.scrollTop + relY;
 
       if (viewIdx >= 0 && viewIdx < this.viewNodes.length) {
+        const now = Date.now();
+        const isDoubleClick = viewIdx === this.lastClickIndex && (now - this.lastClickTime) < 300;
+
         this.selectedIndex = viewIdx;
         this.callbacks.onSelectionChange?.(this.getSelectedPath());
         this.ctx.requestFocus();
         this.ctx.markDirty();
 
-        // Double-click behavior (open on single click for now)
         const node = this.viewNodes[viewIdx]!.node;
-        if (!node.isDirectory) {
+
+        if (node.isDirectory) {
+          // Single click on folder: expand/collapse
+          this.toggle();
+        } else if (isDoubleClick) {
+          // Double-click on file: open it
           this.callbacks.onFileOpen?.(node.path);
         }
+
+        this.lastClickTime = now;
+        this.lastClickIndex = viewIdx;
         return true;
       }
     }
 
     if (event.type === 'scroll') {
-      const direction = event.y > 0 ? 3 : -3;
+      // Use scrollDirection (1=down, -1=up), multiply by 3 for faster scroll
+      const direction = (event.scrollDirection ?? 1) * 3;
       this.scrollTop = Math.max(0, Math.min(this.scrollTop + direction, this.viewNodes.length - this.bounds.height));
       this.ctx.markDirty();
       return true;

@@ -859,12 +859,15 @@ export class DocumentEditor extends BaseElement {
       const relX = event.x - this.bounds.x - this.gutterWidth;
       const relY = event.y - this.bounds.y;
 
-      if (relX >= 0) {
-        const line = Math.min(this.scrollTop + relY, this.lines.length - 1);
-        const column = Math.min(this.scrollLeft + relX, this.lines[line]!.text.length);
-        this.setCursor({ line, column });
-        this.clearSelection();
-        this.ctx.requestFocus();
+      if (relX >= 0 && this.lines.length > 0) {
+        const line = Math.max(0, Math.min(this.scrollTop + relY, this.lines.length - 1));
+        const lineText = this.lines[line];
+        if (lineText) {
+          const column = Math.min(this.scrollLeft + relX, lineText.text.length);
+          this.setCursor({ line, column });
+          this.clearSelection();
+          this.ctx.requestFocus();
+        }
         return true;
       }
     }

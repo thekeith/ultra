@@ -614,7 +614,8 @@ export class GitPanel extends BaseElement {
     }
 
     if (event.type === 'scroll') {
-      const delta = event.y > 0 ? 3 : -3;
+      // Use scrollDirection (1=down, -1=up), multiply by 3 for faster scroll
+      const delta = (event.scrollDirection ?? 1) * 3;
       this.scrollTop = Math.max(0, Math.min(this.scrollTop + delta, this.viewNodes.length - (this.bounds.height - 1)));
       this.ctx.markDirty();
       return true;
