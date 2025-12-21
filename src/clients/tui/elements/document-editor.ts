@@ -859,9 +859,13 @@ export class DocumentEditor extends BaseElement {
     const minimapX = x + width - DocumentEditor.SCROLLBAR_WIDTH - minimapWidth;
     const scale = DocumentEditor.MINIMAP_SCALE;
 
-    const bg = this.ctx.getThemeColor('minimap.background', '#1e1e1e');
-    const fg = this.ctx.getThemeColor('minimap.foreground', '#6a6a6a');
-    const viewportBg = this.ctx.getThemeColor('minimapSlider.background', '#ffffff20');
+    // Derive minimap background from editor background (slightly darker)
+    const editorBg = this.ctx.getThemeColor('editor.background', '#1e1e1e');
+    const bg = darken(editorBg, 8);
+    const defaultFg = this.ctx.getThemeColor('editor.foreground', '#cccccc');
+
+    // Viewport slider background - lighten the minimap background
+    const viewportBg = lighten(bg, 15);
 
     // Calculate minimap metrics
     const totalLines = this.lines.length;
@@ -889,7 +893,7 @@ export class DocumentEditor extends BaseElement {
 
       // Fill background first
       for (let col = 0; col < minimapWidth; col++) {
-        buffer.set(minimapX + col, screenY, { char: ' ', fg, bg: rowBg });
+        buffer.set(minimapX + col, screenY, { char: ' ', fg: defaultFg, bg: rowBg });
       }
 
       // Skip if no content for this row
@@ -904,17 +908,27 @@ export class DocumentEditor extends BaseElement {
         const colStart = col * colsPerChar;
         const colEnd = colStart + colsPerChar;
 
-        // Aggregate density across all lines in this row
+        // Aggregate density and collect colors across all lines in this row
         let totalDensity = 0;
+        let segmentColor: string | undefined;
 
         for (let lineNum = startLine; lineNum < endLine && lineNum < totalLines; lineNum++) {
           const line = this.lines[lineNum]!;
           const text = line.text;
+          const tokens = line.tokens;
 
           for (let c = colStart; c < colEnd && c < text.length; c++) {
             const char = text[c];
             if (char && char !== ' ' && char !== '\t') {
               totalDensity++;
+
+              // Get color from token if available and we don't have one yet
+              if (!segmentColor && tokens) {
+                const token = tokens.find((t) => c >= t.start && c < t.end);
+                if (token?.color) {
+                  segmentColor = token.color;
+                }
+              }
             }
           }
         }
@@ -929,6 +943,7 @@ export class DocumentEditor extends BaseElement {
           else if (normalizedDensity > colsPerChar * 0.25) char = '▒';
           else if (normalizedDensity > 0) char = '░';
 
+          const fg = segmentColor || defaultFg;
           buffer.set(minimapX + col, screenY, { char, fg, bg: rowBg });
         }
       }

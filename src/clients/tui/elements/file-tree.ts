@@ -421,13 +421,13 @@ export class FileTree extends BaseElement {
         }
       }
 
-      // Build line content
+      // Build line content (1-char gutter on left)
       const indent = '  '.repeat(viewNode.depth);
       const icon = this.getIcon(node);
       const expander = node.isDirectory ? (node.expanded ? '▼' : '▶') : ' ';
       const statusSuffix = node.gitStatus ? ` [${node.gitStatus}]` : '';
 
-      let line = `${indent}${expander} ${icon} ${node.name}${statusSuffix}`;
+      let line = ` ${indent}${expander} ${icon} ${node.name}${statusSuffix}`;
 
       // Truncate or pad
       if (line.length > width) {

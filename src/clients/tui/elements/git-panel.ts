@@ -445,12 +445,12 @@ export class GitPanel extends BaseElement {
       const isSelected = viewIdx === this.selectedIndex;
 
       if (node.type === 'section') {
-        // Render section header
+        // Render section header (1-char gutter on left)
         const collapsed = this.collapsedSections.has(node.section);
         const expander = collapsed ? '▶' : '▼';
         const sectionName = this.getSectionName(node.section);
         const count = this.getSectionCount(node.section);
-        const line = `${expander} ${sectionName} (${count})`.padEnd(width, ' ');
+        const line = ` ${expander} ${sectionName} (${count})`.padEnd(width, ' ');
 
         buffer.writeString(
           x,
@@ -460,14 +460,14 @@ export class GitPanel extends BaseElement {
           isSelected ? (this.focused ? selectedBg : inactiveSelectionBg) : headerBg
         );
       } else if (node.change) {
-        // Render file entry
+        // Render file entry (1-char gutter + 2-char indent)
         const status = this.getStatusIcon(node.section, node.change);
         const filename = node.change.path.split('/').pop() ?? node.change.path;
         const dirname = node.change.path.includes('/')
           ? node.change.path.slice(0, node.change.path.lastIndexOf('/'))
           : '';
 
-        let line = `  ${status} ${filename}`;
+        let line = `   ${status} ${filename}`;
         if (dirname) {
           line += ` ${dirname}`;
         }
@@ -695,15 +695,17 @@ export class GitPanel extends BaseElement {
           if (viewIdx >= 0 && viewIdx < this.viewNodes.length) {
             const now = Date.now();
             const isDoubleClick = viewIdx === this.lastClickIndex && (now - this.lastClickTime) < 300;
+            const node = this.viewNodes[viewIdx];
 
             this.selectedIndex = viewIdx;
 
-            // Double-click opens file
-            if (isDoubleClick) {
-              const node = this.viewNodes[viewIdx];
-              if (node?.type === 'file' && node.change) {
-                this.callbacks.onOpenFile?.(node.change.path);
-              }
+            // Click on section header toggles fold
+            if (node?.type === 'section') {
+              this.toggleSection();
+            }
+            // Double-click on file opens it
+            else if (isDoubleClick && node?.type === 'file' && node.change) {
+              this.callbacks.onOpenFile?.(node.change.path);
             }
 
             this.lastClickTime = now;
