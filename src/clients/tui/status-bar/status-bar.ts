@@ -91,12 +91,31 @@ export class StatusBar {
   constructor(callbacks: StatusBarCallbacks) {
     this.callbacks = callbacks;
 
-    // Default items
+    // Default items - Left side
     this.addItem({ id: 'branch', content: '', align: 'left', priority: 1 });
-    this.addItem({ id: 'file', content: '', align: 'left', priority: 2 });
+    this.addItem({ id: 'sync', content: '', align: 'left', priority: 2 });
+    this.addItem({ id: 'file', content: '', align: 'left', priority: 3 });
+    this.addItem({ id: 'command', content: '', align: 'left', priority: 4 });
+
+    // Default items - Right side
     this.addItem({ id: 'position', content: '', align: 'right', priority: 1 });
-    this.addItem({ id: 'encoding', content: 'UTF-8', align: 'right', priority: 3 });
-    this.addItem({ id: 'language', content: '', align: 'right', priority: 2 });
+    this.addItem({ id: 'selection', content: '', align: 'right', priority: 2 });
+    this.addItem({ id: 'language', content: '', align: 'right', priority: 3 });
+    this.addItem({ id: 'lsp', content: '', align: 'right', priority: 4 });
+    this.addItem({ id: 'indent', content: '', align: 'right', priority: 5 });
+    this.addItem({ id: 'encoding', content: 'UTF-8', align: 'right', priority: 6 });
+    this.addItem({ id: 'eol', content: 'LF', align: 'right', priority: 7 });
+  }
+
+  /**
+   * Show a command briefly in the status bar.
+   * Auto-clears after the specified duration.
+   */
+  showCommand(command: string, duration = 2000): void {
+    this.setItemContent('command', command);
+    setTimeout(() => {
+      this.setItemContent('command', '');
+    }, duration);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -335,16 +354,18 @@ export class StatusBar {
 
     const bg = this.callbacks.getThemeColor('statusBar.background', '#007acc');
     const fg = this.callbacks.getThemeColor('statusBar.foreground', '#ffffff');
+    const separatorChar = '│';
 
     // Fill background
     for (let x = this.bounds.x; x < this.bounds.x + width; x++) {
       buffer.set(x, y, { char: ' ', fg, bg });
     }
 
-    // Render left-aligned items
-    let leftX = this.bounds.x + 1;
+    // Render left-aligned items with separators
+    let leftX = this.bounds.x;
     const leftItems = this.getItemsSorted('left');
-    for (const item of leftItems) {
+    for (let idx = 0; idx < leftItems.length; idx++) {
+      const item = leftItems[idx]!;
       if (leftX >= this.bounds.x + width - 10) break;
 
       const text = ` ${item.content} `;
@@ -352,19 +373,36 @@ export class StatusBar {
         buffer.set(leftX + i, y, { char: text[i]!, fg, bg });
       }
       leftX += text.length;
+
+      // Add separator after item (except last)
+      if (idx < leftItems.length - 1 && leftX < this.bounds.x + width) {
+        buffer.set(leftX, y, { char: separatorChar, fg, bg, dim: true });
+        leftX++;
+      }
     }
 
-    // Render right-aligned items
+    // Render right-aligned items with separators
     let rightX = this.bounds.x + width - 1;
     const rightItems = this.getItemsSorted('right').reverse();
-    for (const item of rightItems) {
+    for (let idx = 0; idx < rightItems.length; idx++) {
+      const item = rightItems[idx]!;
       const text = ` ${item.content} `;
-      rightX -= text.length;
+
+      // Account for separator before item (except first)
+      const separatorWidth = idx > 0 ? 1 : 0;
+      rightX -= text.length + separatorWidth;
 
       if (rightX < leftX + 3) break;
 
+      // Add separator before item (except first)
+      if (idx > 0) {
+        buffer.set(rightX, y, { char: separatorChar, fg, bg, dim: true });
+      }
+
+      // Render item content
+      const textStart = rightX + separatorWidth;
       for (let i = 0; i < text.length; i++) {
-        buffer.set(rightX + i, y, { char: text[i]!, fg, bg });
+        buffer.set(textStart + i, y, { char: text[i]!, fg, bg });
       }
     }
   }

@@ -465,6 +465,13 @@ export class Window {
     this.statusBar.addHistory(message, type);
   }
 
+  /**
+   * Show a command in the status bar briefly.
+   */
+  showStatusCommand(command: string, duration?: number): void {
+    this.statusBar.showCommand(command, duration);
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Overlays & Notifications
   // ─────────────────────────────────────────────────────────────────────────

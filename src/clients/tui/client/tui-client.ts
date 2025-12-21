@@ -154,6 +154,11 @@ export class TUIClient {
       getThemeColor: (key, fallback) => this.getThemeColor(key, fallback),
       onDirty: () => this.scheduleRender(),
       onElementClose: (elementId, element) => this.handleElementClose(elementId, element),
+      onFocusChange: (_prevElemId, _nextElemId, _prevPaneId, _nextPaneId) => {
+        // Look up the focused element and update status bar
+        const focusedElement = this.window.getFocusedElement();
+        this.handleFocusChange(focusedElement);
+      },
     };
     this.window = createWindow(windowConfig);
 
@@ -402,9 +407,13 @@ export class TUIClient {
    */
   private configureDocumentEditor(editor: DocumentEditor, uri: string): void {
     const callbacks: DocumentEditorCallbacks = {
-      onContentChange: async () => {
-        // Sync changes to document service
-        // Note: In a full implementation, we'd use incremental edits
+      onContentChange: () => {
+        // Update status bar (dirty indicator may change)
+        this.updateStatusBarFile(editor);
+      },
+      onCursorChange: () => {
+        // Update cursor position in status bar
+        this.updateStatusBarFile(editor);
       },
       onSave: () => {
         this.saveCurrentDocument();
@@ -484,6 +493,9 @@ export class TUIClient {
       if (options.focus !== false) {
         this.window.focusElement(editor);
       }
+
+      // Update status bar with file info
+      this.updateStatusBarFile(editor);
 
       this.log(`Opened file: ${uri}`);
       return editor;
@@ -624,6 +636,10 @@ export class TUIClient {
       this.log(`Git status: branch=${status.branch}, staged=${status.staged.length}, unstaged=${status.unstaged.length}, untracked=${status.untracked.length}`);
 
       // Map service GitStatus to GitPanel's GitState
+      // Update status bar with branch and sync info
+      this.updateStatusBarBranch(status.branch);
+      this.updateStatusBarSync(status.ahead, status.behind);
+
       gitPanel.setGitState({
         branch: status.branch,
         // upstream not provided by service
@@ -893,6 +909,10 @@ export class TUIClient {
         handler: () => {
           const command = this.commandHandlers.get(binding.command);
           if (command) {
+            // Show command in status bar
+            const displayCmd = binding.command.replace(/\./g, ': ').replace(/-/g, ' ');
+            this.window.showStatusCommand(`${binding.key} → ${displayCmd}`);
+
             const result = command();
             // Handle async commands
             if (result instanceof Promise) {
@@ -1114,6 +1134,120 @@ export class TUIClient {
   private log(message: string): void {
     if (this.debug && isDebugEnabled()) {
       debugLog(`[TUIClient] ${message}`);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Status Bar Updates
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Update status bar with git branch info.
+   */
+  private updateStatusBarBranch(branch: string): void {
+    // Use nerd font git branch icon
+    const icon = '\ue0a0'; // Powerline branch icon
+    this.window.setStatusItem('branch', `${icon} ${branch}`);
+  }
+
+  /**
+   * Update status bar with git sync status (ahead/behind).
+   */
+  private updateStatusBarSync(ahead: number, behind: number): void {
+    const parts: string[] = [];
+
+    if (ahead > 0) {
+      parts.push(`↑${ahead}`);
+    }
+    if (behind > 0) {
+      parts.push(`↓${behind}`);
+    }
+
+    if (parts.length > 0) {
+      this.window.setStatusItem('sync', parts.join(' '));
+    } else {
+      // Clear sync status when up to date
+      this.window.setStatusItem('sync', '');
+    }
+  }
+
+  /**
+   * Update status bar with current file info.
+   */
+  private updateStatusBarFile(editor: DocumentEditor): void {
+    const uri = editor.getUri();
+    if (!uri) return;
+
+    const filename = uri.split('/').pop() ?? 'untitled';
+    const isDirty = editor.isModified();
+    const dirtyIndicator = isDirty ? '● ' : '';
+
+    // File name with dirty indicator
+    this.window.setStatusItem('file', `${dirtyIndicator}${filename}`);
+
+    // Language
+    const langId = this.detectLanguage(uri);
+    this.window.setStatusItem('language', this.formatLanguageName(langId));
+
+    // Position (1-indexed for display)
+    const cursor = editor.getCursor();
+    this.window.setStatusItem('position', `Ln ${cursor.line + 1}, Col ${cursor.column + 1}`);
+
+    // Encoding and line ending (defaults for now)
+    this.window.setStatusItem('encoding', 'UTF-8');
+    this.window.setStatusItem('eol', 'LF');
+
+    // Indentation
+    this.window.setStatusItem('indent', 'Spaces: 2');
+  }
+
+  /**
+   * Format language ID to display name.
+   */
+  private formatLanguageName(langId: string): string {
+    const displayNames: Record<string, string> = {
+      typescript: 'TypeScript',
+      typescriptreact: 'TypeScript React',
+      javascript: 'JavaScript',
+      javascriptreact: 'JavaScript React',
+      json: 'JSON',
+      markdown: 'Markdown',
+      html: 'HTML',
+      css: 'CSS',
+      python: 'Python',
+      rust: 'Rust',
+      go: 'Go',
+      ruby: 'Ruby',
+      shellscript: 'Shell',
+      yaml: 'YAML',
+      plaintext: 'Plain Text',
+    };
+    return displayNames[langId] ?? langId;
+  }
+
+  /**
+   * Clear file-related status bar items.
+   */
+  private clearStatusBarFile(): void {
+    this.window.setStatusItem('file', '');
+    this.window.setStatusItem('position', '');
+    this.window.setStatusItem('language', '');
+    this.window.setStatusItem('selection', '');
+    this.window.setStatusItem('lsp', '');
+    this.window.setStatusItem('indent', '');
+    this.window.setStatusItem('encoding', '');
+    this.window.setStatusItem('eol', '');
+  }
+
+  /**
+   * Handle focus change to update status bar.
+   */
+  private handleFocusChange(element: BaseElement | null): void {
+    if (element instanceof DocumentEditor) {
+      this.updateStatusBarFile(element);
+    } else {
+      // Not a document editor - clear file-related items
+      this.clearStatusBarFile();
     }
   }
 
