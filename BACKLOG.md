@@ -68,6 +68,21 @@ Issues and improvements to address in future sessions.
   - Delete branch (with confirmation, warn if not merged)
   - These should integrate with the git service and provide proper error feedback
 
+- [ ] **Hover on mouse position** - Add automatic hover tooltip when mouse hovers over a symbol for a configurable duration. Requires:
+  - Mouse position tracking in DocumentEditor
+  - Debounced hover request (e.g., 500ms delay)
+  - Setting to enable/disable auto-hover
+  - Setting for hover delay duration
+
+- [ ] **Squiggly underlines for diagnostics** - Instead of simple underlines, implement VS Code-style squiggly/wavy underlines for errors and warnings. This is more visually distinct but technically challenging in terminal.
+
+- [ ] **Diagnostics panel** - A panel that lists all diagnostics (errors, warnings) for the current file or entire workspace:
+  - Filterable by severity (errors, warnings, info, hints)
+  - Clickable entries to jump to location
+  - Shows file path, line number, message
+  - Can be opened via command palette
+  - Updates in real-time as diagnostics change
+
 ## Services
 
 ## ECP
