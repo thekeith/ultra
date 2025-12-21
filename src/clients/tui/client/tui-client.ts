@@ -1462,6 +1462,7 @@ export class TUIClient {
 
   /**
    * Layout terminal panel at the bottom of the screen.
+   * Terminal panel aligns with editor area (excludes sidebar).
    */
   private layoutTerminalPanel(): void {
     if (!this.terminalPanel) return;
@@ -1469,14 +1470,21 @@ export class TUIClient {
     const size = this.getTerminalSize();
     const panelHeight = this.terminalPanelVisible ? this.terminalPanelHeight : 0;
 
-    debugLog(`[TUIClient] Layout terminal panel: visible=${this.terminalPanelVisible}, size=${size.width}x${size.height}, panelHeight=${panelHeight}`);
+    // Calculate sidebar offset - terminal should align with editor area
+    let sidebarOffset = 0;
+    if (this.sidebarPaneId !== null) {
+      const sidebarWidth = this.configManager.getWithDefault('tui.sidebar.width', 24);
+      sidebarOffset = sidebarWidth;
+    }
+
+    debugLog(`[TUIClient] Layout terminal panel: visible=${this.terminalPanelVisible}, size=${size.width}x${size.height}, panelHeight=${panelHeight}, sidebarOffset=${sidebarOffset}`);
 
     if (this.terminalPanelVisible) {
-      // Position terminal panel at bottom
+      // Position terminal panel at bottom, aligned with editor area
       const bounds = {
-        x: 0,
+        x: sidebarOffset,
         y: size.height - panelHeight - 1, // -1 for status bar
-        width: size.width,
+        width: size.width - sidebarOffset,
         height: panelHeight,
       };
       debugLog(`[TUIClient] Setting terminal panel bounds: ${JSON.stringify(bounds)}`);

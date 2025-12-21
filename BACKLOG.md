@@ -39,6 +39,11 @@ Issues and improvements to address in future sessions.
   - UI for adjusting settings like terminal height, sidebar width, theme, etc.
   - Settings that affect session state (terminal height, sidebar width) should update both the config and the current session
 
+- [ ] **Terminal tabs cursor handling with multiple terminals** - When there is more than one terminal tab, cursor handling doesn't work properly. Each terminal session has its own PTY with its own cursor state, but switching tabs may not properly update cursor visibility/position. Investigate:
+  - Whether cursor state is preserved when switching between terminal tabs
+  - If the active terminal's cursor is being rendered correctly
+  - Whether inactive terminals are incorrectly showing or affecting cursor state
+
 ## Services
 
 ## ECP
