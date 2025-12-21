@@ -35,6 +35,7 @@ import { defaultThemes } from '../../../config/defaults.ts';
 import { localDocumentService, type DocumentService } from '../../../services/document/index.ts';
 import { fileService, type FileService } from '../../../services/file/index.ts';
 import { gitCliService } from '../../../services/git/index.ts';
+import { localSyntaxService, type SyntaxService, type HighlightToken } from '../../../services/syntax/index.ts';
 
 // ============================================
 // Types
@@ -86,8 +87,11 @@ export class TUIClient {
   /** File service */
   private fileService: FileService;
 
+  /** Syntax service */
+  private syntaxService: SyntaxService;
+
   /** Open documents by URI -> editor mapping */
-  private openDocuments = new Map<string, { documentId: string; editorId: string }>();
+  private openDocuments = new Map<string, { documentId: string; editorId: string; syntaxSessionId?: string }>();
 
   /** Whether client is running */
   private running = false;
@@ -137,6 +141,7 @@ export class TUIClient {
     // Initialize services
     this.documentService = localDocumentService;
     this.fileService = fileService;
+    this.syntaxService = localSyntaxService;
 
     // Get terminal size
     const size = this.getTerminalSize();
@@ -195,6 +200,11 @@ export class TUIClient {
     this.theme = this.loadThemeColors(themeName);
     this.log(`Theme: ${themeName}`);
 
+    // Initialize syntax service
+    await this.syntaxService.waitForReady();
+    this.syntaxService.setTheme(themeName);
+    this.log('Syntax service ready');
+
     // Initialize renderer
     this.renderer.initialize();
 
@@ -239,9 +249,12 @@ export class TUIClient {
     // Cleanup renderer
     this.renderer.cleanup();
 
-    // Close all documents
-    for (const [, { documentId }] of this.openDocuments) {
+    // Close all documents and dispose syntax sessions
+    for (const [, { documentId, syntaxSessionId }] of this.openDocuments) {
       await this.documentService.close(documentId);
+      if (syntaxSessionId) {
+        this.syntaxService.disposeSession(syntaxSessionId);
+      }
     }
     this.openDocuments.clear();
 
@@ -406,10 +419,21 @@ export class TUIClient {
    * Configure document editor callbacks.
    */
   private configureDocumentEditor(editor: DocumentEditor, uri: string): void {
+    // Debounce timer for syntax highlighting updates
+    let syntaxUpdateTimer: ReturnType<typeof setTimeout> | null = null;
+
     const callbacks: DocumentEditorCallbacks = {
       onContentChange: () => {
         // Update status bar (dirty indicator may change)
         this.updateStatusBarFile(editor);
+
+        // Debounce syntax highlighting updates (200ms delay)
+        if (syntaxUpdateTimer) {
+          clearTimeout(syntaxUpdateTimer);
+        }
+        syntaxUpdateTimer = setTimeout(() => {
+          this.updateSyntaxHighlighting(uri, editor);
+        }, 200);
       },
       onCursorChange: () => {
         // Update cursor position in status bar
@@ -490,8 +514,23 @@ export class TUIClient {
       this.configureDocumentEditor(editor, uri);
       editor.setContent(fileContent.content);
 
+      // Create syntax session and apply highlighting
+      const languageId = this.detectLanguage(uri);
+      let syntaxSessionId: string | undefined;
+      try {
+        const syntaxSession = await this.syntaxService.createSession(
+          result.documentId,
+          languageId,
+          fileContent.content
+        );
+        syntaxSessionId = syntaxSession.sessionId;
+        this.applySyntaxTokens(editor, syntaxSessionId);
+      } catch (error) {
+        this.log(`Failed to create syntax session: ${error}`);
+      }
+
       // Track open document
-      this.openDocuments.set(uri, { documentId: result.documentId, editorId });
+      this.openDocuments.set(uri, { documentId: result.documentId, editorId, syntaxSessionId });
 
       // Focus if requested
       if (options.focus !== false) {
@@ -573,9 +612,16 @@ export class TUIClient {
       if (uri) {
         const doc = this.openDocuments.get(uri);
         if (doc) {
+          // Close document service
           this.documentService.close(doc.documentId).catch((err) => {
             this.log(`Failed to close document: ${err}`);
           });
+
+          // Dispose syntax session
+          if (doc.syntaxSessionId) {
+            this.syntaxService.disposeSession(doc.syntaxSessionId);
+          }
+
           this.openDocuments.delete(uri);
         }
       }
@@ -1252,6 +1298,47 @@ export class TUIClient {
     } else {
       // Not a document editor - clear file-related items
       this.clearStatusBarFile();
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Syntax Highlighting
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Apply syntax tokens from a session to the editor.
+   */
+  private applySyntaxTokens(editor: DocumentEditor, sessionId: string): void {
+    const allTokens = this.syntaxService.getSessionAllTokens(sessionId);
+
+    for (let lineNum = 0; lineNum < allTokens.length; lineNum++) {
+      const lineTokens = allTokens[lineNum];
+      if (lineTokens && lineTokens.length > 0) {
+        // Map HighlightToken to SyntaxToken
+        const syntaxTokens = lineTokens.map((token) => ({
+          start: token.start,
+          end: token.end,
+          type: token.scope,
+          color: token.color,
+        }));
+        editor.setLineTokens(lineNum, syntaxTokens);
+      }
+    }
+  }
+
+  /**
+   * Update syntax highlighting for a document.
+   */
+  private async updateSyntaxHighlighting(uri: string, editor: DocumentEditor): Promise<void> {
+    const doc = this.openDocuments.get(uri);
+    if (!doc?.syntaxSessionId) return;
+
+    try {
+      const content = editor.getContent();
+      await this.syntaxService.updateSession(doc.syntaxSessionId, content);
+      this.applySyntaxTokens(editor, doc.syntaxSessionId);
+    } catch (error) {
+      this.log(`Failed to update syntax highlighting: ${error}`);
     }
   }
 

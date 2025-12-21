@@ -8,6 +8,7 @@
 import { BaseElement, type ElementContext } from './base.ts';
 import type { KeyEvent, MouseEvent, Position } from '../types.ts';
 import type { ScreenBuffer } from '../rendering/buffer.ts';
+import { darken, lighten } from '../../../ui/colors.ts';
 
 // ============================================
 // Types
@@ -649,13 +650,14 @@ export class DocumentEditor extends BaseElement {
         continue;
       }
 
-      // Render gutter (line number)
-      const lineNumStr = String(lineNum + 1).padStart(this.gutterWidth - 1, ' ') + ' ';
-      buffer.writeString(x, screenY, lineNumStr, gutterFg, gutterBg);
-
       // Determine line background
       const isCurrentLine = lineNum === this.cursor.line;
       const lineBg = isCurrentLine && this.focused ? lineHighlight : bg;
+
+      // Render gutter (line number) - extend highlight through gutter on current line
+      const lineNumStr = String(lineNum + 1).padStart(this.gutterWidth - 1, ' ') + ' ';
+      const currentGutterBg = isCurrentLine && this.focused ? lineHighlight : gutterBg;
+      buffer.writeString(x, screenY, lineNumStr, gutterFg, currentGutterBg);
 
       // Render line content
       const line = this.lines[lineNum]!;
