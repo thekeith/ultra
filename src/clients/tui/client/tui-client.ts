@@ -989,6 +989,11 @@ export class TUIClient {
       return true;
     });
 
+    this.commandHandlers.set('git.push', async () => {
+      await this.gitPush();
+      return true;
+    });
+
     this.commandHandlers.set('git.focusPanel', () => {
       this.focusGitPanel();
       return true;
@@ -1653,6 +1658,25 @@ export class TUIClient {
       } catch (error) {
         this.window.showNotification(`Commit failed: ${error}`, 'error');
       }
+    }
+  }
+
+  /**
+   * Push commits to remote.
+   */
+  private async gitPush(): Promise<void> {
+    this.window.showNotification('Pushing...', 'info');
+
+    try {
+      const result = await gitCliService.push(this.workingDirectory);
+      if (result.success) {
+        this.window.showNotification('Pushed successfully', 'success');
+      } else {
+        this.window.showNotification(`Push failed: ${result.error}`, 'error');
+      }
+      await this.refreshGitStatus();
+    } catch (error) {
+      this.window.showNotification(`Push failed: ${error}`, 'error');
     }
   }
 
