@@ -313,9 +313,20 @@ export class TUIClient {
       onFileOpen: async (path) => {
         await this.openFile(`file://${path}`);
       },
-      onExpand: async (path, expanded) => {
-        if (expanded) {
-          // Load children when expanding - would reload from service
+      onExpand: async (_path, _expanded) => {
+        // Expansion state is tracked in file tree
+      },
+      onLoadChildren: async (path) => {
+        try {
+          const entries = await this.fileService.readDir(`file://${path}`);
+          return entries.map((entry) => ({
+            name: entry.name,
+            path: entry.uri.replace(/^file:\/\//, ''),
+            isDirectory: entry.type === 'directory',
+          }));
+        } catch (error) {
+          this.log(`Failed to load directory: ${error}`);
+          return [];
         }
       },
     };

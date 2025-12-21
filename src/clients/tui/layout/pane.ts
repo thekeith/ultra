@@ -642,13 +642,63 @@ export class Pane {
   // ─────────────────────────────────────────────────────────────────────────
 
   /**
-   * Handle mouse input for accordion headers.
+   * Handle mouse input for tab bar and accordion headers.
    * @returns true if handled
    */
   handleMouse(event: { type: string; x: number; y: number; button?: string }): boolean {
-    if (this.mode !== 'accordion') return false;
     if (event.type !== 'press' || event.button !== 'left') return false;
 
+    if (this.mode === 'tabs') {
+      return this.handleTabBarClick(event);
+    } else {
+      return this.handleAccordionClick(event);
+    }
+  }
+
+  /**
+   * Handle click on tab bar.
+   */
+  private handleTabBarClick(event: { x: number; y: number }): boolean {
+    // Tab bar is at the top row of the pane
+    if (event.y !== this.bounds.y) return false;
+
+    // Find which tab was clicked
+    let x = this.bounds.x;
+
+    for (let i = 0; i < this.elements.length; i++) {
+      const element = this.elements[i]!;
+      const title = this.truncateTitle(element.getTitle(), 20);
+      // Tab content: " title × "
+      const tabWidth = 1 + title.length + 3; // space + title + " × "
+
+      if (event.x >= x && event.x < x + tabWidth) {
+        // Click is on this tab
+        // Check if click is on the close button (last 2 characters: "× ")
+        const closeButtonStart = x + tabWidth - 2;
+        if (event.x >= closeButtonStart) {
+          // Close this tab
+          this.removeElement(element.id);
+        } else {
+          // Switch to this tab
+          this.setActiveElement(element.id);
+        }
+        return true;
+      }
+
+      x += tabWidth;
+      // Account for separator
+      if (i < this.elements.length - 1) {
+        x += 1;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Handle click on accordion header.
+   */
+  private handleAccordionClick(event: { x: number; y: number }): boolean {
     // Check if click is on an accordion header
     let y = this.bounds.y;
     const expandedCount = this.expandedElementIds.size;
