@@ -318,7 +318,7 @@ export class TUIConfigManager {
       'workbench.sideBar.location': 'left',
 
       // TUI-specific
-      'tui.sidebar.width': 30,
+      'tui.sidebar.width': 24,
       'tui.sidebar.visible': true,
       'tui.terminal.height': 10,
 

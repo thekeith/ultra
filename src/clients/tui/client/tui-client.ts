@@ -268,9 +268,22 @@ export class TUIClient {
       this.configureGitPanel(gitPanel);
     }
 
-    // Split for main editor area
-    const editorPaneId = container.split('horizontal', sidePane.id);
+    // Split for main editor area (vertical = side by side)
+    const editorPaneId = container.split('vertical', sidePane.id);
     this.editorPaneId = editorPaneId;
+
+    // Get the editor pane and set it to tabs mode
+    const editorPane = container.getPane(editorPaneId);
+    if (editorPane) {
+      editorPane.setMode('tabs');
+    }
+
+    // Adjust split ratio: sidebar ~24 columns, rest for editor
+    // The split ID is 'split-1' since it's the first split created
+    const sidebarWidth = this.configManager.getWithDefault('tui.sidebar.width', 24);
+    const totalWidth = this.window.getSize().width;
+    const sidebarRatio = Math.min(0.3, sidebarWidth / totalWidth); // Cap at 30%
+    container.adjustRatios('split-1', [sidebarRatio, 1 - sidebarRatio]);
 
     // Load file tree
     if (fileTree) {
