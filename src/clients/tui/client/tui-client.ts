@@ -117,6 +117,9 @@ export class TUIClient {
   /** Config manager */
   private configManager: TUIConfigManager;
 
+  /** Last focused editor pane ID (for opening files from sidebar) */
+  private lastFocusedEditorPaneId: string | null = null;
+
   /** Dialog manager */
   private dialogManager: DialogManager | null = null;
 
@@ -171,7 +174,15 @@ export class TUIClient {
       getThemeColor: (key, fallback) => this.getThemeColor(key, fallback),
       onDirty: () => this.scheduleRender(),
       onElementClose: (elementId, element) => this.handleElementClose(elementId, element),
-      onFocusChange: (_prevElemId, _nextElemId, _prevPaneId, _nextPaneId) => {
+      onFocusChange: (_prevElemId, _nextElemId, _prevPaneId, nextPaneId) => {
+        // Track last focused editor pane (for opening files from sidebar)
+        if (nextPaneId) {
+          const pane = this.window.getPaneContainer().getPane(nextPaneId);
+          if (pane && pane.getMode() === 'tabs') {
+            this.lastFocusedEditorPaneId = nextPaneId;
+          }
+        }
+
         // Look up the focused element and update status bar
         const focusedElement = this.window.getFocusedElement();
         this.handleFocusChange(focusedElement);
@@ -668,7 +679,7 @@ export class TUIClient {
 
   /**
    * Get the target pane for opening a new editor.
-   * Priority: explicit pane > focused tabs-mode pane > default editor pane
+   * Priority: explicit pane > focused tabs-mode pane > last focused editor pane > default editor pane
    */
   private getTargetEditorPane(explicitPane?: Pane): Pane | null {
     // 1. Use explicit pane if provided
@@ -682,7 +693,15 @@ export class TUIClient {
       return focusedPane;
     }
 
-    // 3. Fall back to default editor pane
+    // 3. Use last focused editor pane (when focus moved to sidebar)
+    if (this.lastFocusedEditorPaneId) {
+      const lastPane = this.window.getPaneContainer().getPane(this.lastFocusedEditorPaneId);
+      if (lastPane && lastPane.getMode() === 'tabs') {
+        return lastPane;
+      }
+    }
+
+    // 4. Fall back to default editor pane
     return this.getEditorPane();
   }
 
