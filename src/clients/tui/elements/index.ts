@@ -67,6 +67,18 @@ export {
   createTerminalPanel,
 } from './terminal-panel.ts';
 
+export {
+  AITerminalChat,
+  ClaudeTerminalChat,
+  CodexTerminalChat,
+  createAITerminalChat,
+  createClaudeTerminalChat,
+  createCodexTerminalChat,
+  type AIProvider,
+  type AITerminalChatState,
+  type AITerminalChatCallbacks,
+} from './ai-terminal-chat.ts';
+
 // ============================================
 // Element Registration
 // ============================================
@@ -77,6 +89,7 @@ import { FileTree } from './file-tree.ts';
 import { TerminalSession } from './terminal-session.ts';
 import { GitPanel } from './git-panel.ts';
 import { TerminalPanel } from './terminal-panel.ts';
+import { createAITerminalChat } from './ai-terminal-chat.ts';
 
 /**
  * Register all built-in elements with the factory.
@@ -109,5 +122,15 @@ export function registerBuiltinElements(): void {
 
   registerElement('GitPanel', (id, title, ctx) => {
     return new GitPanel(id, title, ctx);
+  });
+
+  registerElement('AgentChat', (id, title, ctx, state) => {
+    const aiState = state as import('./ai-terminal-chat.ts').AITerminalChatState | undefined;
+    const chat = createAITerminalChat(id, title, ctx, {
+      provider: aiState?.provider,
+      sessionId: aiState?.sessionId,
+      cwd: aiState?.cwd,
+    });
+    return chat;
   });
 }

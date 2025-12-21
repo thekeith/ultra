@@ -28,6 +28,33 @@ export interface SessionTerminalState {
 }
 
 /**
+ * AI provider type for AI chat sessions.
+ */
+export type AIProvider = 'claude-code' | 'codex' | 'custom';
+
+/**
+ * Session state for an AI chat in a pane.
+ */
+export interface SessionAIChatState {
+  /** Element ID */
+  elementId: string;
+  /** Pane ID where AI chat is open */
+  paneId: string;
+  /** Tab order within pane (0-indexed) */
+  tabOrder: number;
+  /** Whether this tab is active in its pane */
+  isActiveInPane: boolean;
+  /** AI provider (claude-code, codex, etc.) */
+  provider: AIProvider;
+  /** Session ID for resume (Claude --resume support) */
+  sessionId: string | null;
+  /** Working directory for the AI chat */
+  cwd: string;
+  /** Chat title */
+  title: string;
+}
+
+/**
  * Session state for a single document.
  */
 export interface SessionDocumentState {
@@ -114,6 +141,8 @@ export interface SessionState {
   documents: SessionDocumentState[];
   /** All open terminals in panes */
   terminals?: SessionTerminalState[];
+  /** All open AI chats in panes */
+  aiChats?: SessionAIChatState[];
   /** Active document path */
   activeDocumentPath: string | null;
   /** Active pane ID */

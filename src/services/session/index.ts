@@ -9,6 +9,8 @@ export type {
   EditorSettings,
   SessionDocumentState,
   SessionTerminalState,
+  SessionAIChatState,
+  AIProvider,
   SessionUIState,
   SessionLayoutNode,
   SessionState,

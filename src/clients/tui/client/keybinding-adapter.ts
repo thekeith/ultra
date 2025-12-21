@@ -64,6 +64,10 @@ export const DEFAULT_KEYBINDINGS: KeyBinding[] = [
   // Terminal
   { key: 'ctrl+shift+`', command: 'terminal.new' },
 
+  // AI Chat
+  { key: 'ctrl+shift+i', command: 'ai.newChat' },
+  { key: 'ctrl+shift+a', command: 'ai.toggleChat' },
+
   // Splits
   { key: 'ctrl+\\', command: 'ultra.splitVertical' },
   { key: 'ctrl+shift+\\', command: 'ultra.splitHorizontal' },

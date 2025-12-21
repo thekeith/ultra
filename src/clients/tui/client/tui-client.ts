@@ -16,7 +16,9 @@ import {
   GitPanel,
   TerminalSession,
   TerminalPanel,
+  AITerminalChat,
   createTerminalPanel,
+  createAITerminalChat,
   createTestContext,
   registerBuiltinElements,
   type FileNode,
@@ -24,6 +26,7 @@ import {
   type FileTreeCallbacks,
   type GitPanelCallbacks,
   type TerminalSessionCallbacks,
+  type AITerminalChatState,
 } from '../elements/index.ts';
 import type { Pane } from '../layout/pane.ts';
 
@@ -53,6 +56,7 @@ import {
   type SessionState,
   type SessionDocumentState,
   type SessionTerminalState,
+  type SessionAIChatState,
   type SessionLayoutNode,
   type SessionUIState,
 } from '../../../services/session/index.ts';
@@ -122,6 +126,9 @@ export class TUIClient {
 
   /** Open terminals in panes by element ID -> PTY mapping */
   private paneTerminals = new Map<string, PTYBackend>();
+
+  /** Open AI chats in panes by element ID -> AITerminalChat mapping */
+  private paneAIChats = new Map<string, AITerminalChat>();
 
   /** Whether client is running */
   private running = false;
@@ -782,6 +789,12 @@ export class TUIClient {
         pty.kill();
         this.paneTerminals.delete(elementId);
       }
+    } else if (element instanceof AITerminalChat) {
+      // Clean up AI chat tracking
+      if (this.paneAIChats.has(elementId)) {
+        debugLog(`[TUIClient] Removing AI chat from tracking: ${elementId}`);
+        this.paneAIChats.delete(elementId);
+      }
     }
   }
 
@@ -1223,6 +1236,17 @@ export class TUIClient {
 
     this.commandHandlers.set('terminal.newInPane', async () => {
       await this.createTerminalInPane();
+      return true;
+    });
+
+    // AI Chat commands
+    this.commandHandlers.set('ai.newChat', async () => {
+      await this.createNewAIChat();
+      return true;
+    });
+
+    this.commandHandlers.set('ai.toggleChat', () => {
+      this.toggleAIChat();
       return true;
     });
 
@@ -1711,6 +1735,92 @@ export class TUIClient {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // AI Chat
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Create a new AI chat in the focused pane.
+   */
+  private async createNewAIChat(pane?: Pane, options?: {
+    sessionId?: string;
+    cwd?: string;
+    provider?: 'claude-code' | 'codex' | 'custom';
+  }): Promise<AITerminalChat | null> {
+    const targetPane = pane ?? this.window.getFocusedPane();
+    if (!targetPane) {
+      this.window.showNotification('No pane available for AI chat', 'warning');
+      return null;
+    }
+
+    // Only allow AI chats in tab-mode panes (editor panes)
+    if (targetPane.getMode() !== 'tabs') {
+      this.window.showNotification('Cannot add AI chat to sidebar pane', 'warning');
+      return null;
+    }
+
+    debugLog(`[TUIClient] Creating AI chat in pane: ${targetPane.id}`);
+
+    // Create AI chat element via pane factory with optional state
+    const state: AITerminalChatState | undefined = options ? {
+      provider: options.provider ?? 'claude-code',
+      sessionId: options.sessionId ?? null,
+      cwd: options.cwd ?? this.workingDirectory,
+    } : undefined;
+
+    const chatId = targetPane.addElement('AgentChat', 'Claude', state);
+    const chat = targetPane.getElement(chatId);
+
+    if (!chat || !(chat instanceof AITerminalChat)) {
+      this.window.showNotification('Failed to create AI chat', 'error');
+      return null;
+    }
+
+    // Track the AI chat for session persistence
+    this.paneAIChats.set(chatId, chat);
+
+    debugLog(`[TUIClient] AI chat created in pane: ${chatId}`);
+
+    // Focus the AI chat
+    targetPane.setActiveElement(chatId);
+    this.scheduleRender();
+
+    return chat;
+  }
+
+  /**
+   * Toggle AI chat visibility / focus.
+   * If no AI chat exists, creates one.
+   * If AI chat exists but not focused, focuses it.
+   * If AI chat is focused, switches to previous element.
+   */
+  private toggleAIChat(): void {
+    const focusedPane = this.window.getFocusedPane();
+    if (!focusedPane) return;
+
+    // Look for an existing AI chat in the focused pane
+    const elements = focusedPane.getElements();
+    const aiChat = elements.find((el) => el.type === 'AgentChat');
+
+    if (aiChat) {
+      // AI chat exists - toggle focus
+      const activeElement = focusedPane.getActiveElement();
+      if (activeElement && activeElement.id === aiChat.id) {
+        // Already focused, switch to previous (cycle tabs)
+        focusedPane.prevTab();
+      } else {
+        // Not focused, focus it
+        focusedPane.setActiveElement(aiChat.id);
+      }
+      this.scheduleRender();
+    } else {
+      // No AI chat, create one
+      this.createNewAIChat(focusedPane).catch((err) => {
+        debugLog(`[TUIClient] Failed to create AI chat: ${err}`);
+      });
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Resize Handling
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -2088,6 +2198,9 @@ export class TUIClient {
     'terminal.focus': { label: 'Focus Terminal', category: 'Term' },
     'terminal.nextTab': { label: 'Next Terminal Tab', category: 'Term' },
     'terminal.previousTab': { label: 'Previous Terminal Tab', category: 'Term' },
+    // AI Chat
+    'ai.newChat': { label: 'New AI Chat', category: 'AI' },
+    'ai.toggleChat': { label: 'Toggle AI Chat', category: 'AI' },
     // Git
     'git.commit': { label: 'Git: Commit...', category: 'Git' },
     'git.push': { label: 'Git: Push', category: 'Git' },
@@ -2550,6 +2663,27 @@ export class TUIClient {
     }
     debugLog(`[TUIClient] Serialized ${terminals.length} terminals in panes`);
 
+    // Serialize AI chats in panes
+    const aiChats: SessionAIChatState[] = [];
+    for (const [elementId, chat] of this.paneAIChats) {
+      const pane = this.findPaneForElement(elementId);
+      if (pane) {
+        const chatState = chat.getState();
+        aiChats.push({
+          elementId,
+          paneId: pane.id,
+          tabOrder: tabOrder++,
+          isActiveInPane: pane.getActiveElement() === chat,
+          provider: chatState.provider,
+          sessionId: chatState.sessionId,
+          cwd: chatState.cwd,
+          title: chat.getTitle(),
+        });
+        debugLog(`[TUIClient] Serialized AI chat: ${elementId} in pane ${pane.id} (session: ${chatState.sessionId})`);
+      }
+    }
+    debugLog(`[TUIClient] Serialized ${aiChats.length} AI chats in panes`);
+
     // Determine active document
     const focusedElement = this.window.getFocusedElement();
     let activeDocumentPath: string | null = null;
@@ -2583,6 +2717,7 @@ export class TUIClient {
       workspaceRoot: this.workingDirectory,
       documents,
       terminals: terminals.length > 0 ? terminals : undefined,
+      aiChats: aiChats.length > 0 ? aiChats : undefined,
       activeDocumentPath,
       activePaneId,
       layout,
@@ -2629,6 +2764,11 @@ export class TUIClient {
     if (session.terminals) {
       for (const term of session.terminals) {
         neededPaneIds.add(term.paneId);
+      }
+    }
+    if (session.aiChats) {
+      for (const chat of session.aiChats) {
+        neededPaneIds.add(chat.paneId);
       }
     }
 
@@ -2738,6 +2878,29 @@ export class TUIClient {
           }
         } catch (error) {
           this.log(`Failed to restore terminal: ${error}`);
+        }
+      }
+    }
+
+    // Restore AI chats in panes
+    if (session.aiChats && session.aiChats.length > 0) {
+      this.log(`Restoring ${session.aiChats.length} AI chats in panes`);
+      for (const chatState of session.aiChats) {
+        try {
+          const targetPane = existingPanes.get(chatState.paneId);
+          if (targetPane) {
+            // Create AI chat in the target pane with saved session state
+            await this.createNewAIChat(targetPane, {
+              sessionId: chatState.sessionId ?? undefined,
+              cwd: chatState.cwd,
+              provider: chatState.provider,
+            });
+            debugLog(`[TUIClient] Restored AI chat in pane ${chatState.paneId} (session: ${chatState.sessionId})`);
+          } else {
+            debugLog(`[TUIClient] Pane ${chatState.paneId} not found for AI chat`);
+          }
+        } catch (error) {
+          this.log(`Failed to restore AI chat: ${error}`);
         }
       }
     }
