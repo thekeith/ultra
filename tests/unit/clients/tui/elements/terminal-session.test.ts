@@ -379,6 +379,92 @@ describe('TerminalSession', () => {
       terminal.setState({ cwd: '/tmp', scrollTop: 0 });
       expect(terminal.getCwd()).toBe('/tmp');
     });
+
+    test('getState includes scrollTop', () => {
+      terminal.setState({ scrollTop: 5 });
+      const state = terminal.getState();
+      expect(state.scrollTop).toBe(5);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Scrolling
+  // ─────────────────────────────────────────────────────────────────────────
+
+  describe('scrolling', () => {
+    test('scroll up via mouse event (view earlier content)', () => {
+      // Add more content than visible area
+      for (let i = 0; i < 30; i++) {
+        terminal.write(`Line ${i}\n`);
+      }
+
+      // scrollDirection -1 = scroll up (view earlier content)
+      // This should increase scrollTop
+      const handled = terminal.handleMouse({
+        type: 'scroll',
+        x: 10,
+        y: 10,
+        button: 0,
+        scrollDirection: -1,
+      });
+
+      expect(handled).toBe(true);
+      // scrollTop should increase when scrolling up to view earlier content
+      const state = terminal.getState();
+      expect(state.scrollTop).toBeGreaterThan(0);
+    });
+
+    test('scroll down via mouse event (view later content)', () => {
+      // Add content and scroll up first
+      for (let i = 0; i < 30; i++) {
+        terminal.write(`Line ${i}\n`);
+      }
+      terminal.setState({ scrollTop: 5 });
+
+      // scrollDirection +1 = scroll down (view later content)
+      // This should decrease scrollTop
+      terminal.handleMouse({
+        type: 'scroll',
+        x: 10,
+        y: 10,
+        button: 0,
+        scrollDirection: 1,
+      });
+
+      // scrollTop should decrease when scrolling down
+      const state = terminal.getState();
+      expect(state.scrollTop).toBeLessThan(5);
+    });
+
+    test('scroll cannot go below 0', () => {
+      terminal.write('Short content\n');
+      terminal.setState({ scrollTop: 0 });
+
+      // Try to scroll down when already at bottom
+      terminal.handleMouse({
+        type: 'scroll',
+        x: 10,
+        y: 10,
+        button: 0,
+        scrollDirection: 1, // scroll down
+      });
+
+      const state = terminal.getState();
+      expect(state.scrollTop).toBe(0);
+    });
+
+    test('mouse scroll returns true for handled event', () => {
+      // Even without content to scroll, the event should be handled
+      const handled = terminal.handleMouse({
+        type: 'scroll',
+        x: 10,
+        y: 10,
+        button: 0,
+        scrollDirection: -1,
+      });
+
+      expect(handled).toBe(true);
+    });
   });
 });
 

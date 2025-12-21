@@ -264,6 +264,23 @@ src/
 
 Ultra uses Bun's built-in test runner. See `architecture/testing/` for comprehensive documentation.
 
+### Test Requirements
+
+**All new features and bug fixes MUST include corresponding tests.** This is a mandatory requirement, not optional.
+
+- **New features**: Add unit tests for new functions/methods and integration tests for new ECP endpoints
+- **Bug fixes**: Add a test that reproduces the bug before fixing it
+- **Refactoring**: Ensure existing tests pass; add tests if coverage is missing
+- **TUI components**: Test rendering logic, event handling, and state management
+
+Run tests before committing:
+```bash
+bun test                 # Run all tests
+bun run typecheck        # TypeScript type checking
+```
+
+If tests fail, fix them before proceeding. Do not skip or delete failing tests without understanding why they fail.
+
 ### Running Tests
 
 ```bash
