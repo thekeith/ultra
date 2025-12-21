@@ -7,6 +7,7 @@
 import { BaseElement, type ElementContext } from './base.ts';
 import type { KeyEvent, MouseEvent } from '../types.ts';
 import type { ScreenBuffer } from '../rendering/buffer.ts';
+import { darken, lighten } from '../../../ui/colors.ts';
 
 // ============================================
 // Types
@@ -76,6 +77,8 @@ interface ViewNode {
 export interface GitPanelCallbacks {
   /** Stage a file */
   onStage?: (path: string) => void;
+  /** Stage all files */
+  onStageAll?: () => void;
   /** Unstage a file */
   onUnstage?: (path: string) => void;
   /** Discard changes to a file */
@@ -328,12 +331,7 @@ export class GitPanel extends BaseElement {
    * Stage all unstaged and untracked files.
    */
   stageAll(): void {
-    for (const change of this.state.unstaged) {
-      this.callbacks.onStage?.(change.path);
-    }
-    for (const change of this.state.untracked) {
-      this.callbacks.onStage?.(change.path);
-    }
+    this.callbacks.onStageAll?.();
   }
 
   /**
@@ -395,16 +393,20 @@ export class GitPanel extends BaseElement {
       return; // Nothing to render
     }
 
-    // Use slightly lighter background when focused
+    // Color hierarchy:
+    // - Unfocused panel: baseBg
+    // - Focused panel: slightly darker (subtle focus indicator)
+    // - Selected item (inactive): brighter than panel focus
+    // - Selected item (active): blue highlight
     const baseBg = this.ctx.getThemeColor('sideBar.background', '#252526');
-    const focusBg = this.ctx.getThemeColor('list.hoverBackground', '#2a2d2e');
+    const focusBg = darken(baseBg, 12); // Darker when panel is focused
     const bg = this.focused ? focusBg : baseBg;
     const fg = this.ctx.getThemeColor('sideBar.foreground', '#cccccc');
     const headerBg = this.ctx.getThemeColor('sideBarSectionHeader.background', '#383838');
     const headerFg = this.ctx.getThemeColor('sideBarSectionHeader.foreground', '#cccccc');
     const selectedBg = this.ctx.getThemeColor('list.activeSelectionBackground', '#094771');
     const selectedFg = this.ctx.getThemeColor('list.activeSelectionForeground', '#ffffff');
-    const inactiveSelectionBg = this.ctx.getThemeColor('list.inactiveSelectionBackground', '#37373d');
+    const inactiveSelectionBg = lighten(baseBg, 18); // Brighter than both base and focus
 
     // Colors for git status
     const stagedColor = this.ctx.getThemeColor('gitDecoration.addedResourceForeground', '#81b88b');

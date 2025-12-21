@@ -7,6 +7,7 @@
 import { BaseElement, type ElementContext } from './base.ts';
 import type { KeyEvent, MouseEvent } from '../types.ts';
 import type { ScreenBuffer } from '../rendering/buffer.ts';
+import { darken, lighten } from '../../../ui/colors.ts';
 
 // ============================================
 // Types
@@ -361,14 +362,19 @@ export class FileTree extends BaseElement {
 
   render(buffer: ScreenBuffer): void {
     const { x, y, width, height } = this.bounds;
-    // Use slightly lighter background when focused
+
+    // Color hierarchy:
+    // - Unfocused panel: baseBg
+    // - Focused panel: slightly darker (subtle focus indicator)
+    // - Selected item (inactive): brighter than panel focus
+    // - Selected item (active): blue highlight
     const baseBg = this.ctx.getThemeColor('sideBar.background', '#252526');
-    const focusBg = this.ctx.getThemeColor('list.hoverBackground', '#2a2d2e');
+    const focusBg = darken(baseBg, 12); // Darker when panel is focused
     const bg = this.focused ? focusBg : baseBg;
     const fg = this.ctx.getThemeColor('sideBar.foreground', '#cccccc');
     const selectedBg = this.ctx.getThemeColor('list.activeSelectionBackground', '#094771');
     const selectedFg = this.ctx.getThemeColor('list.activeSelectionForeground', '#ffffff');
-    const hoverBg = this.ctx.getThemeColor('list.inactiveSelectionBackground', '#37373d');
+    const inactiveSelectionBg = lighten(baseBg, 18); // Brighter than both base and focus
     const gitModified = this.ctx.getThemeColor('gitDecoration.modifiedResourceForeground', '#e2c08d');
     const gitAdded = this.ctx.getThemeColor('gitDecoration.addedResourceForeground', '#81b88b');
     const gitDeleted = this.ctx.getThemeColor('gitDecoration.deletedResourceForeground', '#c74e39');
@@ -394,7 +400,7 @@ export class FileTree extends BaseElement {
 
       if (isSelected) {
         nodeFg = selectedFg;
-        nodeBg = this.focused ? selectedBg : hoverBg;
+        nodeBg = this.focused ? selectedBg : inactiveSelectionBg;
       }
 
       // Git status color

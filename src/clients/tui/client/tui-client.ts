@@ -360,6 +360,14 @@ export class TUIClient {
           this.window.showNotification(`Failed to stage: ${error}`, 'error');
         }
       },
+      onStageAll: async () => {
+        try {
+          await gitCliService.stageAll(this.workingDirectory);
+          await this.refreshGitStatus();
+        } catch (error) {
+          this.window.showNotification(`Failed to stage all: ${error}`, 'error');
+        }
+      },
       onUnstage: async (path) => {
         try {
           await gitCliService.unstage(this.workingDirectory, [path]);
