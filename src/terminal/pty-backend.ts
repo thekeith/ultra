@@ -121,6 +121,12 @@ export interface PTYBackend {
   getViewOffset(): number;
 
   /**
+   * Get the total number of lines (scrollback + visible).
+   * Used for scrollbar calculations.
+   */
+  getTotalLines(): number;
+
+  /**
    * Scroll the view up (into history).
    * @param lines - Number of lines to scroll
    */

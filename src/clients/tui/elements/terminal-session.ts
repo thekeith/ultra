@@ -52,6 +52,9 @@ export interface TerminalSessionState {
 // ============================================
 
 export class TerminalSession extends BaseElement {
+  /** Scrollbar width in characters */
+  private static readonly SCROLLBAR_WIDTH = 1;
+
   /** Terminal lines (scrollback + visible) */
   private lines: TerminalLine[] = [];
 
@@ -64,6 +67,9 @@ export class TerminalSession extends BaseElement {
 
   /** Scrollback limit */
   private scrollbackLimit = 1000;
+
+  /** Whether scrollbar dragging is active */
+  private scrollbarDragging = false;
 
   /** Current working directory */
   private cwd: string = '';
@@ -742,17 +748,23 @@ export class TerminalSession extends BaseElement {
     const defaultFg = this.ctx.getThemeColor('terminal.foreground', '#cccccc');
     const cursorBg = this.ctx.getThemeColor('terminalCursor.foreground', '#ffffff');
 
+    // Reserve space for scrollbar
+    const contentWidth = width - TerminalSession.SCROLLBAR_WIDTH;
+
     // Use PTY buffer if attached, otherwise use internal buffer
     if (this.pty) {
-      this.renderFromPty(buffer, x, y, width, height, defaultFg, defaultBg, cursorBg);
+      this.renderFromPty(buffer, x, y, contentWidth, height, defaultFg, defaultBg, cursorBg);
     } else {
-      this.renderFromInternal(buffer, x, y, width, height, defaultFg, defaultBg, cursorBg);
+      this.renderFromInternal(buffer, x, y, contentWidth, height, defaultFg, defaultBg, cursorBg);
     }
+
+    // Render scrollbar
+    this.renderScrollbar(buffer);
 
     // Show exit status if terminal has exited
     if (this.exited) {
       const msg = `[Process exited with code ${this.exitCode}]`;
-      const msgX = x + Math.floor((width - msg.length) / 2);
+      const msgX = x + Math.floor((contentWidth - msg.length) / 2);
       const msgY = y + height - 1;
       buffer.writeString(msgX, msgY, msg, '#888888', defaultBg);
     }
@@ -773,21 +785,21 @@ export class TerminalSession extends BaseElement {
   ): void {
     if (!this.pty) return;
 
+    // getBuffer() returns view-adjusted content (already accounts for viewOffset)
     const ptyBuffer = this.pty.getBuffer();
     const cursor = this.pty.getCursor();
     const viewOffset = this.pty.getViewOffset();
 
     for (let row = 0; row < height; row++) {
-      const lineIdx = row + viewOffset;
       const screenY = y + row;
 
-      if (lineIdx < 0 || lineIdx >= ptyBuffer.length) {
-        // Empty row
+      if (row >= ptyBuffer.length) {
+        // Empty row (buffer smaller than display area)
         buffer.writeString(x, screenY, ' '.repeat(width), defaultFg, defaultBg);
         continue;
       }
 
-      const line = ptyBuffer[lineIdx]!;
+      const line = ptyBuffer[row]!;
 
       for (let col = 0; col < width; col++) {
         const cell = line[col];
@@ -882,6 +894,101 @@ export class TerminalSession extends BaseElement {
     };
   }
 
+  /**
+   * Render the vertical scrollbar.
+   */
+  private renderScrollbar(buffer: ScreenBuffer): void {
+    const { x, y, width, height } = this.bounds;
+    const scrollbarX = x + width - TerminalSession.SCROLLBAR_WIDTH;
+
+    const trackBg = this.ctx.getThemeColor('scrollbarSlider.background', '#4a4a4a');
+    const thumbBg = this.ctx.getThemeColor('scrollbarSlider.activeBackground', '#6a6a6a');
+
+    // Calculate total lines and view offset
+    let totalLines: number;
+    let viewOffset: number;
+
+    if (this.pty) {
+      totalLines = this.pty.getTotalLines();
+      viewOffset = this.pty.getViewOffset();
+    } else {
+      totalLines = this.lines.length;
+      viewOffset = this.scrollTop;
+    }
+
+    // Calculate thumb size and position
+    const visibleLines = height;
+
+    if (totalLines <= visibleLines) {
+      // No scrollback, just show empty track
+      for (let row = 0; row < height; row++) {
+        buffer.set(scrollbarX, y + row, { char: '░', fg: trackBg, bg: trackBg });
+      }
+      return;
+    }
+
+    // Thumb height proportional to visible content
+    const thumbHeight = Math.max(1, Math.round((visibleLines / totalLines) * height));
+
+    // Thumb position: viewOffset 0 means at bottom, higher means scrolled up
+    const maxOffset = totalLines - visibleLines;
+    const scrollRatio = viewOffset / maxOffset;
+    // When scrolled to top (max offset), thumb at top; when at bottom (0 offset), thumb at bottom
+    const thumbTop = Math.round((1 - scrollRatio) * (height - thumbHeight));
+
+    // Render scrollbar track and thumb
+    for (let row = 0; row < height; row++) {
+      const screenY = y + row;
+      const isThumb = row >= thumbTop && row < thumbTop + thumbHeight;
+      const bg = isThumb ? thumbBg : trackBg;
+      const char = isThumb ? '█' : '░';
+
+      buffer.set(scrollbarX, screenY, { char, fg: bg, bg: trackBg });
+    }
+  }
+
+  /**
+   * Get scrollbar X position.
+   */
+  private getScrollbarX(): number {
+    return this.bounds.x + this.bounds.width - TerminalSession.SCROLLBAR_WIDTH;
+  }
+
+  /**
+   * Handle scrollbar click/drag.
+   */
+  private handleScrollbarClick(mouseY: number): void {
+    const { y, height } = this.bounds;
+    const relY = mouseY - y;
+
+    // Calculate target scroll position
+    const ratio = Math.max(0, Math.min(1, relY / height));
+
+    if (this.pty) {
+      const totalLines = this.pty.getTotalLines();
+      const visibleLines = height;
+      const maxOffset = Math.max(0, totalLines - visibleLines);
+      // Invert ratio: clicking at top means scroll to beginning (max offset)
+      const targetOffset = Math.round((1 - ratio) * maxOffset);
+
+      // Calculate how much to scroll
+      const currentOffset = this.pty.getViewOffset();
+      const delta = targetOffset - currentOffset;
+
+      if (delta > 0) {
+        this.pty.scrollViewUp(delta);
+      } else if (delta < 0) {
+        this.pty.scrollViewDown(-delta);
+      }
+    } else {
+      const maxScroll = Math.max(0, this.lines.length - this.visibleRows);
+      // Invert ratio: clicking at top means scroll to beginning (max scroll)
+      this.scrollTop = Math.round((1 - ratio) * maxScroll);
+    }
+
+    this.ctx.markDirty();
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Input Handling
   // ─────────────────────────────────────────────────────────────────────────
@@ -956,19 +1063,53 @@ export class TerminalSession extends BaseElement {
   }
 
   override handleMouse(event: MouseEvent): boolean {
+    const scrollbarX = this.getScrollbarX();
+
+    // Handle scrollbar interactions
+    if (event.x >= scrollbarX) {
+      if (event.type === 'press' && event.button === 'left') {
+        this.scrollbarDragging = true;
+        this.handleScrollbarClick(event.y);
+        return true;
+      }
+      if (event.type === 'drag') {
+        this.handleScrollbarClick(event.y);
+        return true;
+      }
+      if (event.type === 'release') {
+        this.scrollbarDragging = false;
+        return true;
+      }
+    }
+
+    // Handle scrollbar drag release anywhere
+    if (event.type === 'release' && this.scrollbarDragging) {
+      this.scrollbarDragging = false;
+      return true;
+    }
+
+    // Continue scrollbar drag even if mouse moves off scrollbar
+    if (event.type === 'drag' && this.scrollbarDragging) {
+      this.handleScrollbarClick(event.y);
+      return true;
+    }
+
     if (event.type === 'scroll') {
-      // Scrollback - use PTY scrolling if attached
-      const scrollUp = event.y > 0;
+      // Scroll direction: -1 = up, 1 = down
+      const direction = event.scrollDirection ?? 1;
       const lines = 3;
 
       if (this.pty) {
-        if (scrollUp) {
+        if (direction < 0) {
+          // Scroll up (view earlier content)
           this.pty.scrollViewUp(lines);
         } else {
+          // Scroll down (view later content)
           this.pty.scrollViewDown(lines);
         }
       } else {
-        const delta = scrollUp ? lines : -lines;
+        // For internal buffer: scrollTop increases when scrolling up (viewing earlier content)
+        const delta = direction < 0 ? lines : -lines;
         const maxScroll = Math.max(0, this.lines.length - this.visibleRows);
         this.scrollTop = Math.max(0, Math.min(this.scrollTop + delta, maxScroll));
       }

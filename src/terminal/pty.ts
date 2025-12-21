@@ -466,6 +466,13 @@ export class ScreenBuffer {
   getViewOffset(): number {
     return this.viewOffset;
   }
+
+  /**
+   * Get total number of lines (scrollback + visible buffer)
+   */
+  getTotalLines(): number {
+    return this.scrollback.length + this.buffer.length;
+  }
 }
 
 /**
@@ -811,6 +818,13 @@ export class PTY {
    */
   getViewOffset(): number {
     return this.screen.getViewOffset();
+  }
+
+  /**
+   * Get total number of lines (scrollback + visible)
+   */
+  getTotalLines(): number {
+    return this.screen.getTotalLines();
   }
 
   /**
