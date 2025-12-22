@@ -87,6 +87,24 @@ export interface DiagnosticInfo {
 }
 
 /**
+ * Internal search options.
+ */
+interface SearchOptionsInternal {
+  caseSensitive: boolean;
+  wholeWord: boolean;
+  useRegex: boolean;
+}
+
+/**
+ * Internal search match.
+ */
+interface SearchMatchInternal {
+  line: number;
+  column: number;
+  length: number;
+}
+
+/**
  * Document state for serialization.
  */
 export interface DocumentEditorState {
@@ -226,6 +244,22 @@ export class DocumentEditor extends BaseElement {
 
   /** Undo/redo manager */
   private undoManager: UndoManager = new UndoManager();
+
+  /** Current search query */
+  private searchQuery = '';
+
+  /** Search options */
+  private searchOptions: SearchOptionsInternal = {
+    caseSensitive: false,
+    wholeWord: false,
+    useRegex: false,
+  };
+
+  /** Current search matches */
+  private searchMatches: SearchMatchInternal[] = [];
+
+  /** Current match index (-1 if no match selected) */
+  private currentSearchIndex = -1;
 
   constructor(id: string, title: string, ctx: ElementContext, callbacks: DocumentEditorCallbacks = {}) {
     super('DocumentEditor', id, title, ctx);
@@ -852,6 +886,255 @@ export class DocumentEditor extends BaseElement {
       case 'deleted':
         return this.ctx.getThemeColor('editorGutter.deletedBackground', '#f38ba8');
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Search & Replace
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Search for text in the document.
+   * Updates the search matches and optionally navigates to the first match.
+   */
+  search(
+    query: string,
+    options: { caseSensitive?: boolean; wholeWord?: boolean; useRegex?: boolean } = {}
+  ): { matches: SearchMatchInternal[]; currentIndex: number } {
+    this.searchQuery = query;
+    this.searchOptions = {
+      caseSensitive: options.caseSensitive ?? false,
+      wholeWord: options.wholeWord ?? false,
+      useRegex: options.useRegex ?? false,
+    };
+
+    if (!query) {
+      this.searchMatches = [];
+      this.currentSearchIndex = -1;
+      this.ctx.markDirty();
+      return { matches: [], currentIndex: -1 };
+    }
+
+    // Find all matches
+    this.searchMatches = this.findAllMatches(query, this.searchOptions);
+
+    // Find the closest match to the current cursor
+    if (this.searchMatches.length > 0) {
+      const cursor = this.cursors[0]!;
+      this.currentSearchIndex = this.findClosestMatchIndex(cursor.position);
+    } else {
+      this.currentSearchIndex = -1;
+    }
+
+    this.ctx.markDirty();
+    return { matches: this.searchMatches, currentIndex: this.currentSearchIndex };
+  }
+
+  /**
+   * Find next match and navigate to it.
+   */
+  findNext(): { matches: SearchMatchInternal[]; currentIndex: number } {
+    if (this.searchMatches.length === 0) {
+      return { matches: [], currentIndex: -1 };
+    }
+
+    // Move to next match
+    this.currentSearchIndex = (this.currentSearchIndex + 1) % this.searchMatches.length;
+    this.navigateToCurrentMatch();
+
+    return { matches: this.searchMatches, currentIndex: this.currentSearchIndex };
+  }
+
+  /**
+   * Find previous match and navigate to it.
+   */
+  findPrevious(): { matches: SearchMatchInternal[]; currentIndex: number } {
+    if (this.searchMatches.length === 0) {
+      return { matches: [], currentIndex: -1 };
+    }
+
+    // Move to previous match
+    this.currentSearchIndex = this.currentSearchIndex <= 0
+      ? this.searchMatches.length - 1
+      : this.currentSearchIndex - 1;
+    this.navigateToCurrentMatch();
+
+    return { matches: this.searchMatches, currentIndex: this.currentSearchIndex };
+  }
+
+  /**
+   * Replace the current match with the given text.
+   */
+  replaceCurrent(replacement: string): { matches: SearchMatchInternal[]; currentIndex: number } {
+    if (this.currentSearchIndex < 0 || this.currentSearchIndex >= this.searchMatches.length) {
+      return { matches: this.searchMatches, currentIndex: this.currentSearchIndex };
+    }
+
+    const match = this.searchMatches[this.currentSearchIndex]!;
+
+    // Select the match
+    this.setCursorPosition({ line: match.line, column: match.column }, false);
+    this.setCursorPosition({ line: match.line, column: match.column + match.length }, true);
+
+    // Replace with the new text
+    this.insertText(replacement);
+
+    // Re-search to update matches
+    return this.search(this.searchQuery, this.searchOptions);
+  }
+
+  /**
+   * Replace all matches with the given text.
+   */
+  replaceAll(replacement: string): number {
+    if (this.searchMatches.length === 0) {
+      return 0;
+    }
+
+    const count = this.searchMatches.length;
+
+    // Replace from end to start to preserve positions
+    const sortedMatches = [...this.searchMatches].sort((a, b) => {
+      if (a.line !== b.line) return b.line - a.line;
+      return b.column - a.column;
+    });
+
+    for (const match of sortedMatches) {
+      // Select the match
+      this.setCursorPosition({ line: match.line, column: match.column }, false);
+      this.setCursorPosition({ line: match.line, column: match.column + match.length }, true);
+
+      // Replace with the new text
+      this.insertText(replacement);
+    }
+
+    // Clear search after replace all
+    this.searchMatches = [];
+    this.currentSearchIndex = -1;
+    this.ctx.markDirty();
+
+    return count;
+  }
+
+  /**
+   * Clear search highlighting.
+   */
+  clearSearch(): void {
+    this.searchQuery = '';
+    this.searchMatches = [];
+    this.currentSearchIndex = -1;
+    this.ctx.markDirty();
+  }
+
+  /**
+   * Get current search state.
+   */
+  getSearchState(): { query: string; matches: SearchMatchInternal[]; currentIndex: number } {
+    return {
+      query: this.searchQuery,
+      matches: this.searchMatches,
+      currentIndex: this.currentSearchIndex,
+    };
+  }
+
+  /**
+   * Find all matches in the document.
+   */
+  private findAllMatches(query: string, options: SearchOptionsInternal): SearchMatchInternal[] {
+    const matches: SearchMatchInternal[] = [];
+
+    if (!query) return matches;
+
+    let pattern: RegExp;
+    try {
+      if (options.useRegex) {
+        pattern = new RegExp(query, options.caseSensitive ? 'g' : 'gi');
+      } else {
+        // Escape regex special characters for literal search
+        const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const wordBoundary = options.wholeWord ? '\\b' : '';
+        pattern = new RegExp(
+          `${wordBoundary}${escaped}${wordBoundary}`,
+          options.caseSensitive ? 'g' : 'gi'
+        );
+      }
+    } catch {
+      // Invalid regex, return empty
+      return matches;
+    }
+
+    for (let line = 0; line < this.lines.length; line++) {
+      const lineText = this.lines[line]!.text;
+      let match: RegExpExecArray | null;
+
+      // Reset lastIndex for each line
+      pattern.lastIndex = 0;
+
+      while ((match = pattern.exec(lineText)) !== null) {
+        matches.push({
+          line,
+          column: match.index,
+          length: match[0].length,
+        });
+
+        // Prevent infinite loop on zero-length matches
+        if (match[0].length === 0) {
+          pattern.lastIndex++;
+        }
+      }
+    }
+
+    return matches;
+  }
+
+  /**
+   * Find the closest match to a position.
+   */
+  private findClosestMatchIndex(position: CursorPosition): number {
+    if (this.searchMatches.length === 0) return -1;
+
+    // Find first match at or after cursor
+    for (let i = 0; i < this.searchMatches.length; i++) {
+      const match = this.searchMatches[i]!;
+      if (match.line > position.line ||
+          (match.line === position.line && match.column >= position.column)) {
+        return i;
+      }
+    }
+
+    // Wrap to first match
+    return 0;
+  }
+
+  /**
+   * Navigate to the current match.
+   */
+  private navigateToCurrentMatch(): void {
+    if (this.currentSearchIndex < 0 || this.currentSearchIndex >= this.searchMatches.length) {
+      return;
+    }
+
+    const match = this.searchMatches[this.currentSearchIndex]!;
+
+    // Move cursor to match and select it
+    this.setCursorPosition({ line: match.line, column: match.column }, false);
+    this.setCursorPosition({ line: match.line, column: match.column + match.length }, true);
+
+    // Ensure match is visible
+    this.ensurePrimaryCursorVisible();
+    this.ctx.markDirty();
+  }
+
+  /**
+   * Check if a position is within a search match.
+   */
+  private isInSearchMatch(line: number, column: number): { isMatch: boolean; isCurrent: boolean } {
+    for (let i = 0; i < this.searchMatches.length; i++) {
+      const match = this.searchMatches[i]!;
+      if (match.line === line && column >= match.column && column < match.column + match.length) {
+        return { isMatch: true, isCurrent: i === this.currentSearchIndex };
+      }
+    }
+    return { isMatch: false, isCurrent: false };
   }
 
   /**
@@ -2300,6 +2583,13 @@ export class DocumentEditor extends BaseElement {
         }
       }
 
+      // Render search match highlights
+      if (this.wordWrapEnabled) {
+        this.renderSearchHighlightsOnLineWrapped(buffer, contentX, screenY, bufferLine, wrapOffset, contentWidth);
+      } else {
+        this.renderSearchHighlightsOnLine(buffer, contentX, screenY, bufferLine, contentWidth);
+      }
+
       // Render selection highlights for all cursors
       for (const cursor of this.cursors) {
         if (cursor.selection && this.hasSelectionContent(cursor.selection)) {
@@ -2573,6 +2863,91 @@ export class DocumentEditor extends BaseElement {
       const cell = buffer.get(x + col, y);
       if (cell) {
         buffer.set(x + col, y, { ...cell, bg: selectionBg });
+      }
+    }
+  }
+
+  /**
+   * Render search match highlights on a line.
+   */
+  private renderSearchHighlightsOnLine(
+    buffer: ScreenBuffer,
+    x: number,
+    y: number,
+    lineNum: number,
+    width: number
+  ): void {
+    if (this.searchMatches.length === 0) return;
+
+    const matchBg = this.ctx.getThemeColor('editor.findMatchBackground', '#515c6a');
+    const currentMatchBg = this.ctx.getThemeColor('editor.findMatchHighlightBackground', '#ea5c0055');
+
+    for (let i = 0; i < this.searchMatches.length; i++) {
+      const match = this.searchMatches[i]!;
+      if (match.line !== lineNum) continue;
+
+      const isCurrent = i === this.currentSearchIndex;
+      const highlightBg = isCurrent ? currentMatchBg : matchBg;
+
+      let startCol = match.column - this.scrollLeft;
+      let endCol = match.column + match.length - this.scrollLeft;
+
+      // Clamp to visible area
+      startCol = Math.max(startCol, 0);
+      endCol = Math.min(endCol, width);
+
+      if (startCol >= endCol) continue;
+
+      for (let col = startCol; col < endCol; col++) {
+        const cell = buffer.get(x + col, y);
+        if (cell) {
+          buffer.set(x + col, y, { ...cell, bg: highlightBg });
+        }
+      }
+    }
+  }
+
+  /**
+   * Render search match highlights on a wrapped line.
+   */
+  private renderSearchHighlightsOnLineWrapped(
+    buffer: ScreenBuffer,
+    x: number,
+    y: number,
+    lineNum: number,
+    wrapOffset: number,
+    width: number
+  ): void {
+    if (this.searchMatches.length === 0) return;
+
+    const matchBg = this.ctx.getThemeColor('editor.findMatchBackground', '#515c6a');
+    const currentMatchBg = this.ctx.getThemeColor('editor.findMatchHighlightBackground', '#ea5c0055');
+
+    const line = this.lines[lineNum]?.text ?? '';
+    const wrapStart = this.getWrapRowStart(line, wrapOffset, width);
+    const wrapEnd = wrapStart + width;
+
+    for (let i = 0; i < this.searchMatches.length; i++) {
+      const match = this.searchMatches[i]!;
+      if (match.line !== lineNum) continue;
+
+      const matchEnd = match.column + match.length;
+
+      // Check if match intersects with this wrapped row
+      if (matchEnd <= wrapStart || match.column >= wrapEnd) continue;
+
+      const isCurrent = i === this.currentSearchIndex;
+      const highlightBg = isCurrent ? currentMatchBg : matchBg;
+
+      // Calculate visible portion within this wrapped row
+      const startCol = Math.max(match.column - wrapStart, 0);
+      const endCol = Math.min(matchEnd - wrapStart, width);
+
+      for (let col = startCol; col < endCol; col++) {
+        const cell = buffer.get(x + col, y);
+        if (cell) {
+          buffer.set(x + col, y, { ...cell, bg: highlightBg });
+        }
       }
     }
   }

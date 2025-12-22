@@ -5,7 +5,7 @@
  */
 
 import { BaseDialog, type OverlayManagerCallbacks } from './overlay-manager.ts';
-import type { InputEvent, KeyEvent, Rect } from '../types.ts';
+import type { InputEvent, KeyEvent, MouseEvent, Rect } from '../types.ts';
 import type { ScreenBuffer } from '../rendering/buffer.ts';
 
 // ============================================
@@ -59,9 +59,18 @@ export interface SearchReplaceCallbacks extends OverlayManagerCallbacks {
 }
 
 /**
- * Active input field.
+ * Focusable element in the dialog.
  */
-type ActiveField = 'search' | 'replace';
+type FocusableElement =
+  | 'search'
+  | 'replace'
+  | 'caseSensitive'
+  | 'wholeWord'
+  | 'useRegex'
+  | 'prevBtn'
+  | 'nextBtn'
+  | 'replaceBtn'
+  | 'replaceAllBtn';
 
 // ============================================
 // Search/Replace Dialog
@@ -88,8 +97,8 @@ export class SearchReplaceDialog extends BaseDialog {
   /** Current match index */
   private currentMatchIndex = -1;
 
-  /** Active input field */
-  private activeField: ActiveField = 'search';
+  /** Currently focused element */
+  private focusedElement: FocusableElement = 'search';
 
   /** Whether replace mode is enabled */
   private replaceMode = false;
@@ -218,7 +227,7 @@ export class SearchReplaceDialog extends BaseDialog {
    */
   override show(withReplace = false): void {
     this.replaceMode = withReplace;
-    this.activeField = 'search';
+    this.focusedElement = 'search';
     super.show();
   }
 
@@ -290,6 +299,9 @@ export class SearchReplaceDialog extends BaseDialog {
     const contentX = x + 2;
     let rowY = y + 1;
 
+    // Focus highlight color
+    const focusBorder = this.callbacks.getThemeColor('focusBorder', '#007acc');
+
     // Search field
     const labelWidth = 10;
     buffer.writeString(contentX, rowY, 'Find:', fg, bg);
@@ -297,15 +309,10 @@ export class SearchReplaceDialog extends BaseDialog {
     const inputWidth = width - labelWidth - 4;
     const searchInputX = contentX + labelWidth;
 
-    // Draw search input border if active
-    if (this.activeField === 'search') {
-      for (let col = 0; col < inputWidth; col++) {
-        buffer.set(searchInputX + col, rowY, { char: ' ', fg: inputFg, bg: inputBg });
-      }
-    } else {
-      for (let col = 0; col < inputWidth; col++) {
-        buffer.set(searchInputX + col, rowY, { char: ' ', fg: inputFg, bg: inputBg });
-      }
+    // Draw search input background
+    const searchFieldBg = this.focusedElement === 'search' ? inputBg : inputBg;
+    for (let col = 0; col < inputWidth; col++) {
+      buffer.set(searchInputX + col, rowY, { char: ' ', fg: inputFg, bg: searchFieldBg });
     }
 
     // Search text
@@ -314,13 +321,13 @@ export class SearchReplaceDialog extends BaseDialog {
     if (searchDisplay.length > maxSearchDisplay) {
       searchDisplay = searchDisplay.slice(-maxSearchDisplay);
     }
-    buffer.writeString(searchInputX + 1, rowY, searchDisplay, inputFg, inputBg);
+    buffer.writeString(searchInputX + 1, rowY, searchDisplay, inputFg, searchFieldBg);
 
     // Cursor in search field
-    if (this.activeField === 'search') {
+    if (this.focusedElement === 'search') {
       const cursorX = searchInputX + 1 + searchDisplay.length;
       if (cursorX < searchInputX + inputWidth - 1) {
-        buffer.set(cursorX, rowY, { char: '▏', fg: inputBorderActive, bg: inputBg });
+        buffer.set(cursorX, rowY, { char: '▏', fg: inputBorderActive, bg: searchFieldBg });
       }
     }
 
@@ -338,8 +345,9 @@ export class SearchReplaceDialog extends BaseDialog {
       buffer.writeString(contentX, rowY, 'Replace:', fg, bg);
 
       const replaceInputX = contentX + labelWidth;
+      const replaceFieldBg = this.focusedElement === 'replace' ? inputBg : inputBg;
       for (let col = 0; col < inputWidth; col++) {
-        buffer.set(replaceInputX + col, rowY, { char: ' ', fg: inputFg, bg: inputBg });
+        buffer.set(replaceInputX + col, rowY, { char: ' ', fg: inputFg, bg: replaceFieldBg });
       }
 
       // Replace text
@@ -347,13 +355,13 @@ export class SearchReplaceDialog extends BaseDialog {
       if (replaceDisplay.length > maxSearchDisplay) {
         replaceDisplay = replaceDisplay.slice(-maxSearchDisplay);
       }
-      buffer.writeString(replaceInputX + 1, rowY, replaceDisplay, inputFg, inputBg);
+      buffer.writeString(replaceInputX + 1, rowY, replaceDisplay, inputFg, replaceFieldBg);
 
       // Cursor in replace field
-      if (this.activeField === 'replace') {
+      if (this.focusedElement === 'replace') {
         const cursorX = replaceInputX + 1 + replaceDisplay.length;
         if (cursorX < replaceInputX + inputWidth - 1) {
-          buffer.set(cursorX, rowY, { char: '▏', fg: inputBorderActive, bg: inputBg });
+          buffer.set(cursorX, rowY, { char: '▏', fg: inputBorderActive, bg: replaceFieldBg });
         }
       }
 
@@ -372,22 +380,25 @@ export class SearchReplaceDialog extends BaseDialog {
 
     // Case sensitive toggle
     const caseLabel = 'Aa';
-    const caseBg = this.options.caseSensitive ? activeOptionBg : inputBg;
-    const caseFg = this.options.caseSensitive ? activeOptionFg : dimFg;
+    const caseFocused = this.focusedElement === 'caseSensitive';
+    const caseBg = this.options.caseSensitive ? activeOptionBg : (caseFocused ? focusBorder : inputBg);
+    const caseFg = this.options.caseSensitive || caseFocused ? activeOptionFg : dimFg;
     buffer.writeString(optX, rowY, `[${caseLabel}]`, caseFg, caseBg);
     optX += caseLabel.length + 3;
 
     // Whole word toggle
     const wordLabel = 'W';
-    const wordBg = this.options.wholeWord ? activeOptionBg : inputBg;
-    const wordFg = this.options.wholeWord ? activeOptionFg : dimFg;
+    const wordFocused = this.focusedElement === 'wholeWord';
+    const wordBg = this.options.wholeWord ? activeOptionBg : (wordFocused ? focusBorder : inputBg);
+    const wordFg = this.options.wholeWord || wordFocused ? activeOptionFg : dimFg;
     buffer.writeString(optX, rowY, `[${wordLabel}]`, wordFg, wordBg);
     optX += wordLabel.length + 3;
 
     // Regex toggle
     const regexLabel = '.*';
-    const regexBg = this.options.useRegex ? activeOptionBg : inputBg;
-    const regexFg = this.options.useRegex ? activeOptionFg : dimFg;
+    const regexFocused = this.focusedElement === 'useRegex';
+    const regexBg = this.options.useRegex ? activeOptionBg : (regexFocused ? focusBorder : inputBg);
+    const regexFg = this.options.useRegex || regexFocused ? activeOptionFg : dimFg;
     buffer.writeString(optX, rowY, `[${regexLabel}]`, regexFg, regexBg);
 
     rowY++;
@@ -396,23 +407,30 @@ export class SearchReplaceDialog extends BaseDialog {
     const buttonsY = rowY;
     let btnX = contentX;
 
-    // Find buttons
-    buffer.writeString(btnX, buttonsY, '[ ↑ ]', buttonFg, buttonBg);
+    // Find prev button
+    const prevFocused = this.focusedElement === 'prevBtn';
+    buffer.writeString(btnX, buttonsY, '[ ↑ ]', buttonFg, prevFocused ? focusBorder : buttonBg);
     btnX += 6;
-    buffer.writeString(btnX, buttonsY, '[ ↓ ]', buttonFg, buttonBg);
+
+    // Find next button
+    const nextFocused = this.focusedElement === 'nextBtn';
+    buffer.writeString(btnX, buttonsY, '[ ↓ ]', buttonFg, nextFocused ? focusBorder : buttonBg);
     btnX += 8;
 
     if (this.replaceMode) {
-      buffer.writeString(btnX, buttonsY, '[ Replace ]', buttonFg, buttonBg);
+      // Replace button
+      const replaceFocused = this.focusedElement === 'replaceBtn';
+      buffer.writeString(btnX, buttonsY, '[ Replace ]', buttonFg, replaceFocused ? focusBorder : buttonBg);
       btnX += 13;
-      buffer.writeString(btnX, buttonsY, '[ All ]', buttonFg, buttonBg);
+
+      // Replace all button
+      const replaceAllFocused = this.focusedElement === 'replaceAllBtn';
+      buffer.writeString(btnX, buttonsY, '[ All ]', buttonFg, replaceAllFocused ? focusBorder : buttonBg);
     }
 
     // Help text at bottom
     const helpY = y + height - 1;
-    const helpText = this.replaceMode
-      ? 'Tab: Switch fields | Enter: Find next | Esc: Close'
-      : 'Enter: Find next | Shift+Enter: Previous | Esc: Close';
+    const helpText = 'Tab: Cycle | Enter: Activate | Esc: Close';
     buffer.writeString(x + 2, helpY, helpText, dimFg, bg);
   }
 
@@ -421,25 +439,46 @@ export class SearchReplaceDialog extends BaseDialog {
   // ─────────────────────────────────────────────────────────────────────────
 
   handleInput(event: InputEvent): boolean {
+    // Handle mouse events
+    if ('type' in event && !('key' in event)) {
+      return this.handleMouseInput(event);
+    }
+
     if (!('key' in event)) return false;
 
     const keyEvent = event as KeyEvent;
 
-    // Tab to switch fields
-    if (keyEvent.key === 'Tab' && this.replaceMode) {
-      this.activeField = this.activeField === 'search' ? 'replace' : 'search';
+    // Tab / Shift+Tab to cycle through focusable elements
+    if (keyEvent.key === 'Tab') {
+      const elements = this.getFocusableElements();
+      const currentIndex = elements.indexOf(this.focusedElement);
+      if (keyEvent.shift) {
+        // Previous element
+        this.focusedElement = elements[(currentIndex - 1 + elements.length) % elements.length]!;
+      } else {
+        // Next element
+        this.focusedElement = elements[(currentIndex + 1) % elements.length]!;
+      }
       this.callbacks.onDirty();
       return true;
     }
 
-    // Enter to find
-    if (keyEvent.key === 'Enter') {
-      if (keyEvent.shift) {
-        this.findPrevious();
-      } else {
-        this.findNext();
+    // Enter/Space to activate focused button or toggle
+    if (keyEvent.key === 'Enter' || keyEvent.key === ' ') {
+      if (this.activateFocusedElement()) {
+        return true;
       }
-      return true;
+      // If on text field, Enter finds next/previous
+      if (this.focusedElement === 'search' || this.focusedElement === 'replace') {
+        if (keyEvent.key === 'Enter') {
+          if (keyEvent.shift) {
+            this.findPrevious();
+          } else {
+            this.findNext();
+          }
+          return true;
+        }
+      }
     }
 
     // Escape to close
@@ -482,37 +521,203 @@ export class SearchReplaceDialog extends BaseDialog {
       return true;
     }
 
-    // Backspace
-    if (keyEvent.key === 'Backspace') {
-      if (this.activeField === 'search' && this.searchQuery.length > 0) {
-        this.setSearchQuery(this.searchQuery.slice(0, -1));
-      } else if (this.activeField === 'replace' && this.replaceText.length > 0) {
-        this.setReplaceText(this.replaceText.slice(0, -1));
+    // Text input only for search/replace fields
+    if (this.focusedElement === 'search' || this.focusedElement === 'replace') {
+      // Backspace
+      if (keyEvent.key === 'Backspace') {
+        if (this.focusedElement === 'search' && this.searchQuery.length > 0) {
+          this.setSearchQuery(this.searchQuery.slice(0, -1));
+        } else if (this.focusedElement === 'replace' && this.replaceText.length > 0) {
+          this.setReplaceText(this.replaceText.slice(0, -1));
+        }
+        return true;
       }
+
+      // Clear field
+      if (keyEvent.ctrl && keyEvent.key === 'u') {
+        if (this.focusedElement === 'search') {
+          this.setSearchQuery('');
+        } else {
+          this.setReplaceText('');
+        }
+        return true;
+      }
+
+      // Character input
+      if (keyEvent.key.length === 1 && !keyEvent.ctrl && !keyEvent.alt && !keyEvent.meta) {
+        if (this.focusedElement === 'search') {
+          this.setSearchQuery(this.searchQuery + keyEvent.key);
+        } else {
+          this.setReplaceText(this.replaceText + keyEvent.key);
+        }
+        return true;
+      }
+    }
+
+    // Consume all other keys to prevent them from reaching the editor
+    return true;
+  }
+
+  /**
+   * Get list of focusable elements based on current mode.
+   */
+  private getFocusableElements(): FocusableElement[] {
+    if (this.replaceMode) {
+      return [
+        'search',
+        'replace',
+        'caseSensitive',
+        'wholeWord',
+        'useRegex',
+        'prevBtn',
+        'nextBtn',
+        'replaceBtn',
+        'replaceAllBtn',
+      ];
+    }
+    return [
+      'search',
+      'caseSensitive',
+      'wholeWord',
+      'useRegex',
+      'prevBtn',
+      'nextBtn',
+    ];
+  }
+
+  /**
+   * Activate the currently focused element (button/toggle).
+   * Returns true if an action was performed.
+   */
+  private activateFocusedElement(): boolean {
+    switch (this.focusedElement) {
+      case 'caseSensitive':
+        this.toggleOption('caseSensitive');
+        return true;
+      case 'wholeWord':
+        this.toggleOption('wholeWord');
+        return true;
+      case 'useRegex':
+        this.toggleOption('useRegex');
+        return true;
+      case 'prevBtn':
+        this.findPrevious();
+        return true;
+      case 'nextBtn':
+        this.findNext();
+        return true;
+      case 'replaceBtn':
+        this.replaceCurrent();
+        return true;
+      case 'replaceAllBtn':
+        this.replaceAll();
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Handle mouse input events.
+   */
+  private handleMouseInput(event: InputEvent): boolean {
+    if (!('x' in event) || !('y' in event)) return true;
+
+    const mouseEvent = event as MouseEvent;
+    const { x, y, width } = this.bounds;
+
+    // Only handle clicks
+    if (mouseEvent.type !== 'press') return true;
+
+    const relX = mouseEvent.x - x;
+    const relY = mouseEvent.y - y;
+
+    // Check if click is within dialog bounds
+    if (relX < 0 || relX >= width || relY < 0 || relY >= this.bounds.height) {
       return true;
     }
 
-    // Clear field
-    if (keyEvent.ctrl && keyEvent.key === 'u') {
-      if (this.activeField === 'search') {
-        this.setSearchQuery('');
-      } else {
-        this.setReplaceText('');
-      }
+    const contentX = 2;
+    const labelWidth = 10;
+    const inputX = contentX + labelWidth;
+    const inputWidth = width - labelWidth - 4;
+
+    // Row 1: Search field (relY === 1)
+    if (relY === 1 && relX >= inputX && relX < inputX + inputWidth) {
+      this.focusedElement = 'search';
+      this.callbacks.onDirty();
       return true;
     }
 
-    // Character input
-    if (keyEvent.key.length === 1 && !keyEvent.ctrl && !keyEvent.alt && !keyEvent.meta) {
-      if (this.activeField === 'search') {
-        this.setSearchQuery(this.searchQuery + keyEvent.key);
-      } else {
-        this.setReplaceText(this.replaceText + keyEvent.key);
-      }
+    // Row 2: Replace field (relY === 2, if replaceMode)
+    if (this.replaceMode && relY === 2 && relX >= inputX && relX < inputX + inputWidth) {
+      this.focusedElement = 'replace';
+      this.callbacks.onDirty();
       return true;
     }
 
-    return false;
+    // Options row (relY === 3 in find mode, 4 in replace mode)
+    const optionsRow = this.replaceMode ? 4 : 3;
+    if (relY === optionsRow) {
+      let optX = contentX;
+
+      // Case sensitive toggle [Aa] - 4 chars
+      if (relX >= optX && relX < optX + 4) {
+        this.toggleOption('caseSensitive');
+        return true;
+      }
+      optX += 5;
+
+      // Whole word toggle [W] - 3 chars
+      if (relX >= optX && relX < optX + 3) {
+        this.toggleOption('wholeWord');
+        return true;
+      }
+      optX += 4;
+
+      // Regex toggle [.*] - 4 chars
+      if (relX >= optX && relX < optX + 4) {
+        this.toggleOption('useRegex');
+        return true;
+      }
+    }
+
+    // Buttons row (relY === 4 in find mode, 5 in replace mode)
+    const buttonsRow = this.replaceMode ? 5 : 4;
+    if (relY === buttonsRow) {
+      let btnX = contentX;
+
+      // [ ↑ ] button - 5 chars
+      if (relX >= btnX && relX < btnX + 5) {
+        this.findPrevious();
+        return true;
+      }
+      btnX += 6;
+
+      // [ ↓ ] button - 5 chars
+      if (relX >= btnX && relX < btnX + 5) {
+        this.findNext();
+        return true;
+      }
+      btnX += 8;
+
+      if (this.replaceMode) {
+        // [ Replace ] button - 11 chars
+        if (relX >= btnX && relX < btnX + 11) {
+          this.replaceCurrent();
+          return true;
+        }
+        btnX += 13;
+
+        // [ All ] button - 7 chars
+        if (relX >= btnX && relX < btnX + 7) {
+          this.replaceAll();
+          return true;
+        }
+      }
+    }
+
+    return true;
   }
 
   // ─────────────────────────────────────────────────────────────────────────

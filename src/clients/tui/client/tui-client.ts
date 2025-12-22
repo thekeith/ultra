@@ -37,9 +37,12 @@ import {
   createDialogManager,
   FileBrowserDialog,
   SaveAsDialog,
+  SearchReplaceDialog,
+  createSearchReplaceDialog,
   type Command,
   type FileEntry,
   type StagedFile,
+  type SearchOptions,
 } from '../overlays/index.ts';
 
 // Debug utilities
@@ -172,6 +175,9 @@ export class TUIClient {
   /** Save As dialog */
   private saveAsDialog: SaveAsDialog | null = null;
 
+  /** Search/Replace dialog */
+  private searchReplaceDialog: SearchReplaceDialog | null = null;
+
   /** Command handlers */
   private commandHandlers: Map<string, () => boolean | Promise<boolean>> = new Map();
 
@@ -285,6 +291,30 @@ export class TUIClient {
     this.saveAsDialog = new SaveAsDialog('save-as', overlayCallbacks);
     this.saveAsDialog.setFileService(this.fileService);
     this.window.getOverlayManager().addOverlay(this.saveAsDialog);
+
+    // Create search/replace dialog
+    this.searchReplaceDialog = createSearchReplaceDialog({
+      ...overlayCallbacks,
+      onSearch: (query: string, options: SearchOptions) => {
+        this.handleSearch(query, options);
+      },
+      onFindNext: () => {
+        this.handleFindNext();
+      },
+      onFindPrevious: () => {
+        this.handleFindPrevious();
+      },
+      onReplace: (replacement: string) => {
+        this.handleReplace(replacement);
+      },
+      onReplaceAll: (replacement: string) => {
+        this.handleReplaceAll(replacement);
+      },
+      onDismiss: () => {
+        this.handleSearchDismiss();
+      },
+    });
+    this.window.getOverlayManager().addOverlay(this.searchReplaceDialog);
 
     // Create input handler
     this.inputHandler = createInputHandler();
@@ -1823,12 +1853,12 @@ export class TUIClient {
 
     // Search commands
     this.commandHandlers.set('search.find', () => {
-      this.window.showNotification('Find not yet implemented', 'info');
+      this.showSearchDialog(false);
       return true;
     });
 
     this.commandHandlers.set('search.replace', () => {
-      this.window.showNotification('Replace not yet implemented', 'info');
+      this.showSearchDialog(true);
       return true;
     });
 
@@ -3308,6 +3338,163 @@ export class TUIClient {
       );
       this.scheduleRender();
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Search/Replace
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Show search dialog.
+   */
+  private showSearchDialog(withReplace: boolean = false): void {
+    if (!this.searchReplaceDialog) return;
+
+    const focusedElement = this.window.getFocusedElement();
+    if (!(focusedElement instanceof DocumentEditor)) {
+      this.window.showNotification('No active editor', 'warning');
+      return;
+    }
+
+    // Get the editor's bounds to position dialog at top-right of editor pane
+    const editorBounds = focusedElement.getBounds();
+    const dialogWidth = Math.min(56, editorBounds.width - 6);
+    const dialogHeight = withReplace ? 7 : 5;
+
+    // Position at top-right of editor pane with margin for scrollbar/minimap
+    const dialogX = editorBounds.x + editorBounds.width - dialogWidth - 9;
+    const dialogY = editorBounds.y;
+
+    this.searchReplaceDialog.setReplaceMode(withReplace);
+    this.searchReplaceDialog.setBounds({
+      x: dialogX,
+      y: dialogY,
+      width: dialogWidth,
+      height: dialogHeight,
+    });
+    this.searchReplaceDialog.show(withReplace);
+    this.scheduleRender();
+  }
+
+  /**
+   * Handle search query change.
+   */
+  private handleSearch(query: string, options: SearchOptions): void {
+    const focusedElement = this.window.getFocusedElement();
+    if (!(focusedElement instanceof DocumentEditor)) return;
+
+    const result = focusedElement.search(query, {
+      caseSensitive: options.caseSensitive,
+      wholeWord: options.wholeWord,
+      useRegex: options.useRegex,
+    });
+
+    // Update dialog with match info
+    this.searchReplaceDialog?.setMatches(
+      result.matches.map((m) => ({
+        line: m.line,
+        column: m.column,
+        length: m.length,
+        text: '',
+      })),
+      result.currentIndex
+    );
+
+    this.scheduleRender();
+  }
+
+  /**
+   * Handle find next.
+   */
+  private handleFindNext(): void {
+    const focusedElement = this.window.getFocusedElement();
+    if (!(focusedElement instanceof DocumentEditor)) return;
+
+    const result = focusedElement.findNext();
+
+    this.searchReplaceDialog?.setMatches(
+      result.matches.map((m) => ({
+        line: m.line,
+        column: m.column,
+        length: m.length,
+        text: '',
+      })),
+      result.currentIndex
+    );
+
+    this.scheduleRender();
+  }
+
+  /**
+   * Handle find previous.
+   */
+  private handleFindPrevious(): void {
+    const focusedElement = this.window.getFocusedElement();
+    if (!(focusedElement instanceof DocumentEditor)) return;
+
+    const result = focusedElement.findPrevious();
+
+    this.searchReplaceDialog?.setMatches(
+      result.matches.map((m) => ({
+        line: m.line,
+        column: m.column,
+        length: m.length,
+        text: '',
+      })),
+      result.currentIndex
+    );
+
+    this.scheduleRender();
+  }
+
+  /**
+   * Handle replace current match.
+   */
+  private handleReplace(replacement: string): void {
+    const focusedElement = this.window.getFocusedElement();
+    if (!(focusedElement instanceof DocumentEditor)) return;
+
+    const result = focusedElement.replaceCurrent(replacement);
+
+    this.searchReplaceDialog?.setMatches(
+      result.matches.map((m) => ({
+        line: m.line,
+        column: m.column,
+        length: m.length,
+        text: '',
+      })),
+      result.currentIndex
+    );
+
+    this.scheduleRender();
+  }
+
+  /**
+   * Handle replace all matches.
+   */
+  private handleReplaceAll(replacement: string): void {
+    const focusedElement = this.window.getFocusedElement();
+    if (!(focusedElement instanceof DocumentEditor)) return;
+
+    const state = focusedElement.getSearchState();
+    const count = state.matches.length;
+
+    focusedElement.replaceAll(replacement);
+    this.searchReplaceDialog?.setMatches([], -1);
+
+    this.window.showNotification(`Replaced ${count} occurrence${count !== 1 ? 's' : ''}`, 'info');
+    this.scheduleRender();
+  }
+
+  /**
+   * Handle search dialog dismiss.
+   */
+  private handleSearchDismiss(): void {
+    const focusedElement = this.window.getFocusedElement();
+    if (focusedElement instanceof DocumentEditor) {
+      focusedElement.clearSearch();
+    }
+    this.scheduleRender();
   }
 
   /**
