@@ -24,7 +24,7 @@ import { settings } from '../../../config/settings.ts';
 /**
  * Supported AI providers.
  */
-export type AIProvider = 'claude-code' | 'codex' | 'custom';
+export type AIProvider = 'claude-code' | 'codex' | 'gemini' | 'custom';
 
 /**
  * Terminal line with styled cells.
