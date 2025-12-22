@@ -77,6 +77,16 @@ export {
   type SettingItem,
 } from './settings-dialog.ts';
 
+export {
+  FileBrowserDialog,
+  type FileBrowserConfig,
+} from './file-browser-dialog.ts';
+
+export {
+  SaveAsDialog,
+  type SaveAsConfig,
+} from './save-as-dialog.ts';
+
 // Other overlays
 export {
   SearchReplaceDialog,

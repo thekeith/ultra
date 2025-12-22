@@ -34,6 +34,8 @@ import type { Pane } from '../layout/pane.ts';
 import {
   DialogManager,
   createDialogManager,
+  FileBrowserDialog,
+  SaveAsDialog,
   type Command,
   type FileEntry,
   type StagedFile,
@@ -160,6 +162,12 @@ export class TUIClient {
   /** Dialog manager */
   private dialogManager: DialogManager | null = null;
 
+  /** File browser dialog for Open File */
+  private fileBrowserDialog: FileBrowserDialog | null = null;
+
+  /** Save As dialog */
+  private saveAsDialog: SaveAsDialog | null = null;
+
   /** Command handlers */
   private commandHandlers: Map<string, () => boolean | Promise<boolean>> = new Map();
 
@@ -248,6 +256,21 @@ export class TUIClient {
       getThemeColor: (key, fallback) => this.getThemeColor(key, fallback),
       getScreenSize: () => this.getTerminalSize(),
     });
+
+    // Create file browser dialog
+    const overlayCallbacks = {
+      onDirty: () => this.scheduleRender(),
+      getThemeColor: (key: string, fallback?: string) => this.getThemeColor(key, fallback ?? '#cccccc'),
+      getScreenSize: () => this.getTerminalSize(),
+    };
+    this.fileBrowserDialog = new FileBrowserDialog('file-browser', overlayCallbacks);
+    this.fileBrowserDialog.setFileService(this.fileService);
+    this.window.getOverlayManager().addOverlay(this.fileBrowserDialog);
+
+    // Create save-as dialog
+    this.saveAsDialog = new SaveAsDialog('save-as', overlayCallbacks);
+    this.saveAsDialog.setFileService(this.fileService);
+    this.window.getOverlayManager().addOverlay(this.saveAsDialog);
 
     // Create input handler
     this.inputHandler = createInputHandler();
@@ -808,6 +831,123 @@ export class TUIClient {
   }
 
   /**
+   * Show the Open File dialog.
+   */
+  private async showOpenFileDialog(): Promise<void> {
+    if (!this.fileBrowserDialog) return;
+
+    const result = await this.fileBrowserDialog.showBrowser({
+      title: 'Open File',
+      startPath: this.workingDirectory,
+      width: 70,
+      height: 25,
+    });
+
+    if (result.confirmed && result.value) {
+      await this.openFile(result.value);
+    }
+  }
+
+  /**
+   * Show the Save As dialog.
+   */
+  private async showSaveAsDialog(): Promise<void> {
+    if (!this.saveAsDialog) return;
+
+    // Get current document info for default filename
+    const editor = this.window.getFocusedElement();
+    let defaultPath = this.workingDirectory;
+    let defaultFilename = 'untitled.txt';
+
+    if (editor instanceof DocumentEditor) {
+      const uri = editor.getUri();
+      if (uri) {
+        // Use current file's directory and name
+        const lastSlash = uri.lastIndexOf('/');
+        if (lastSlash >= 0) {
+          defaultPath = uri.substring(0, lastSlash);
+          defaultFilename = uri.substring(lastSlash + 1);
+        }
+      }
+    }
+
+    const result = await this.saveAsDialog.showSaveAs({
+      title: 'Save As',
+      startPath: defaultPath,
+      suggestedFilename: defaultFilename,
+      width: 70,
+      height: 25,
+    });
+
+    if (result.confirmed && result.value) {
+      await this.saveDocumentAs(result.value);
+    }
+  }
+
+  /**
+   * Save the current document to a new path.
+   */
+  private async saveDocumentAs(newPath: string): Promise<boolean> {
+    const editor = this.window.getFocusedElement();
+    if (!(editor instanceof DocumentEditor)) {
+      this.window.showNotification('No document to save', 'warning');
+      return false;
+    }
+
+    try {
+      const content = editor.getContent();
+      const result = await this.fileService.write(newPath, content);
+
+      // Update editor URI and title
+      const oldUri = editor.getUri();
+      editor.setUri(newPath);
+
+      // Update tab title to new filename
+      const filename = newPath.split('/').pop() || 'untitled';
+      editor.setTitle(filename);
+
+      // Update open documents map
+      if (oldUri) {
+        const docInfo = this.openDocuments.get(oldUri);
+        if (docInfo) {
+          this.openDocuments.delete(oldUri);
+          docInfo.lastModified = result.modTime;
+          this.openDocuments.set(newPath, docInfo);
+        }
+      }
+
+      // Notify LSP of the change
+      if (oldUri) {
+        await this.lspDocumentClosed(oldUri);
+      }
+      await this.lspDocumentOpened(newPath, content);
+
+      // Update syntax highlighting for new language
+      const docInfo = this.openDocuments.get(newPath);
+      if (docInfo) {
+        // End old syntax session
+        if (docInfo.syntaxSessionId) {
+          this.syntaxService.disposeSession(docInfo.syntaxSessionId);
+        }
+        // Start new syntax session with correct language
+        const languageId = this.detectLanguage(newPath);
+        const syntaxSession = await this.syntaxService.createSession(newPath, languageId, content);
+        docInfo.syntaxSessionId = syntaxSession.sessionId;
+        if (docInfo.syntaxSessionId) {
+          await this.applySyntaxTokens(editor, docInfo.syntaxSessionId);
+        }
+      }
+
+      this.window.showNotification(`Saved as ${filename}`, 'success');
+      this.scheduleRender();
+      return true;
+    } catch (error) {
+      this.window.showNotification(`Failed to save: ${error}`, 'error');
+      return false;
+    }
+  }
+
+  /**
    * Close the current document.
    */
   async closeCurrentDocument(): Promise<boolean> {
@@ -1195,8 +1335,8 @@ export class TUIClient {
       return true;
     });
 
-    this.commandHandlers.set('file.open', () => {
-      this.window.showNotification('File open dialog not yet implemented', 'info');
+    this.commandHandlers.set('file.open', async () => {
+      await this.showOpenFileDialog();
       return true;
     });
 
@@ -1205,8 +1345,8 @@ export class TUIClient {
       return true;
     });
 
-    this.commandHandlers.set('file.saveAs', () => {
-      this.window.showNotification('Save as not yet implemented', 'info');
+    this.commandHandlers.set('file.saveAs', async () => {
+      await this.showSaveAsDialog();
       return true;
     });
 
