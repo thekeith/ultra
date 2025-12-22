@@ -559,18 +559,29 @@ export class TUIConfigManager {
 
   /**
    * Watch a single file for changes.
+   * Uses directory watching as a fallback for atomic saves.
    */
   private watchFile(filePath: string, type: ConfigReloadType): void {
     try {
-      const watcher = fs.watch(filePath, { persistent: false }, (eventType) => {
-        // Handle both 'change' and 'rename' events (some editors replace files)
-        if (eventType === 'change' || eventType === 'rename') {
+      // Watch the parent directory to catch atomic saves (file replacements)
+      const dirPath = filePath.substring(0, filePath.lastIndexOf('/'));
+      const fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
+
+      const watcher = fs.watch(dirPath, { persistent: true }, (eventType, changedFile) => {
+        // Only react to changes to our specific file
+        if (changedFile === fileName) {
+          debugLog(`[TUIConfigManager] File change detected: ${type} (event: ${eventType})`);
           this.handleFileChange(filePath, type);
         }
       });
 
+      // Handle watcher errors (e.g., directory removed)
+      watcher.on('error', (error) => {
+        debugLog(`[TUIConfigManager] Watcher error for ${type}: ${error}`);
+      });
+
       this.watchers.set(type, watcher);
-      debugLog(`[TUIConfigManager] Watching ${type}: ${filePath}`);
+      debugLog(`[TUIConfigManager] Watching ${type}: ${filePath} (via directory: ${dirPath})`);
     } catch (error) {
       debugLog(`[TUIConfigManager] Failed to watch ${filePath}: ${error}`);
     }
@@ -590,19 +601,14 @@ export class TUIConfigManager {
     const timer = setTimeout(async () => {
       this.debounceTimers.delete(type);
 
-      // Re-setup watcher in case file was replaced
-      const watcher = this.watchers.get(type);
-      if (watcher) {
-        watcher.close();
-        this.watchers.delete(type);
-      }
-
       // Check if file still exists before reloading
       try {
         const file = Bun.file(filePath);
         if (await file.exists()) {
-          this.watchFile(filePath, type);
+          debugLog(`[TUIConfigManager] Reloading ${type}...`);
           await this.reloadConfig(type);
+        } else {
+          debugLog(`[TUIConfigManager] File no longer exists: ${filePath}`);
         }
       } catch (error) {
         debugLog(`[TUIConfigManager] Error handling file change: ${error}`);

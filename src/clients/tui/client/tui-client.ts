@@ -1539,6 +1539,9 @@ export class TUIClient {
    * Setup keybindings from config.
    */
   private setupKeybindings(): void {
+    // Clear existing keybindings first (important for hot-reload)
+    this.window.clearKeybindings();
+
     const keybindings = this.configManager.getKeybindings();
 
     for (const binding of keybindings) {
@@ -2106,12 +2109,16 @@ export class TUIClient {
       // Apply terminal panel height from updated config
       this.terminalPanelHeight = this.configManager.getWithDefault('tui.terminal.height', 10);
 
+      // Apply sidebar width from updated config
+      this.applySidebarWidth();
+
       // Apply theme from updated config
       const themeName = this.configManager.get('workbench.colorTheme') ?? 'catppuccin-frappe';
       const newTheme = this.loadThemeColors(themeName);
 
-      // Only update if theme actually changed
-      if (JSON.stringify(this.theme) !== JSON.stringify(newTheme)) {
+      // Check if theme actually changed
+      const themeChanged = JSON.stringify(this.theme) !== JSON.stringify(newTheme);
+      if (themeChanged) {
         this.theme = newTheme;
 
         // Update syntax highlighting theme
@@ -2119,6 +2126,9 @@ export class TUIClient {
 
         this.log(`Theme updated to: ${themeName}`);
       }
+
+      // Notify all elements about settings changes
+      this.notifySettingsChanged();
     }
 
     if (type === 'keybindings') {
@@ -2129,6 +2139,48 @@ export class TUIClient {
 
     // Re-render to apply changes
     this.scheduleRender();
+  }
+
+  /**
+   * Apply sidebar width from config.
+   */
+  private applySidebarWidth(): void {
+    if (this.sidebarPaneId === null) return;
+
+    const container = this.window.getPaneContainer();
+    if (!container) return;
+
+    const sidebarWidth = this.configManager.getWithDefault('tui.sidebar.width', 24);
+    const totalWidth = this.window.getSize().width;
+    const sidebarRatio = Math.min(0.3, sidebarWidth / totalWidth);
+
+    // Find and update the sidebar split
+    container.adjustRatios('split-1', [sidebarRatio, 1 - sidebarRatio]);
+    this.log(`Sidebar width updated to: ${sidebarWidth}`);
+  }
+
+  /**
+   * Notify all elements about settings changes.
+   * Elements can react to settings like tabSize, wordWrap, etc.
+   */
+  private notifySettingsChanged(): void {
+    const container = this.window.getPaneContainer();
+    if (!container) return;
+
+    // Get all elements from all panes and notify them
+    const allPanes = container.getPanes();
+    for (const pane of allPanes) {
+      for (const element of pane.getElements()) {
+        if ('onSettingsChanged' in element && typeof element.onSettingsChanged === 'function') {
+          try {
+            element.onSettingsChanged();
+          } catch (error) {
+            this.log(`Error notifying element of settings change: ${error}`);
+          }
+        }
+      }
+    }
+    this.log('Elements notified of settings changes');
   }
 
   /**

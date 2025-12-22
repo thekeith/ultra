@@ -33,11 +33,16 @@ Issues and improvements to address in future sessions.
   - Consider alternative default keybindings that don't conflict with Kitty
   - Detect Kitty terminal and show a warning/hint about configuring shortcuts
 
-- [ ] **Live settings and keybindings updates** - Currently, settings.json and keybindings.json are only read at startup. Changes require restarting the editor. Need:
-  - File watching for settings.json and keybindings.json to apply changes live
-  - Command palette commands to change settings directly (like the old TUI had)
-  - UI for adjusting settings like terminal height, sidebar width, theme, etc.
-  - Settings that affect session state (terminal height, sidebar width) should update both the config and the current session
+- [x] **Live settings and keybindings updates** - ~~Currently, settings.json and keybindings.json are only read at startup.~~ File watching is now implemented. Remaining work:
+  - [ ] Command palette commands to change settings directly (like the old TUI had)
+  - [ ] UI for adjusting settings like terminal height, sidebar width, theme, etc.
+  - [ ] Settings that affect session state (terminal height, sidebar width) should update both the config and the current session
+
+- [ ] **Undo/redo not working** - The undo (ctrl+z) and redo (ctrl+shift+z / ctrl+y) commands are bound but not functional. Need to:
+  - Verify the DocumentEditor is correctly calling the document service's undo/redo methods
+  - Ensure the undo stack is being populated when edits are made
+  - Check that the UndoManager is properly grouping changes and tracking state
+  - Test with various edit operations (typing, paste, delete, etc.)
 
 - [ ] **Terminal tabs cursor handling with multiple terminals** - When there is more than one terminal tab, cursor handling doesn't work properly. Each terminal session has its own PTY with its own cursor state, but switching tabs may not properly update cursor visibility/position. Investigate:
   - Whether cursor state is preserved when switching between terminal tabs
