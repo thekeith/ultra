@@ -191,6 +191,17 @@ export class TerminalPanel extends BaseElement {
   }
 
   /**
+   * Write data to the active terminal session.
+   * Used for paste operations.
+   */
+  write(data: string): void {
+    const session = this.getActiveSession();
+    if (session) {
+      session.write(data);
+    }
+  }
+
+  /**
    * Check if panel has any terminals.
    */
   hasTerminals(): boolean {

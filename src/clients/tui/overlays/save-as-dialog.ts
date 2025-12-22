@@ -73,6 +73,9 @@ export class SaveAsDialog extends PromiseDialog<string> {
   /** Current filename */
   private filename: string = '';
 
+  /** Cursor position in filename */
+  private cursorPosition: number = 0;
+
   /** Whether filename input is focused */
   private inputFocused: boolean = true;
 
@@ -105,6 +108,7 @@ export class SaveAsDialog extends PromiseDialog<string> {
     this.showHidden = config.showHidden ?? true;  // Show hidden by default
     this.currentPath = config.startPath;
     this.filename = config.suggestedFilename;
+    this.cursorPosition = this.filename.length;  // Start cursor at end
     this.selectedIndex = 0;
     this.scrollOffset = 0;
     this.inputFocused = true;
@@ -217,6 +221,7 @@ export class SaveAsDialog extends PromiseDialog<string> {
     } else {
       // Select this file (populate filename)
       this.filename = entry.name;
+      this.cursorPosition = this.filename.length;  // Cursor at end
       this.inputFocused = true;
       this.callbacks.onDirty();
     }
@@ -380,10 +385,51 @@ export class SaveAsDialog extends PromiseDialog<string> {
     }
 
     if (event.key === 'Backspace') {
-      if (this.filename.length > 0) {
-        this.filename = this.filename.slice(0, -1);
+      if (this.cursorPosition > 0) {
+        this.filename =
+          this.filename.slice(0, this.cursorPosition - 1) +
+          this.filename.slice(this.cursorPosition);
+        this.cursorPosition--;
         this.callbacks.onDirty();
       }
+      return true;
+    }
+
+    if (event.key === 'Delete') {
+      if (this.cursorPosition < this.filename.length) {
+        this.filename =
+          this.filename.slice(0, this.cursorPosition) +
+          this.filename.slice(this.cursorPosition + 1);
+        this.callbacks.onDirty();
+      }
+      return true;
+    }
+
+    if (event.key === 'ArrowLeft') {
+      if (this.cursorPosition > 0) {
+        this.cursorPosition--;
+        this.callbacks.onDirty();
+      }
+      return true;
+    }
+
+    if (event.key === 'ArrowRight') {
+      if (this.cursorPosition < this.filename.length) {
+        this.cursorPosition++;
+        this.callbacks.onDirty();
+      }
+      return true;
+    }
+
+    if (event.key === 'Home') {
+      this.cursorPosition = 0;
+      this.callbacks.onDirty();
+      return true;
+    }
+
+    if (event.key === 'End') {
+      this.cursorPosition = this.filename.length;
+      this.callbacks.onDirty();
       return true;
     }
 
@@ -394,9 +440,13 @@ export class SaveAsDialog extends PromiseDialog<string> {
       return true;
     }
 
-    // Character input
+    // Character input - insert at cursor position
     if (event.key.length === 1 && !event.ctrl && !event.alt && !event.meta) {
-      this.filename += event.key;
+      this.filename =
+        this.filename.slice(0, this.cursorPosition) +
+        event.key +
+        this.filename.slice(this.cursorPosition);
+      this.cursorPosition++;
       this.callbacks.onDirty();
       return true;
     }
@@ -553,16 +603,27 @@ export class SaveAsDialog extends PromiseDialog<string> {
     const label = 'Name: ';
     buffer.writeString(x + 1, y, label, dimFg, inputBg);
 
-    // Filename
+    // Filename with cursor-aware display
     const inputWidth = width - 4 - label.length;
-    const displayFilename = this.filename.slice(-(inputWidth - 1));
-    buffer.writeString(x + 1 + label.length, y, displayFilename, inputFg, inputBg);
+    const inputStartX = x + 1 + label.length;
 
-    // Cursor
+    // Calculate visible portion of filename to keep cursor visible
+    let displayStart = 0;
+    if (this.cursorPosition > inputWidth - 1) {
+      displayStart = this.cursorPosition - (inputWidth - 1);
+    }
+    const displayFilename = this.filename.slice(displayStart, displayStart + inputWidth);
+    buffer.writeString(inputStartX, y, displayFilename, inputFg, inputBg);
+
+    // Cursor at correct position
     if (this.inputFocused) {
-      const cursorX = x + 1 + label.length + displayFilename.length;
+      const cursorDisplayPos = this.cursorPosition - displayStart;
+      const cursorX = inputStartX + cursorDisplayPos;
       if (cursorX < x + width - 2) {
-        buffer.set(cursorX, y, { char: '\u2588', fg: focusBorder, bg: inputBg });
+        const charAtCursor = this.cursorPosition < this.filename.length
+          ? this.filename[this.cursorPosition] ?? ' '
+          : ' ';
+        buffer.set(cursorX, y, { char: charAtCursor, fg: inputBg, bg: focusBorder });
       }
     }
   }

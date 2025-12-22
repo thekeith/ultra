@@ -53,6 +53,8 @@ export interface FileTreeCallbacks {
   onExpand?: (path: string, expanded: boolean) => void;
   /** Called to request children for a directory */
   onLoadChildren?: (path: string) => Promise<FileNode[]>;
+  /** Called to refresh root nodes */
+  onRefreshRoots?: () => Promise<FileNode[]>;
 }
 
 /**
@@ -178,6 +180,79 @@ export class FileTree extends BaseElement {
       node.gitStatus = status;
       this.ctx.markDirty();
     }
+  }
+
+  /**
+   * Refresh the file tree.
+   * Reloads root nodes and all expanded directories.
+   */
+  async refresh(): Promise<void> {
+    // Collect expanded paths before refresh
+    const expandedPaths: string[] = [];
+    const collectExpanded = (nodes: FileNode[]): void => {
+      for (const node of nodes) {
+        if (node.isDirectory && node.expanded) {
+          expandedPaths.push(node.path);
+          if (node.children) {
+            collectExpanded(node.children);
+          }
+        }
+      }
+    };
+    collectExpanded(this.roots);
+
+    // Remember selected path
+    const selectedPath = this.getSelectedPath();
+
+    // Reload root nodes if callback is provided
+    if (this.callbacks.onRefreshRoots) {
+      try {
+        const newRoots = await this.callbacks.onRefreshRoots();
+        // Preserve expanded state from old roots
+        for (const newNode of newRoots) {
+          if (newNode.isDirectory && expandedPaths.includes(newNode.path)) {
+            newNode.expanded = true;
+          }
+        }
+        this.roots = newRoots;
+      } catch {
+        // Keep existing roots on error
+      }
+    }
+
+    // Reload all expanded directories
+    if (this.callbacks.onLoadChildren) {
+      for (const expandedPath of expandedPaths) {
+        const node = this.findNode(expandedPath);
+        if (node && node.isDirectory && node.expanded) {
+          try {
+            const children = await this.callbacks.onLoadChildren(node.path);
+            node.children = children;
+            // Restore expanded state for child directories
+            for (const child of children) {
+              if (child.isDirectory && expandedPaths.includes(child.path)) {
+                child.expanded = true;
+              }
+            }
+          } catch {
+            // Keep existing children on error
+          }
+        }
+      }
+    }
+
+    // Rebuild view
+    this.rebuildView();
+
+    // Try to restore selection
+    if (selectedPath) {
+      const idx = this.viewNodes.findIndex((v) => v.node.path === selectedPath);
+      if (idx !== -1) {
+        this.selectedIndex = idx;
+      }
+    }
+
+    this.ctx.markDirty();
   }
 
   /**

@@ -44,6 +44,9 @@ import {
 // Debug utilities
 import { debugLog, isDebugEnabled } from '../../../debug.ts';
 
+// Node.js file system for watching
+import * as fs from 'fs';
+
 // Config
 import { TUIConfigManager, createTUIConfigManager } from '../config/index.ts';
 import { defaultThemes } from '../../../config/defaults.ts';
@@ -197,6 +200,15 @@ export class TUIClient {
 
   /** LSP integration */
   private lspIntegration: LSPIntegration | null = null;
+
+  /** File tree element reference */
+  private fileTree: FileTree | null = null;
+
+  /** Workspace directory watcher */
+  private workspaceWatcher: fs.FSWatcher | null = null;
+
+  /** Debounce timer for workspace refresh */
+  private workspaceRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: TUIClientOptions = {}) {
     this.workingDirectory = options.workingDirectory ?? process.cwd();
@@ -384,6 +396,9 @@ export class TUIClient {
     // Cleanup config manager (stop file watching)
     this.configManager.destroy();
 
+    // Stop workspace watcher
+    this.stopWorkspaceWatcher();
+
     // Stop input handler
     this.inputHandler.stop();
 
@@ -446,6 +461,7 @@ export class TUIClient {
     const fileTreeId = sidePane.addElement('FileTree', 'Explorer');
     const fileTree = sidePane.getElement(fileTreeId) as FileTree | null;
     if (fileTree) {
+      this.fileTree = fileTree;  // Save reference for refresh
       this.configureFileTree(fileTree);
     }
 
@@ -476,6 +492,8 @@ export class TUIClient {
     // Load file tree
     if (fileTree) {
       await this.loadFileTree(fileTree);
+      // Start watching workspace for file changes
+      this.startWorkspaceWatcher();
     }
 
     // Load git status
@@ -514,6 +532,19 @@ export class TUIClient {
           }));
         } catch (error) {
           this.log(`Failed to load directory: ${error}`);
+          return [];
+        }
+      },
+      onRefreshRoots: async () => {
+        try {
+          const entries = await this.fileService.readDir(`file://${this.workingDirectory}`);
+          return entries.map((entry) => ({
+            name: entry.name,
+            path: `${this.workingDirectory}/${entry.name}`,
+            isDirectory: entry.type === 'directory',
+          }));
+        } catch (error) {
+          this.log(`Failed to refresh roots: ${error}`);
           return [];
         }
       },
@@ -844,7 +875,9 @@ export class TUIClient {
     });
 
     if (result.confirmed && result.value) {
-      await this.openFile(result.value);
+      // Convert file path to URI for openFile
+      const uri = this.fileService.pathToUri(result.value);
+      await this.openFile(uri);
     }
   }
 
@@ -1115,6 +1148,76 @@ export class TUIClient {
     }
   }
 
+  /**
+   * Start watching the workspace directory for file changes.
+   */
+  private startWorkspaceWatcher(): void {
+    this.stopWorkspaceWatcher();
+
+    try {
+      // Watch the working directory recursively
+      this.workspaceWatcher = fs.watch(
+        this.workingDirectory,
+        { recursive: true, persistent: true },
+        (_eventType, filename) => {
+          // Skip hidden files and common noise
+          if (filename && (
+            filename.startsWith('.git/') ||
+            filename.includes('node_modules/') ||
+            filename.endsWith('.swp') ||
+            filename.endsWith('~')
+          )) {
+            return;
+          }
+
+          this.log(`Workspace file change detected: ${filename}`);
+          this.scheduleWorkspaceRefresh();
+        }
+      );
+
+      this.workspaceWatcher.on('error', (error) => {
+        this.log(`Workspace watcher error: ${error}`);
+      });
+
+      this.log(`Started watching workspace: ${this.workingDirectory}`);
+    } catch (error) {
+      this.log(`Failed to start workspace watcher: ${error}`);
+    }
+  }
+
+  /**
+   * Stop the workspace directory watcher.
+   */
+  private stopWorkspaceWatcher(): void {
+    if (this.workspaceWatcher) {
+      this.workspaceWatcher.close();
+      this.workspaceWatcher = null;
+    }
+    if (this.workspaceRefreshTimer) {
+      clearTimeout(this.workspaceRefreshTimer);
+      this.workspaceRefreshTimer = null;
+    }
+  }
+
+  /**
+   * Schedule a debounced file tree refresh.
+   */
+  private scheduleWorkspaceRefresh(): void {
+    // Clear existing timer
+    if (this.workspaceRefreshTimer) {
+      clearTimeout(this.workspaceRefreshTimer);
+    }
+
+    // Debounce to avoid excessive refreshes
+    this.workspaceRefreshTimer = setTimeout(async () => {
+      this.workspaceRefreshTimer = null;
+      if (this.fileTree) {
+        this.log('Refreshing file tree due to workspace changes');
+        await this.fileTree.refresh();
+      }
+    }, 300); // 300ms debounce
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Git Status
   // ─────────────────────────────────────────────────────────────────────────
@@ -1280,6 +1383,13 @@ export class TUIClient {
     // Handle resize - callback receives width and height separately
     this.inputHandler.onResize((width, height) => {
       this.handleResize({ width, height });
+    });
+
+    // Handle paste events (bracketed paste mode)
+    this.inputHandler.onPaste((text) => {
+      this.log(`Paste received: ${text.length} chars`);
+      // Insert the pasted text into the focused editor
+      this.handlePasteText(text);
     });
   }
 
@@ -3357,6 +3467,26 @@ export class TUIClient {
 
     element.insertText(text);
     this.scheduleRender();
+  }
+
+  /**
+   * Handle direct paste text (from terminal bracketed paste).
+   */
+  private handlePasteText(text: string): void {
+    if (!text) return;
+
+    // Check if terminal is focused - route paste there
+    if (this.terminalPanelVisible && this.terminalPanel && this.terminalFocused) {
+      this.terminalPanel.write(text);
+      return;
+    }
+
+    // Otherwise paste into focused document editor
+    const element = this.window.getFocusedElement();
+    if (element instanceof DocumentEditor) {
+      element.insertText(text);
+      this.scheduleRender();
+    }
   }
 
   /**

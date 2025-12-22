@@ -83,6 +83,7 @@ export type KeyEventCallback = (event: KeyEvent) => void;
 export type MouseEventCallback = (event: MouseEvent) => void;
 export type ResizeCallback = (width: number, height: number) => void;
 export type InputEventCallback = (event: InputEvent) => void;
+export type PasteEventCallback = (text: string) => void;
 
 // ============================================
 // TUI Input Handler
@@ -93,11 +94,17 @@ export class TUIInputHandler {
   private mouseCallbacks: Set<MouseEventCallback> = new Set();
   private resizeCallbacks: Set<ResizeCallback> = new Set();
   private inputCallbacks: Set<InputEventCallback> = new Set();
+  private pasteCallbacks: Set<PasteEventCallback> = new Set();
 
   private isRunning = false;
   private buffer = '';
   private escapeTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly escapeTimeout = 50;
+
+  /** Whether we're currently in a bracketed paste */
+  private inBracketedPaste = false;
+  /** Buffer for collecting bracketed paste content */
+  private pasteBuffer = '';
 
   // ─────────────────────────────────────────────────────────────────────────
   // Lifecycle
@@ -192,6 +199,14 @@ export class TUIInputHandler {
     return () => this.inputCallbacks.delete(callback);
   }
 
+  /**
+   * Register callback for paste events (bracketed paste).
+   */
+  onPaste(callback: PasteEventCallback): () => void {
+    this.pasteCallbacks.add(callback);
+    return () => this.pasteCallbacks.delete(callback);
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Event Handlers
   // ─────────────────────────────────────────────────────────────────────────
@@ -244,6 +259,44 @@ export class TUIInputHandler {
 
   private tryParse(): number {
     if (this.buffer.length === 0) return 0;
+
+    // Handle bracketed paste mode
+    // Start of paste: ESC [ 200 ~
+    if (this.buffer.startsWith(`${ESC}[200~`)) {
+      this.inBracketedPaste = true;
+      this.pasteBuffer = '';
+      return 6; // Length of \x1b[200~
+    }
+
+    // End of paste: ESC [ 201 ~
+    if (this.buffer.startsWith(`${ESC}[201~`)) {
+      this.inBracketedPaste = false;
+      if (this.pasteBuffer.length > 0) {
+        this.emitPaste(this.pasteBuffer);
+      }
+      this.pasteBuffer = '';
+      return 6; // Length of \x1b[201~
+    }
+
+    // If we're in bracketed paste mode, collect content
+    if (this.inBracketedPaste) {
+      // Check if the end sequence is coming up
+      const endIndex = this.buffer.indexOf(`${ESC}[201~`);
+      if (endIndex !== -1) {
+        // Collect everything before the end sequence
+        this.pasteBuffer += this.buffer.slice(0, endIndex);
+        return endIndex;
+      } else {
+        // Collect everything except the last few chars (could be partial escape)
+        // Keep up to 6 chars in buffer in case it's a partial end sequence
+        const safeLen = Math.max(0, this.buffer.length - 6);
+        if (safeLen > 0) {
+          this.pasteBuffer += this.buffer.slice(0, safeLen);
+          return safeLen;
+        }
+        return 0; // Wait for more data
+      }
+    }
 
     const firstChar = this.buffer[0]!;
     const firstCode = firstChar.charCodeAt(0);
@@ -505,6 +558,12 @@ export class TUIInputHandler {
     }
     for (const callback of this.inputCallbacks) {
       callback(event);
+    }
+  }
+
+  private emitPaste(text: string): void {
+    for (const callback of this.pasteCallbacks) {
+      callback(text);
     }
   }
 

@@ -15,7 +15,7 @@ Issues and improvements to address in future sessions.
   - Creating a `ListElement` base class with shared selection rendering
   - Extracting theme color constants for list selection states
 
-- [ ] **Double-click file opening delay** - There is a noticeable delay when double-clicking a file to open it from either the file tree or git panel. Investigate and optimize the file opening path. This is also present when opening the app and files are reopened from the previous session.
+- [ ] **Double-click file opening delay** - There is a noticeable delay when double-clicking a file to open it from either the file tree or git panel. Investigate and optimize the file opening path.
 
 - [ ] **Chord keybinding support** - Add support for chord keybindings (e.g., `ctrl+d a` to select all occurrences). The keybinding system should:
   - Detect when a partial chord is entered and wait for the next key
@@ -32,6 +32,11 @@ Issues and improvements to address in future sessions.
   - Document that users need to unbind these in Kitty config (`map ctrl+shift+p no_op`)
   - Consider alternative default keybindings that don't conflict with Kitty
   - Detect Kitty terminal and show a warning/hint about configuring shortcuts
+
+- [x] **Live settings and keybindings updates** - ~~Currently, settings.json and keybindings.json are only read at startup.~~ File watching is now implemented. Remaining work:
+  - [ ] Command palette commands to change settings directly (like the old TUI had)
+  - [ ] UI for adjusting settings like terminal height, sidebar width, theme, etc.
+  - [ ] Settings that affect session state (terminal height, sidebar width) should update both the config and the current session
 
 - [ ] **Undo/redo not working** - The undo (ctrl+z) and redo (ctrl+shift+z / ctrl+y) commands are bound but not functional. Need to:
   - Verify the DocumentEditor is correctly calling the document service's undo/redo methods
@@ -64,7 +69,15 @@ Issues and improvements to address in future sessions.
   - `Space` to preview file without opening
   - The inline input should appear at the current selection position and handle escape to cancel
 
-- [ ] **Terminal and editor scroll-up boundary jitter** - When scrolling up in the terminal or editor and the viewport reaches the top line (no more scrollback), continued mouse scroll-up causes a weird up/down jitter movement. Instead, scrolling should lock in place when no further scrolling is possible. This only happens with scroll-up, not scroll-down.
+- [ ] **Terminal scroll-up boundary jitter** - When scrolling up in the terminal and the viewport reaches the top line (no more scrollback), continued mouse scroll-up causes a weird up/down jitter movement. Instead, scrolling should lock in place when no further scrolling is possible. This only happens with scroll-up, not scroll-down.
+
+- [ ] **Additional git branch commands** - Add more git branch operations to the git panel and command palette:
+  - List branches (show in picker dialog)
+  - Switch branch (select from branch list)
+  - Create branch (name input dialog, optionally from current or selected branch)
+  - Merge branch (select branch to merge from list, handle conflicts)
+  - Delete branch (with confirmation, warn if not merged)
+  - These should integrate with the git service and provide proper error feedback
 
 - [ ] **Hover on mouse position** - Add automatic hover tooltip when mouse hovers over a symbol for a configurable duration. Requires:
   - Mouse position tracking in DocumentEditor
