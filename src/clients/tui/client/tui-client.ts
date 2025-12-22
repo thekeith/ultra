@@ -124,6 +124,9 @@ export class TUIClient {
   /** Open documents by URI -> editor mapping */
   private openDocuments = new Map<string, { documentId: string; editorId: string; syntaxSessionId?: string }>();
 
+  /** Internal clipboard for cut/copy/paste */
+  private clipboard: string = '';
+
   /** Open terminals in panes by element ID -> PTY mapping */
   private paneTerminals = new Map<string, PTYBackend>();
 
@@ -1134,6 +1137,30 @@ export class TUIClient {
       return true;
     });
 
+    this.commandHandlers.set('edit.cut', async () => {
+      await this.editCut();
+      return true;
+    });
+
+    this.commandHandlers.set('edit.copy', async () => {
+      await this.editCopy();
+      return true;
+    });
+
+    this.commandHandlers.set('edit.paste', async () => {
+      await this.editPaste();
+      return true;
+    });
+
+    this.commandHandlers.set('edit.selectAll', () => {
+      const element = this.window.getFocusedElement();
+      if (element instanceof DocumentEditor) {
+        element.selectAll();
+        this.scheduleRender();
+      }
+      return true;
+    });
+
     // Search commands
     this.commandHandlers.set('search.find', () => {
       this.window.showNotification('Find not yet implemented', 'info');
@@ -1178,6 +1205,25 @@ export class TUIClient {
 
     this.commandHandlers.set('workbench.focusPreviousPane', () => {
       this.window.focusPreviousPane();
+      return true;
+    });
+
+    // Tab navigation in panes
+    this.commandHandlers.set('editor.nextTab', () => {
+      const pane = this.window.getFocusedPane();
+      if (pane) {
+        pane.nextTab();
+        this.scheduleRender();
+      }
+      return true;
+    });
+
+    this.commandHandlers.set('editor.previousTab', () => {
+      const pane = this.window.getFocusedPane();
+      if (pane) {
+        pane.prevTab();
+        this.scheduleRender();
+      }
       return true;
     });
 
@@ -2219,9 +2265,15 @@ export class TUIClient {
     // Edit
     'edit.undo': { label: 'Undo', category: 'Edit' },
     'edit.redo': { label: 'Redo', category: 'Edit' },
+    'edit.cut': { label: 'Cut', category: 'Edit' },
+    'edit.copy': { label: 'Copy', category: 'Edit' },
+    'edit.paste': { label: 'Paste', category: 'Edit' },
     'edit.selectAll': { label: 'Select All', category: 'Edit' },
     'edit.selectNextMatch': { label: 'Select Next Match', category: 'Edit' },
     'edit.selectAllOccurrences': { label: 'Select All Occurrences', category: 'Edit' },
+    // Editor tabs
+    'editor.nextTab': { label: 'Next Tab', category: 'Editor' },
+    'editor.previousTab': { label: 'Previous Tab', category: 'Editor' },
     // Search
     'search.find': { label: 'Find', category: 'Search' },
     'search.replace': { label: 'Find and Replace', category: 'Search' },
@@ -2900,6 +2952,91 @@ export class TUIClient {
     } catch (error) {
       this.window.showNotification(`Failed to drop stash: ${error}`, 'error');
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Clipboard Operations
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Copy selected text to system clipboard (macOS).
+   */
+  private async copyToSystemClipboard(text: string): Promise<void> {
+    try {
+      const proc = Bun.spawn(['pbcopy'], {
+        stdin: 'pipe',
+      });
+      proc.stdin.write(text);
+      proc.stdin.end();
+      await proc.exited;
+    } catch {
+      // Silently fail - internal clipboard still works
+    }
+  }
+
+  /**
+   * Paste text from system clipboard (macOS).
+   */
+  private async pasteFromSystemClipboard(): Promise<string | null> {
+    try {
+      const proc = Bun.spawn(['pbpaste'], {
+        stdout: 'pipe',
+      });
+      const output = await new Response(proc.stdout).text();
+      await proc.exited;
+      return output;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Cut selected text to clipboard.
+   */
+  private async editCut(): Promise<void> {
+    const element = this.window.getFocusedElement();
+    if (!(element instanceof DocumentEditor)) return;
+
+    const text = element.getSelectedText();
+    if (!text) return;
+
+    // Copy to clipboard
+    this.clipboard = text;
+    await this.copyToSystemClipboard(text);
+
+    // Delete the selection - deleteBackward handles this when there's a selection
+    element.deleteBackward();
+    this.scheduleRender();
+  }
+
+  /**
+   * Copy selected text to clipboard.
+   */
+  private async editCopy(): Promise<void> {
+    const element = this.window.getFocusedElement();
+    if (!(element instanceof DocumentEditor)) return;
+
+    const text = element.getSelectedText();
+    if (!text) return;
+
+    // Copy to clipboard
+    this.clipboard = text;
+    await this.copyToSystemClipboard(text);
+  }
+
+  /**
+   * Paste text from clipboard.
+   */
+  private async editPaste(): Promise<void> {
+    const element = this.window.getFocusedElement();
+    if (!(element instanceof DocumentEditor)) return;
+
+    // Try system clipboard first, fall back to internal
+    const text = await this.pasteFromSystemClipboard() || this.clipboard;
+    if (!text) return;
+
+    element.insertText(text);
+    this.scheduleRender();
   }
 
   /**

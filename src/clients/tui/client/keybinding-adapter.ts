@@ -49,6 +49,8 @@ export const DEFAULT_KEYBINDINGS: KeyBinding[] = [
   { key: 'ctrl+shift+p', command: 'commandPalette' },
   { key: 'ctrl+tab', command: 'editor.nextTab' },
   { key: 'ctrl+shift+tab', command: 'editor.previousTab' },
+  { key: 'ctrl+]', command: 'editor.nextTab' },
+  { key: 'ctrl+[', command: 'editor.previousTab' },
 
   // Search
   { key: 'ctrl+f', command: 'editor.find' },

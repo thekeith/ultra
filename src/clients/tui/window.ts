@@ -626,12 +626,17 @@ export class Window {
 
   /**
    * Get selection background for focus state.
-   * Focused uses theme selection, unfocused uses lightened background.
+   * Uses appropriate theme color based on element type.
    */
   private getSelectionBackground(elementType: FocusableElementType, isFocused: boolean): string {
     if (isFocused) {
+      // Editor uses editor.selectionBackground, others use list.activeSelectionBackground
+      if (elementType === 'editor') {
+        return this.getThemeColor('editor.selectionBackground', '#264f78');
+      }
       return this.getThemeColor('list.activeSelectionBackground', '#094771');
     }
+    // Unfocused: slightly lighter than background
     const base = this.getBaseColors(elementType);
     const rgb = hexToRgb(base.background);
     if (!rgb) return base.background;
