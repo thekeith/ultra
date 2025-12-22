@@ -107,6 +107,9 @@ export class FileTree extends BaseElement {
   /** Dialog input text */
   private dialogInput = '';
 
+  /** Cursor position within dialog input */
+  private dialogCursorPos = 0;
+
   /** Target node for dialog operation */
   private dialogTarget: FileNode | null = null;
 
@@ -569,6 +572,8 @@ export class FileTree extends BaseElement {
     const hintBg = this.ctx.getThemeColor('statusBar.background', '#007acc');
     const hintFg = this.ctx.getThemeColor('statusBar.foreground', '#ffffff');
     const accentFg = this.ctx.getThemeColor('focusBorder', '#007acc');
+    const cursorBg = this.ctx.getThemeColor('editorCursor.foreground', '#ffffff');
+    const cursorFg = this.ctx.getThemeColor('editor.background', '#1e1e1e');
 
     if (this.dialogMode !== 'none') {
       // Dialog mode - show input line and help hint
@@ -599,12 +604,33 @@ export class FileTree extends BaseElement {
         const truncated = prompt.length > remaining ? prompt.slice(0, remaining - 1) + '…' : prompt;
         buffer.writeString(x + label.length, y, truncated.padEnd(remaining, ' '), accentFg, hintBg);
       } else {
-        // Show text input with cursor
+        // Show text input with visible cursor
         const inputWidth = width - label.length;
-        const displayInput = this.dialogInput.length > inputWidth - 1
-          ? this.dialogInput.slice(this.dialogInput.length - inputWidth + 1)
-          : this.dialogInput;
-        buffer.writeString(x + label.length, y, displayInput.padEnd(inputWidth, ' '), accentFg, hintBg);
+        const inputX = x + label.length;
+
+        // Calculate visible portion of input and cursor position
+        let displayStart = 0;
+        let cursorDisplayPos = this.dialogCursorPos;
+
+        // Scroll input if cursor would be off-screen
+        if (this.dialogCursorPos >= inputWidth - 1) {
+          displayStart = this.dialogCursorPos - inputWidth + 2;
+          cursorDisplayPos = inputWidth - 2;
+        }
+
+        const displayInput = this.dialogInput.slice(displayStart, displayStart + inputWidth);
+
+        // Render input text (before cursor)
+        const beforeCursor = displayInput.slice(0, cursorDisplayPos);
+        buffer.writeString(inputX, y, beforeCursor, accentFg, hintBg);
+
+        // Render cursor character with inverted colors
+        const cursorChar = displayInput[cursorDisplayPos] ?? ' ';
+        buffer.writeString(inputX + cursorDisplayPos, y, cursorChar, cursorFg, cursorBg);
+
+        // Render text after cursor
+        const afterCursor = displayInput.slice(cursorDisplayPos + 1).padEnd(inputWidth - cursorDisplayPos - 1, ' ');
+        buffer.writeString(inputX + cursorDisplayPos + 1, y, afterCursor, accentFg, hintBg);
       }
 
       // Second line: keyboard hints
@@ -759,8 +785,8 @@ export class FileTree extends BaseElement {
    * Handle keyboard input in dialog mode.
    */
   private handleDialogKey(event: KeyEvent): boolean {
-    // Escape cancels dialog
-    if (event.key === 'Escape') {
+    // Escape cancels dialog (check both 'Escape' and raw escape character)
+    if (event.key === 'Escape' || event.key === '\x1b') {
       this.cancelDialog();
       return true;
     }
@@ -784,18 +810,60 @@ export class FileTree extends BaseElement {
       return true; // Consume all other keys in delete confirm mode
     }
 
+    // Cursor navigation for text input
+    if (event.key === 'ArrowLeft') {
+      if (this.dialogCursorPos > 0) {
+        this.dialogCursorPos--;
+        this.ctx.markDirty();
+      }
+      return true;
+    }
+    if (event.key === 'ArrowRight') {
+      if (this.dialogCursorPos < this.dialogInput.length) {
+        this.dialogCursorPos++;
+        this.ctx.markDirty();
+      }
+      return true;
+    }
+    if (event.key === 'Home') {
+      this.dialogCursorPos = 0;
+      this.ctx.markDirty();
+      return true;
+    }
+    if (event.key === 'End') {
+      this.dialogCursorPos = this.dialogInput.length;
+      this.ctx.markDirty();
+      return true;
+    }
+
     // Text input handling for new/rename dialogs
     if (event.key === 'Backspace') {
-      if (this.dialogInput.length > 0) {
-        this.dialogInput = this.dialogInput.slice(0, -1);
+      if (this.dialogCursorPos > 0) {
+        this.dialogInput =
+          this.dialogInput.slice(0, this.dialogCursorPos - 1) +
+          this.dialogInput.slice(this.dialogCursorPos);
+        this.dialogCursorPos--;
+        this.ctx.markDirty();
+      }
+      return true;
+    }
+    if (event.key === 'Delete') {
+      if (this.dialogCursorPos < this.dialogInput.length) {
+        this.dialogInput =
+          this.dialogInput.slice(0, this.dialogCursorPos) +
+          this.dialogInput.slice(this.dialogCursorPos + 1);
         this.ctx.markDirty();
       }
       return true;
     }
 
-    // Add printable characters
+    // Add printable characters at cursor position
     if (event.key.length === 1 && !event.ctrl && !event.alt && !event.meta) {
-      this.dialogInput += event.key;
+      this.dialogInput =
+        this.dialogInput.slice(0, this.dialogCursorPos) +
+        event.key +
+        this.dialogInput.slice(this.dialogCursorPos);
+      this.dialogCursorPos++;
       this.ctx.markDirty();
       return true;
     }
@@ -815,6 +883,7 @@ export class FileTree extends BaseElement {
     this.dialogTarget = selected ?? null;
     this.dialogMode = 'new-file';
     this.dialogInput = '';
+    this.dialogCursorPos = 0;
     this.ctx.markDirty();
   }
 
@@ -826,6 +895,7 @@ export class FileTree extends BaseElement {
     this.dialogTarget = selected ?? null;
     this.dialogMode = 'new-folder';
     this.dialogInput = '';
+    this.dialogCursorPos = 0;
     this.ctx.markDirty();
   }
 
@@ -838,6 +908,9 @@ export class FileTree extends BaseElement {
       this.dialogTarget = selected;
       this.dialogMode = 'rename';
       this.dialogInput = selected.name;
+      // Position cursor at the end of the filename, before extension
+      const dotIndex = selected.name.lastIndexOf('.');
+      this.dialogCursorPos = dotIndex > 0 ? dotIndex : selected.name.length;
       this.ctx.markDirty();
     }
   }
@@ -851,6 +924,7 @@ export class FileTree extends BaseElement {
       this.dialogTarget = selected;
       this.dialogMode = 'delete-confirm';
       this.dialogInput = '';
+      this.dialogCursorPos = 0;
       this.ctx.markDirty();
     }
   }
@@ -861,6 +935,7 @@ export class FileTree extends BaseElement {
   private cancelDialog(): void {
     this.dialogMode = 'none';
     this.dialogInput = '';
+    this.dialogCursorPos = 0;
     this.dialogTarget = null;
     this.ctx.markDirty();
   }
@@ -876,6 +951,7 @@ export class FileTree extends BaseElement {
     // Reset dialog state before async operations
     this.dialogMode = 'none';
     this.dialogInput = '';
+    this.dialogCursorPos = 0;
     this.dialogTarget = null;
     this.ctx.markDirty();
 

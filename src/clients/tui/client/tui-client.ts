@@ -2173,9 +2173,32 @@ export class TUIClient {
    * Evaluate a when clause for conditional keybindings.
    */
   private evaluateWhenClause(when: string): boolean {
-    // TODO: Implement proper when clause evaluation
-    // For now, always return true
-    return true;
+    switch (when) {
+      case 'editorHasMultipleCursors': {
+        // Check if the focused element is an editor with multiple cursors
+        const element = this.window.getFocusedElement();
+        if (element && 'getCursors' in element && typeof element.getCursors === 'function') {
+          const cursors = (element as { getCursors: () => unknown[] }).getCursors();
+          return Array.isArray(cursors) && cursors.length > 1;
+        }
+        return false;
+      }
+      case 'editorFocus': {
+        const element = this.window.getFocusedElement();
+        return element?.type === 'DocumentEditor';
+      }
+      case 'terminalFocus': {
+        const element = this.window.getFocusedElement();
+        return element?.type === 'TerminalSession';
+      }
+      case 'fileTreeFocus': {
+        const element = this.window.getFocusedElement();
+        return element?.type === 'FileTree';
+      }
+      default:
+        // Unknown when clause - return false to be safe (don't activate binding)
+        return false;
+    }
   }
 
   /**
