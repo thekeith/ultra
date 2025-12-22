@@ -37,7 +37,10 @@
     "focusBorder": "#528bff",
     "scrollbar.shadow": "#00000000",
     "scrollbarSlider.background": "#4e566680",
-    "scrollbarSlider.hoverBackground": "#5a637580"
+    "scrollbarSlider.hoverBackground": "#5a637580",
+    "editorWidget.background": "#1e2127",
+    "editorWidget.foreground": "#abb2bf",
+    "editorWidget.border": "#3e4451"
   },
   "tokenColors": [
     {

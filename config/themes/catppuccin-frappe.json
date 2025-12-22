@@ -34,7 +34,10 @@
     "input.background": "#292c3c",
     "input.foreground": "#c6d0f5",
     "input.border": "#414559",
-    "focusBorder": "#8caaee"
+    "focusBorder": "#8caaee",
+    "editorWidget.background": "#292c3c",
+    "editorWidget.foreground": "#c6d0f5",
+    "editorWidget.border": "#51576d"
   },
   "tokenColors": [
     {
