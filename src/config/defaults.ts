@@ -521,7 +521,10 @@ export const defaultThemes: Record<string, Theme> = {
       "input.background": "#181825",
       "input.foreground": "#cdd6f4",
       "input.border": "#313244",
-      "focusBorder": "#89b4fa"
+      "focusBorder": "#89b4fa",
+      "editorWidget.background": "#313244",
+      "editorWidget.foreground": "#cdd6f4",
+      "editorWidget.border": "#45475a"
     },
     "tokenColors": [
       {
@@ -856,7 +859,10 @@ export const defaultThemes: Record<string, Theme> = {
       "input.background": "#1e2030",
       "input.foreground": "#cad3f5",
       "input.border": "#363a4f",
-      "focusBorder": "#8aadf4"
+      "focusBorder": "#8aadf4",
+      "editorWidget.background": "#363a4f",
+      "editorWidget.foreground": "#cad3f5",
+      "editorWidget.border": "#494d64"
     },
     "tokenColors": [
       {
@@ -1191,7 +1197,10 @@ export const defaultThemes: Record<string, Theme> = {
       "input.background": "#292c3c",
       "input.foreground": "#c6d0f5",
       "input.border": "#414559",
-      "focusBorder": "#8caaee"
+      "focusBorder": "#8caaee",
+      "editorWidget.background": "#414559",
+      "editorWidget.foreground": "#c6d0f5",
+      "editorWidget.border": "#51576d"
     },
     "tokenColors": [
       {
@@ -1526,7 +1535,10 @@ export const defaultThemes: Record<string, Theme> = {
       "input.background": "#dce0e8",
       "input.foreground": "#4c4f69",
       "input.border": "#e6e9ef",
-      "focusBorder": "#1e66f5"
+      "focusBorder": "#1e66f5",
+      "editorWidget.background": "#e6e9ef",
+      "editorWidget.foreground": "#4c4f69",
+      "editorWidget.border": "#bcc0cc"
     },
     "tokenColors": [
       {
@@ -1864,7 +1876,10 @@ export const defaultThemes: Record<string, Theme> = {
       "focusBorder": "#528bff",
       "scrollbar.shadow": "#00000000",
       "scrollbarSlider.background": "#4e566680",
-      "scrollbarSlider.hoverBackground": "#5a637580"
+      "scrollbarSlider.hoverBackground": "#5a637580",
+      "editorWidget.background": "#2c313c",
+      "editorWidget.foreground": "#abb2bf",
+      "editorWidget.border": "#3e4451"
     },
     "tokenColors": [
       {

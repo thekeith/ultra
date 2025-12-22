@@ -194,6 +194,11 @@ export const DEFAULT_THEME_COLORS: ThemeColors = {
   'menu.selectionBackground': '#094771',
   'menu.selectionForeground': '#ffffff',
 
+  // Editor widgets (dialogs, popups, etc.)
+  'editorWidget.background': '#252526',
+  'editorWidget.foreground': '#cccccc',
+  'editorWidget.border': '#454545',
+
   // Breadcrumb
   'breadcrumb.background': '#1e1e1e',
   'breadcrumb.foreground': '#cccccccc',
