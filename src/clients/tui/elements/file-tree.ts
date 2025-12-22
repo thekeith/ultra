@@ -631,6 +631,12 @@ export class FileTree extends BaseElement {
 
   override handleMouse(event: MouseEvent): boolean {
     if (event.type === 'press' && event.button === 'left') {
+      // Check if click is within our visible bounds first
+      if (event.x < this.bounds.x || event.x >= this.bounds.x + this.bounds.width ||
+          event.y < this.bounds.y || event.y >= this.bounds.y + this.bounds.height) {
+        return false;
+      }
+
       const relY = event.y - this.bounds.y;
       const viewIdx = this.scrollTop + relY;
 
