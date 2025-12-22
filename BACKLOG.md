@@ -82,6 +82,28 @@ Issues and improvements to address in future sessions.
 
 - [x] **Squiggly underlines for diagnostics** - Instead of simple underlines, implement VS Code-style squiggly/wavy underlines for errors and warnings. This is more visually distinct but technically challenging in terminal.
 
+- [x] **Find/Replace in files** - Implemented in-file search and replace:
+  - Ctrl+F opens find dialog, Ctrl+H opens find and replace
+  - Supports case sensitive, whole word, and regex search modes
+  - Tab cycles through all focusable elements (fields, toggles, buttons)
+  - Mouse click support for all interactive elements
+  - Search matches highlighted in editor with current match distinction
+  - Dialog positioned at top-right of active editor pane
+
+- [ ] **Find dialog intermittent "not found"** - Sometimes entering a search string reports "No results" even when the text is clearly present in the document. Needs investigation:
+  - May be related to regex escaping or search options state
+  - Could be a timing issue with search execution
+  - Check if query is being cleared or modified unexpectedly
+
+- [x] **Inline diff expander enhancements** - Enhanced the inline diff viewer:
+  - Configurable max height with scrolling (keyboard arrows, mouse wheel)
+  - Action buttons for stage, revert (with confirmation), close
+  - Keyboard shortcuts (s: stage, d: revert, Esc: close)
+  - Syntax highlighting preserved inside diff view
+  - Mouse click support for buttons
+
+- [x] **Git line changes persist after save** - Fixed issue where gutter change indicators would persist after reverting changes and saving. Root cause was git diff cache not being invalidated after save. Now calls `gitCliService.invalidateCache()` before updating line changes.
+
 - [ ] **Diagnostics panel** - A panel that lists all diagnostics (errors, warnings) for the current file or entire workspace:
   - Filterable by severity (errors, warnings, info, hints)
   - Clickable entries to jump to location
