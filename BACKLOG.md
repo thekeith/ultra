@@ -33,11 +33,13 @@ Issues and improvements to address in future sessions.
   - Consider alternative default keybindings that don't conflict with Kitty
   - Detect Kitty terminal and show a warning/hint about configuring shortcuts
 
-- [ ] **Undo/redo not working** - The undo (ctrl+z) and redo (ctrl+shift+z / ctrl+y) commands are bound but not functional. Need to:
-  - Verify the DocumentEditor is correctly calling the document service's undo/redo methods
-  - Ensure the undo stack is being populated when edits are made
-  - Check that the UndoManager is properly grouping changes and tracking state
-  - Test with various edit operations (typing, paste, delete, etc.)
+- [x] **Undo/redo not working** - Undo/redo is now fully functional:
+  - Ctrl+Z for undo, Ctrl+Shift+Z or Ctrl+Y for redo
+  - Operation-based undo system tracks insert/delete operations
+  - Time-based grouping (300ms) merges consecutive operations
+  - Multi-cursor support in undo/redo
+  - Undo history persists across session restarts
+  - Configurable history limit via `editor.undoHistoryLimit` setting
 
 - [ ] **Additional file watch modes** - The `files.watchFiles` setting currently supports `'onFocus'` and `'off'`. Add additional modes:
   - `'visible'` - Watch all documents that are currently visible (focused + visible in other panes). This handles multi-pane workflows where you edit in one pane and see results in another.
@@ -55,14 +57,14 @@ Issues and improvements to address in future sessions.
   - Handling potentially large buffer sizes (compression or truncation)
   - Restoring buffer content when recreating the terminal session
 
-- [ ] **File tree keyboard shortcuts and file operations** - The file tree lacks keyboard shortcuts for common file operations. Need to add:
-  - `n` or `a` to create new file (inline rename input for name)
-  - `shift+n` or `shift+a` to create new folder
-  - `r` or `F2` to rename file/folder (inline rename input)
-  - `d` or `Delete` to delete file/folder (with confirmation dialog)
-  - `Enter` to open file / expand folder
-  - `Space` to preview file without opening
-  - The inline input should appear at the current selection position and handle escape to cancel
+- [x] **File tree keyboard shortcuts and file operations** - The file tree now has keyboard shortcuts for common file operations:
+  - `n` to create new file (inline input for name)
+  - `N` (shift+n) to create new folder
+  - `r` or `F2` to rename file/folder (inline input)
+  - `d` or `Delete` to delete file/folder (with y/n confirmation)
+  - `Enter` or `Space` to open file / expand folder
+  - Hint bar shows shortcuts when focused
+  - Dialog input appears at bottom and handles Escape to cancel
 
 - [ ] **Terminal and editor scroll-up boundary jitter** - When scrolling up in the terminal or editor and the viewport reaches the top line (no more scrollback), continued mouse scroll-up causes a weird up/down jitter movement. Instead, scrolling should lock in place when no further scrolling is possible. This only happens with scroll-up, not scroll-down.
 

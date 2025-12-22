@@ -517,6 +517,9 @@ export class TUIClient {
    * Configure file tree callbacks.
    */
   private configureFileTree(fileTree: FileTree): void {
+    // Set workspace root for file operations
+    fileTree.setWorkspaceRoot(this.workingDirectory);
+
     const callbacks: FileTreeCallbacks = {
       onFileOpen: async (path) => {
         await this.openFile(`file://${path}`);
@@ -549,6 +552,60 @@ export class TUIClient {
           this.log(`Failed to refresh roots: ${error}`);
           return [];
         }
+      },
+      onCreateFile: async (dirPath, fileName) => {
+        try {
+          const newPath = `${dirPath}/${fileName}`;
+          await this.fileService.write(`file://${newPath}`, '');
+          this.window.showNotification(`Created ${fileName}`, 'success');
+          return newPath;
+        } catch (error) {
+          this.window.showNotification(`Failed to create file: ${error}`, 'error');
+          return null;
+        }
+      },
+      onCreateFolder: async (dirPath, folderName) => {
+        try {
+          const newPath = `${dirPath}/${folderName}`;
+          await this.fileService.createDir(`file://${newPath}`);
+          this.window.showNotification(`Created folder ${folderName}`, 'success');
+          return true;
+        } catch (error) {
+          this.window.showNotification(`Failed to create folder: ${error}`, 'error');
+          return false;
+        }
+      },
+      onRename: async (oldPath, newName) => {
+        try {
+          const dirPath = oldPath.substring(0, oldPath.lastIndexOf('/'));
+          const newPath = `${dirPath}/${newName}`;
+          await this.fileService.rename(`file://${oldPath}`, `file://${newPath}`);
+          this.window.showNotification(`Renamed to ${newName}`, 'success');
+          return newPath;
+        } catch (error) {
+          this.window.showNotification(`Failed to rename: ${error}`, 'error');
+          return null;
+        }
+      },
+      onDelete: async (path) => {
+        try {
+          const name = path.substring(path.lastIndexOf('/') + 1);
+          // Try file delete first, if it fails as directory, use deleteDir
+          try {
+            await this.fileService.delete(`file://${path}`);
+          } catch {
+            // If delete fails (e.g., it's a directory), try deleteDir with recursive
+            await this.fileService.deleteDir(`file://${path}`, { recursive: true });
+          }
+          this.window.showNotification(`Deleted ${name}`, 'success');
+          return true;
+        } catch (error) {
+          this.window.showNotification(`Failed to delete: ${error}`, 'error');
+          return false;
+        }
+      },
+      onNotify: (message, type) => {
+        this.window.showNotification(message, type === 'success' ? 'info' : type);
       },
     };
     fileTree.setCallbacks(callbacks);
