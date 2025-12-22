@@ -424,6 +424,8 @@ export class LocalFileProvider implements FileProvider {
     const filePath = uriToPath(uri);
     const watchId = generateWatchId();
 
+    debugLog(`[LocalFileProvider] Setting up watch for: ${filePath} (recursive: ${options?.recursive ?? true})`);
+
     // Check if we already have a watcher for this path
     let entry = this.watchers.get(filePath);
 
@@ -433,6 +435,7 @@ export class LocalFileProvider implements FileProvider {
         filePath,
         { recursive: options?.recursive ?? true },
         (eventType, filename) => {
+          debugLog(`[LocalFileProvider] Watch event: ${eventType} ${filename}`);
           if (!filename) return;
 
           const changedUri = pathToUri(join(filePath, filename));
@@ -444,6 +447,7 @@ export class LocalFileProvider implements FileProvider {
 
           // Notify all callbacks
           const callbacks = this.watchers.get(filePath)?.callbacks;
+          debugLog(`[LocalFileProvider] Notifying ${callbacks?.size ?? 0} callbacks`);
           if (callbacks) {
             for (const cb of callbacks) {
               try {
@@ -456,8 +460,15 @@ export class LocalFileProvider implements FileProvider {
         }
       );
 
+      watcher.on('error', (error) => {
+        debugLog(`[LocalFileProvider] Watcher error: ${error}`);
+      });
+
       entry = { watcher, callbacks: new Set() };
       this.watchers.set(filePath, entry);
+      debugLog(`[LocalFileProvider] Created new watcher for: ${filePath}`);
+    } else {
+      debugLog(`[LocalFileProvider] Reusing existing watcher for: ${filePath}`);
     }
 
     // Add callback

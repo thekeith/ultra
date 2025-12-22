@@ -1161,12 +1161,13 @@ export class TUIClient {
           // Extract relative path from URI for filtering
           const relativePath = event.uri.replace(workspaceUri + '/', '');
 
-          // Skip hidden files and common noise
+          // Skip hidden files, common noise, and debug log
           if (
             relativePath.startsWith('.git/') ||
             relativePath.includes('node_modules/') ||
             relativePath.endsWith('.swp') ||
-            relativePath.endsWith('~')
+            relativePath.endsWith('~') ||
+            relativePath === 'debug.log'
           ) {
             return;
           }
