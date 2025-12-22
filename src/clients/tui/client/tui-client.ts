@@ -122,7 +122,13 @@ export class TUIClient {
   private syntaxService: SyntaxService;
 
   /** Open documents by URI -> editor mapping */
-  private openDocuments = new Map<string, { documentId: string; editorId: string; syntaxSessionId?: string }>();
+  private openDocuments = new Map<string, {
+    documentId: string;
+    editorId: string;
+    syntaxSessionId?: string;
+    /** Last known file modification time (ms since epoch) */
+    lastModified?: number;
+  }>();
 
   /** Internal clipboard for cut/copy/paste */
   private clipboard: string = '';
@@ -583,6 +589,10 @@ export class TUIClient {
         // Trigger autocomplete if character is a trigger
         this.handleCharTyped(editor, uri, char, position);
       },
+      onFocus: () => {
+        // Check for external file changes when editor receives focus
+        this.checkExternalFileChanges(uri, editor);
+      },
     };
     editor.setCallbacks(callbacks);
     editor.setUri(uri);
@@ -675,8 +685,13 @@ export class TUIClient {
         this.log(`Failed to create syntax session: ${error}`);
       }
 
-      // Track open document
-      this.openDocuments.set(uri, { documentId: result.documentId, editorId, syntaxSessionId });
+      // Track open document with modification time
+      this.openDocuments.set(uri, {
+        documentId: result.documentId,
+        editorId,
+        syntaxSessionId,
+        lastModified: fileContent.modTime,
+      });
 
       // Notify LSP of document open
       await this.lspDocumentOpened(uri, fileContent.content);
@@ -718,7 +733,13 @@ export class TUIClient {
 
     try {
       const content = editor.getContent();
-      await this.fileService.write(uri, content);
+      const result = await this.fileService.write(uri, content);
+
+      // Update stored mtime to prevent false "external change" detection
+      const docInfo = this.openDocuments.get(uri);
+      if (docInfo) {
+        docInfo.lastModified = result.modTime;
+      }
 
       // Notify LSP of document save
       await this.lspDocumentSaved(uri, content);
@@ -728,6 +749,61 @@ export class TUIClient {
     } catch (error) {
       this.window.showNotification(`Failed to save: ${error}`, 'error');
       return false;
+    }
+  }
+
+  /**
+   * Check if a file has been modified externally and reload if needed.
+   * Called when an editor receives focus.
+   */
+  private async checkExternalFileChanges(uri: string, editor: DocumentEditor): Promise<void> {
+    // Check if watching is enabled
+    const watchMode = this.configManager.getWithDefault('files.watchFiles', 'onFocus');
+    if (watchMode === 'off') return;
+
+    const docInfo = this.openDocuments.get(uri);
+    if (!docInfo?.lastModified) return;
+
+    try {
+      // Get current file stats
+      const stats = await this.fileService.stat(uri);
+      if (!stats.exists || stats.isDirectory) return;
+
+      const currentMtime = stats.modTime;
+      if (currentMtime <= docInfo.lastModified) return;
+
+      // File has been modified externally
+      this.log(`External change detected for: ${uri}`);
+
+      // If document is dirty, warn but don't reload
+      if (editor.isModified()) {
+        this.window.showNotification(
+          'File changed externally. Save your changes to overwrite or close without saving to reload.',
+          'warning'
+        );
+        return;
+      }
+
+      // Reload the file content
+      const fileContent = await this.fileService.read(uri);
+      editor.setContent(fileContent.content);
+
+      // Update mtime
+      docInfo.lastModified = fileContent.modTime;
+
+      // Update syntax highlighting
+      if (docInfo.syntaxSessionId) {
+        await this.syntaxService.updateSession(docInfo.syntaxSessionId, fileContent.content);
+        this.applySyntaxTokens(editor, docInfo.syntaxSessionId);
+      }
+
+      // Notify LSP
+      await this.lspDocumentChanged(uri, fileContent.content);
+
+      this.window.showNotification('File reloaded (changed externally)', 'info');
+      this.scheduleRender();
+    } catch (error) {
+      this.log(`Failed to check external changes: ${error}`);
     }
   }
 

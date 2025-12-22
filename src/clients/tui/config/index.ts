@@ -11,4 +11,5 @@ export {
   type ConfigPaths,
   type ConfigReloadType,
   type ConfigReloadCallback,
+  type FileWatchMode,
 } from './config-manager.ts';

@@ -44,6 +44,12 @@ Issues and improvements to address in future sessions.
   - Check that the UndoManager is properly grouping changes and tracking state
   - Test with various edit operations (typing, paste, delete, etc.)
 
+- [ ] **Additional file watch modes** - The `files.watchFiles` setting currently supports `'onFocus'` and `'off'`. Add additional modes:
+  - `'visible'` - Watch all documents that are currently visible (focused + visible in other panes). This handles multi-pane workflows where you edit in one pane and see results in another.
+  - `'always'` - Watch all open documents continuously using fs watchers. Higher system overhead but provides instant updates.
+  - For `'visible'` mode, need to track which documents are currently rendered on screen across all panes
+  - For `'always'` mode, add/remove fs.watch watchers as documents are opened/closed
+
 - [ ] **Terminal tabs cursor handling with multiple terminals** - When there is more than one terminal tab, cursor handling doesn't work properly. Each terminal session has its own PTY with its own cursor state, but switching tabs may not properly update cursor visibility/position. Investigate:
   - Whether cursor state is preserved when switching between terminal tabs
   - If the active terminal's cursor is being rendered correctly

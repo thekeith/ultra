@@ -40,6 +40,14 @@ export const CONFIG_SUBDIR = 'new-tui';
 // ============================================
 
 /**
+ * File watching mode for external changes.
+ * - 'onFocus': Check for changes when document receives focus (default, low overhead)
+ * - 'always': Watch all open files continuously (higher overhead, instant updates)
+ * - 'off': Never check for external changes
+ */
+export type FileWatchMode = 'onFocus' | 'always' | 'off';
+
+/**
  * TUI-specific settings (extends EditorSettings).
  */
 export interface TUISettings extends Partial<EditorSettings> {
@@ -47,6 +55,9 @@ export interface TUISettings extends Partial<EditorSettings> {
   'tui.sidebar.width'?: number;
   'tui.sidebar.visible'?: boolean;
   'tui.terminal.height'?: number;
+
+  // File watching
+  'files.watchFiles'?: FileWatchMode;
 }
 
 /**
@@ -407,6 +418,7 @@ export class TUIConfigManager {
 
       // Files
       'files.autoSave': 'off',
+      'files.watchFiles': 'onFocus', // Check for external changes on focus
       'files.exclude': {
         '**/node_modules': true,
         '**/.git': true,

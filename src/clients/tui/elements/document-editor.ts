@@ -107,6 +107,8 @@ export interface DocumentEditorCallbacks {
   onFoldChange?: () => void;
   /** Called when a character is typed (for autocomplete triggers) */
   onCharTyped?: (char: string, position: CursorPosition) => void;
+  /** Called when editor receives focus (for checking external file changes) */
+  onFocus?: () => void;
 }
 
 // ============================================
@@ -222,6 +224,19 @@ export class DocumentEditor extends BaseElement {
    */
   getCallbacks(): DocumentEditorCallbacks {
     return this.callbacks;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Lifecycle Overrides
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Called when editor receives focus.
+   * Notifies callback for external file change detection.
+   */
+  override onFocus(): void {
+    super.onFocus();
+    this.callbacks.onFocus?.();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
