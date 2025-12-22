@@ -53,8 +53,8 @@ export interface PaneContainerCallbacks {
   onDirty: () => void;
   /** Get a theme color */
   getThemeColor: (key: string, fallback?: string) => string;
-  /** Called when an element is closed via tab X */
-  onElementClose?: (elementId: string, element: BaseElement) => void;
+  /** Called when an element close is requested via tab X. Return true to proceed, false to cancel. */
+  onElementCloseRequest?: (elementId: string, element: BaseElement) => Promise<boolean>;
   /** Get background color for focus state */
   getBackgroundForFocus: (elementType: FocusableElementType, isFocused: boolean) => string;
   /** Get foreground color for focus state */
@@ -187,9 +187,9 @@ export class PaneContainer implements FocusResolver {
         debugLog(`[PaneContainer] Focus result: ${result}`);
       },
       getThemeColor: (key, fallback) => this.callbacks.getThemeColor(key, fallback),
-      onElementClose: (elementId, element) => {
-        this.callbacks.onElementClose?.(elementId, element);
-      },
+      onElementCloseRequest: this.callbacks.onElementCloseRequest
+        ? (elementId, element) => this.callbacks.onElementCloseRequest!(elementId, element)
+        : undefined,
       isPaneFocused: () => this.focusManager?.isPaneFocused(paneId) ?? false,
       getBackgroundForFocus: (type, focused) => this.callbacks.getBackgroundForFocus(type, focused),
       getForegroundForFocus: (type, focused) => this.callbacks.getForegroundForFocus(type, focused),

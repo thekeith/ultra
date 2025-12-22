@@ -245,7 +245,7 @@ export class TUIClient {
       size,
       getThemeColor: (key, fallback) => this.getThemeColor(key, fallback),
       onDirty: () => this.scheduleRender(),
-      onElementClose: (elementId, element) => this.handleElementClose(elementId, element),
+      onElementCloseRequest: (elementId, element) => this.handleElementCloseRequest(elementId, element),
       onFocusChange: (_prevElemId, _nextElemId, _prevPaneId, nextPaneId) => {
         // Track last focused editor pane (for opening files from sidebar)
         if (nextPaneId) {
@@ -1068,11 +1068,39 @@ export class TUIClient {
 
   /**
    * Close the current document.
+   * Shows save confirmation if document has unsaved changes.
    */
   async closeCurrentDocument(): Promise<boolean> {
     const editor = this.window.getFocusedElement();
     if (!(editor instanceof DocumentEditor)) {
       return false;
+    }
+
+    // Check for unsaved changes
+    const isUntitled = editor.getUri() === null;
+    const hasChanges = editor.isModified() || isUntitled;
+
+    if (hasChanges) {
+      if (!this.dialogManager) {
+        return false;
+      }
+      const filename = editor.getTitle();
+      const result = await this.dialogManager.showSaveConfirm(filename);
+
+      if (result.cancelled) {
+        // User cancelled - don't close
+        return false;
+      }
+
+      if (result.confirmed && result.value === true) {
+        // User wants to save first
+        const saved = await this.saveCurrentDocument();
+        if (!saved) {
+          // Save failed or was cancelled - don't close
+          return false;
+        }
+      }
+      // else: result.value === false means "Don't Save" - proceed with close
     }
 
     const uri = editor.getUri();
@@ -1099,11 +1127,40 @@ export class TUIClient {
   }
 
   /**
-   * Handle element close from tab X click.
-   * Called before the element is removed from the pane.
+   * Handle element close request from tab X click.
+   * Returns true to proceed with close, false to cancel.
    */
-  private handleElementClose(elementId: string, element: BaseElement): void {
+  private async handleElementCloseRequest(elementId: string, element: BaseElement): Promise<boolean> {
     if (element instanceof DocumentEditor) {
+      // Check for unsaved changes
+      const isUntitled = element.getUri() === null;
+      const hasChanges = element.isModified() || isUntitled;
+
+      if (hasChanges) {
+        if (!this.dialogManager) {
+          return false;
+        }
+        const filename = element.getTitle();
+        const result = await this.dialogManager.showSaveConfirm(filename);
+
+        if (result.cancelled) {
+          // User cancelled - don't close
+          return false;
+        }
+
+        if (result.confirmed && result.value === true) {
+          // User wants to save first - focus the element and save
+          this.window.focusElement(element);
+          const saved = await this.saveCurrentDocument();
+          if (!saved) {
+            // Save failed or was cancelled - don't close
+            return false;
+          }
+        }
+        // else: result.value === false means "Don't Save" - proceed with close
+      }
+
+      // Clean up document resources
       const uri = element.getUri();
       if (uri) {
         const doc = this.openDocuments.get(uri);
@@ -1122,11 +1179,12 @@ export class TUIClient {
           this.lspDocumentClosed(uri);
 
           this.openDocuments.delete(uri);
-
-          // Mark session dirty
-          this.markSessionDirty();
         }
       }
+
+      // Mark session dirty
+      this.markSessionDirty();
+      return true;
     } else if (element instanceof TerminalSession) {
       // Clean up PTY for terminals in panes
       const pty = this.paneTerminals.get(elementId);
@@ -1135,13 +1193,17 @@ export class TUIClient {
         pty.kill();
         this.paneTerminals.delete(elementId);
       }
+      return true;
     } else if (element instanceof AITerminalChat) {
       // Clean up AI chat tracking
       if (this.paneAIChats.has(elementId)) {
         debugLog(`[TUIClient] Removing AI chat from tracking: ${elementId}`);
         this.paneAIChats.delete(elementId);
       }
+      return true;
     }
+
+    return true;
   }
 
   /**

@@ -37,8 +37,12 @@ export interface PaneCallbacks {
   onFocusRequest: (elementId: string) => void;
   /** Get a theme color */
   getThemeColor: (key: string, fallback?: string) => string;
-  /** Called when an element is closed via tab X (optional) */
-  onElementClose?: (elementId: string, element: BaseElement) => void;
+  /**
+   * Called when user requests to close an element via tab X.
+   * Return true to proceed with close, false to cancel.
+   * If not provided, close proceeds immediately.
+   */
+  onElementCloseRequest?: (elementId: string, element: BaseElement) => Promise<boolean>;
   /** Check if this pane is focused */
   isPaneFocused: () => boolean;
   /** Get background color for focus state */
@@ -210,6 +214,24 @@ export class Pane {
     this.layoutElements();
     this.markDirty();
     return true;
+  }
+
+  /**
+   * Request to close an element, with optional confirmation.
+   * Uses the onElementCloseRequest callback if provided.
+   */
+  private requestElementClose(element: BaseElement): void {
+    if (this.callbacks.onElementCloseRequest) {
+      // Async close with confirmation
+      this.callbacks.onElementCloseRequest(element.id, element).then((proceed) => {
+        if (proceed) {
+          this.removeElement(element.id);
+        }
+      });
+    } else {
+      // No callback - close immediately
+      this.removeElement(element.id);
+    }
   }
 
   /**
@@ -750,9 +772,8 @@ export class Pane {
         // Check if click is on the close button (last 2 characters: "× ")
         const closeButtonStart = x + tabWidth - 2;
         if (event.x >= closeButtonStart) {
-          // Close this tab - notify callback first for cleanup
-          this.callbacks.onElementClose?.(element.id, element);
-          this.removeElement(element.id);
+          // Close this tab - use async callback if provided
+          this.requestElementClose(element);
         } else {
           // Switch to this tab
           this.setActiveElement(element.id);

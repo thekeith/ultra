@@ -19,19 +19,26 @@ import type { ScreenBuffer } from '../rendering/buffer.ts';
 export interface ConfirmDialogOptions extends DialogConfig {
   /** Message to display */
   message: string;
-  /** Confirm button text */
+  /** Confirm button text (default: "Yes") */
   confirmText?: string;
-  /** Cancel button text */
+  /** Decline button text (default: "No") */
+  declineText?: string;
+  /** Cancel button text (default: "Cancel") - only shown if showCancel is true */
   cancelText?: string;
+  /** Whether to show a Cancel button (Escape) in addition to Yes/No */
+  showCancel?: boolean;
   /** Whether destructive action (red confirm button) */
   destructive?: boolean;
-  /** Default selection (true = confirm, false = cancel) */
-  defaultConfirm?: boolean;
+  /** Default selection: 'confirm', 'decline', or 'cancel' */
+  defaultButton?: 'confirm' | 'decline' | 'cancel';
 }
 
 // ============================================
 // Confirm Dialog
 // ============================================
+
+/** Button focus state */
+type FocusedButton = 'confirm' | 'decline' | 'cancel';
 
 export class ConfirmDialog extends PromiseDialog<boolean> {
   /** Message to display */
@@ -40,14 +47,20 @@ export class ConfirmDialog extends PromiseDialog<boolean> {
   /** Confirm button text */
   private confirmText: string = 'Yes';
 
+  /** Decline button text */
+  private declineText: string = 'No';
+
   /** Cancel button text */
-  private cancelText: string = 'No';
+  private cancelText: string = 'Cancel';
+
+  /** Whether to show cancel button */
+  private showCancel: boolean = false;
 
   /** Whether destructive action */
   private destructive: boolean = false;
 
-  /** Currently focused button (true = confirm, false = cancel) */
-  private focusConfirm: boolean = false;
+  /** Currently focused button */
+  private focusedButton: FocusedButton = 'decline';
 
   constructor(id: string, callbacks: OverlayManagerCallbacks) {
     super(id, callbacks);
@@ -63,9 +76,11 @@ export class ConfirmDialog extends PromiseDialog<boolean> {
   showWithOptions(options: ConfirmDialogOptions): Promise<DialogResult<boolean>> {
     this.message = options.message;
     this.confirmText = options.confirmText ?? 'Yes';
-    this.cancelText = options.cancelText ?? 'No';
+    this.declineText = options.declineText ?? 'No';
+    this.cancelText = options.cancelText ?? 'Cancel';
+    this.showCancel = options.showCancel ?? false;
     this.destructive = options.destructive ?? false;
-    this.focusConfirm = options.defaultConfirm ?? false;
+    this.focusedButton = options.defaultButton ?? 'decline';
 
     // Calculate height based on message
     const lines = this.message.split('\n').length;
@@ -86,30 +101,65 @@ export class ConfirmDialog extends PromiseDialog<boolean> {
   protected override handleKeyInput(event: KeyEvent): boolean {
     // Enter - select focused button
     if (event.key === 'Enter') {
-      this.confirm(this.focusConfirm);
+      this.selectFocusedButton();
       return true;
     }
 
-    // Tab / Arrow keys - toggle focus
-    if (event.key === 'Tab' || event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-      this.focusConfirm = !this.focusConfirm;
-      this.callbacks.onDirty();
+    // Tab / Arrow keys - cycle focus
+    if (event.key === 'Tab' || event.key === 'ArrowRight') {
+      this.cycleFocus(1);
       return true;
     }
 
-    // Y key - confirm
+    if (event.key === 'ArrowLeft') {
+      this.cycleFocus(-1);
+      return true;
+    }
+
+    // Y key - confirm (Yes)
     if (event.key === 'y' || event.key === 'Y') {
       this.confirm(true);
       return true;
     }
 
-    // N key - cancel
+    // N key - decline (No)
     if (event.key === 'n' || event.key === 'N') {
       this.confirm(false);
       return true;
     }
 
+    // C key - cancel (only if showCancel)
+    if (this.showCancel && (event.key === 'c' || event.key === 'C')) {
+      this.cancel();
+      return true;
+    }
+
     return false;
+  }
+
+  private cycleFocus(direction: number): void {
+    const buttons: FocusedButton[] = this.showCancel
+      ? ['confirm', 'decline', 'cancel']
+      : ['confirm', 'decline'];
+
+    const currentIndex = buttons.indexOf(this.focusedButton);
+    const newIndex = (currentIndex + direction + buttons.length) % buttons.length;
+    this.focusedButton = buttons[newIndex]!;
+    this.callbacks.onDirty();
+  }
+
+  private selectFocusedButton(): void {
+    switch (this.focusedButton) {
+      case 'confirm':
+        this.confirm(true);
+        break;
+      case 'decline':
+        this.confirm(false);
+        break;
+      case 'cancel':
+        this.cancel();
+        break;
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -133,6 +183,10 @@ export class ConfirmDialog extends PromiseDialog<boolean> {
     // Buttons
     const buttonY = content.y + content.height - 2;
     this.renderButtons(buffer, content.x, buttonY, content.width);
+
+    // Keyboard hints
+    const hintY = content.y + content.height - 1;
+    this.renderHints(buffer, content.x, hintY, content.width, bg);
   }
 
   private renderButtons(buffer: ScreenBuffer, x: number, y: number, width: number): void {
@@ -140,24 +194,51 @@ export class ConfirmDialog extends PromiseDialog<boolean> {
     const buttonFg = this.callbacks.getThemeColor('button.foreground', '#cccccc');
     const focusBg = this.callbacks.getThemeColor('focusBorder', '#007acc');
     const focusFg = '#ffffff';
-    const destructiveBg = this.callbacks.getThemeColor('errorForeground', '#f44336');
+    const destructiveBg = this.callbacks.getThemeColor('editorGutter.deletedBackground', '#f44336');
 
-    // Button dimensions
-    const confirmWidth = this.confirmText.length + 4;
-    const cancelWidth = this.cancelText.length + 4;
-    const totalWidth = confirmWidth + cancelWidth + 4;
+    // Button texts with shortcut key in brackets
+    const confirmLabel = `[Y]${this.confirmText}`;
+    const declineLabel = `[N]${this.declineText}`;
+    const cancelLabel = this.showCancel ? `[Esc]${this.cancelText}` : '';
+
+    // Button dimensions (add padding)
+    const confirmWidth = confirmLabel.length + 2;
+    const declineWidth = declineLabel.length + 2;
+    const cancelWidth = this.showCancel ? cancelLabel.length + 2 : 0;
+    const spacing = 2;
+    const totalWidth = confirmWidth + declineWidth + (this.showCancel ? cancelWidth + spacing : 0) + spacing;
     const startX = x + Math.floor((width - totalWidth) / 2);
 
-    // Cancel button (left)
-    const cancelBg = this.focusConfirm ? buttonBg : focusBg;
-    const cancelFg = this.focusConfirm ? buttonFg : focusFg;
-    this.renderButton(buffer, startX, y, this.cancelText, cancelFg, cancelBg);
+    let currentX = startX;
 
-    // Confirm button (right)
-    const confirmBgColor = this.destructive && this.focusConfirm ? destructiveBg : focusBg;
-    const confirmBg = this.focusConfirm ? confirmBgColor : buttonBg;
-    const confirmFg = this.focusConfirm ? focusFg : buttonFg;
-    this.renderButton(buffer, startX + cancelWidth + 4, y, this.confirmText, confirmFg, confirmBg);
+    // Confirm button (Yes)
+    const confirmBgColor = this.destructive && this.focusedButton === 'confirm' ? destructiveBg : focusBg;
+    const confirmBg = this.focusedButton === 'confirm' ? confirmBgColor : buttonBg;
+    const confirmFg = this.focusedButton === 'confirm' ? focusFg : buttonFg;
+    this.renderButton(buffer, currentX, y, confirmLabel, confirmFg, confirmBg);
+    currentX += confirmWidth + spacing;
+
+    // Decline button (No)
+    const declineBg = this.focusedButton === 'decline' ? focusBg : buttonBg;
+    const declineFg = this.focusedButton === 'decline' ? focusFg : buttonFg;
+    this.renderButton(buffer, currentX, y, declineLabel, declineFg, declineBg);
+    currentX += declineWidth + spacing;
+
+    // Cancel button (optional)
+    if (this.showCancel) {
+      const cancelBg = this.focusedButton === 'cancel' ? focusBg : buttonBg;
+      const cancelFg = this.focusedButton === 'cancel' ? focusFg : buttonFg;
+      this.renderButton(buffer, currentX, y, cancelLabel, cancelFg, cancelBg);
+    }
+  }
+
+  private renderHints(buffer: ScreenBuffer, x: number, y: number, width: number, bg: string): void {
+    const hintFg = this.callbacks.getThemeColor('descriptionForeground', '#888888');
+    const hint = this.showCancel
+      ? 'Tab/Arrow: navigate • Enter: select • Esc: cancel'
+      : 'Tab/Arrow: navigate • Enter: select';
+    const hintX = x + Math.floor((width - hint.length) / 2);
+    buffer.writeString(hintX, y, hint, hintFg, bg);
   }
 
   private renderButton(

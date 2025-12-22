@@ -177,6 +177,24 @@ export class DialogManager {
     }
   }
 
+  /**
+   * Show a "save before closing" confirmation dialog.
+   * Returns: confirmed=true, value=true → Save
+   *          confirmed=true, value=false → Don't Save
+   *          cancelled=true → Cancel (abort close)
+   */
+  async showSaveConfirm(filename: string): Promise<DialogResult<boolean>> {
+    return this.showConfirm({
+      title: 'Save Changes',
+      message: `Do you want to save the changes you made to ${filename}?\n\nYour changes will be lost if you don't save them.`,
+      confirmText: 'Save',
+      declineText: 'Discard',
+      cancelText: 'Cancel',
+      showCancel: true,
+      defaultButton: 'confirm',
+    });
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Command Palette
   // ─────────────────────────────────────────────────────────────────────────
