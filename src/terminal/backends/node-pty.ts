@@ -198,6 +198,15 @@ export class NodePtyBackend implements PTYBackend {
     };
   }
 
+  onNotification(callback: (message: string) => void): Unsubscribe {
+    // Wire up directly to the underlying parser's notification callback
+    this.ansiParser.onNotification(callback);
+    return () => {
+      // Clear the callback by setting a no-op
+      this.ansiParser.onNotification(() => {});
+    };
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // State
   // ─────────────────────────────────────────────────────────────────────────

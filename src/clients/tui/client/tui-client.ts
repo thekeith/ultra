@@ -2522,6 +2522,13 @@ export class TUIClient {
       return null;
     }
 
+    // Wire up notification callback to show OSC 99 messages in the notification system
+    chat.setCallbacks({
+      onNotification: (message) => {
+        this.window.showNotification(message, 'info');
+      },
+    });
+
     // Track the AI chat for session persistence
     this.paneAIChats.set(chatId, chat);
 

@@ -160,6 +160,15 @@ export class BunPtyBackend implements PTYBackend {
     };
   }
 
+  onNotification(callback: (message: string) => void): Unsubscribe {
+    // Wire up directly to the underlying PTY's notification callback
+    this.pty.onNotification(callback);
+    return () => {
+      // Clear the callback by setting a no-op
+      this.pty.onNotification(() => {});
+    };
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // State
   // ─────────────────────────────────────────────────────────────────────────

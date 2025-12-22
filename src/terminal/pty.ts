@@ -482,8 +482,18 @@ export class AnsiParser {
   private state: 'normal' | 'escape' | 'csi' | 'osc' = 'normal';
   private csiParams: string = '';
   private oscData: string = '';
-  
+
+  /** Callback for OSC 99 notifications (used by Claude Code, etc.) */
+  private onNotificationCallback?: (message: string) => void;
+
   constructor(private screen: ScreenBuffer) {}
+
+  /**
+   * Set notification callback for OSC 99 messages.
+   */
+  onNotification(callback: (message: string) => void): void {
+    this.onNotificationCallback = callback;
+  }
   
   /**
    * Process incoming data
@@ -627,8 +637,8 @@ export class AnsiParser {
   private processOSC(char: string, code: number): void {
     if (code === 0x07 || (code === 0x1b && this.oscData.endsWith('\\'))) {
       // OSC terminator (BEL or ESC \)
-      // Process OSC - usually title changes, etc.
-      // For now, just ignore
+      this.handleOSC(this.oscData);
+      this.oscData = '';
       this.state = 'normal';
     } else if (code === 0x1b) {
       // Might be ESC \ terminator
@@ -639,6 +649,58 @@ export class AnsiParser {
       if (this.oscData.length > 4096) {
         this.state = 'normal';
       }
+    }
+  }
+
+  /**
+   * Handle a complete OSC sequence.
+   */
+  private handleOSC(data: string): void {
+    // Remove trailing ESC if present (for ESC \ terminator)
+    if (data.endsWith('\x1b')) {
+      data = data.slice(0, -1);
+    }
+
+    // Parse OSC code (first part before semicolon)
+    const semicolonIndex = data.indexOf(';');
+    if (semicolonIndex === -1) return;
+
+    const oscCode = parseInt(data.substring(0, semicolonIndex), 10);
+    const oscContent = data.substring(semicolonIndex + 1);
+
+    switch (oscCode) {
+      case 0: // Set icon name and window title
+      case 1: // Set icon name
+      case 2: // Set window title
+        // Title changes - could emit via callback if needed
+        break;
+
+      case 99:
+        // OSC 99: Application notifications (used by Claude Code, etc.)
+        // Format: 99;i=<id>:p=<part>;<message>
+        // Example: 99;i=1242:p=body;Claude is waiting for your input
+        this.parseOSC99(oscContent);
+        break;
+    }
+  }
+
+  /**
+   * Parse OSC 99 notification format.
+   * Format: i=<id>:p=<part>;<message>
+   */
+  private parseOSC99(content: string): void {
+    // Find the message part after the metadata
+    // Format: i=1242:p=body;Claude is waiting for your input
+    const parts = content.split(';');
+    if (parts.length < 2) return;
+
+    // The message is everything after the first semicolon
+    const message = parts.slice(1).join(';');
+
+    // Check if this is a body message (the actual notification text)
+    const metadata = parts[0] ?? '';
+    if (metadata.includes('p=body') && message && this.onNotificationCallback) {
+      this.onNotificationCallback(message);
     }
   }
 }
@@ -853,5 +915,12 @@ export class PTY {
    */
   onUpdate(callback: () => void): void {
     this.onUpdateCallback = callback;
+  }
+
+  /**
+   * Set callback for OSC 99 notifications (used by Claude Code, etc.)
+   */
+  onNotification(callback: (message: string) => void): void {
+    this.parser.onNotification(callback);
   }
 }

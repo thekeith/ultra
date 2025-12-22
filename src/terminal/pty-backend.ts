@@ -176,6 +176,14 @@ export interface PTYBackend {
    */
   onTitle(callback: (title: string) => void): Unsubscribe;
 
+  /**
+   * Register callback for OSC 99 notifications.
+   * Used by applications like Claude Code to send status messages.
+   * @param callback - Called with notification message
+   * @returns Unsubscribe function
+   */
+  onNotification(callback: (message: string) => void): Unsubscribe;
+
   // ─────────────────────────────────────────────────────────────────────────
   // State
   // ─────────────────────────────────────────────────────────────────────────

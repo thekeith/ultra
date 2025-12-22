@@ -49,6 +49,8 @@ export interface AITerminalChatCallbacks {
   onSessionIdCaptured?: (sessionId: string) => void;
   /** Called when the AI process exits */
   onExit?: (code: number) => void;
+  /** Called when a notification is received (OSC 99) */
+  onNotification?: (message: string) => void;
 }
 
 // ============================================
@@ -129,6 +131,13 @@ export abstract class AITerminalChat extends BaseElement {
     if (isDebugEnabled()) {
       debugLog(`[${this.constructor.name}:${this.id}] ${msg}`);
     }
+  }
+
+  /**
+   * Set or update callbacks after construction.
+   */
+  setCallbacks(callbacks: AITerminalChatCallbacks): void {
+    this.callbacks = { ...this.callbacks, ...callbacks };
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -257,6 +266,14 @@ export abstract class AITerminalChat extends BaseElement {
       })
     );
 
+    // Wire up notification callback (OSC 99 messages from Claude Code, etc.)
+    this.ptyUnsubscribes.push(
+      this.pty.onNotification((message) => {
+        this.debugLog(`Notification received: ${message}`);
+        this.callbacks.onNotification?.(message);
+      })
+    );
+
     // Start the PTY
     await this.pty.start();
     this.setTitle(this.getProviderName());
@@ -337,12 +354,10 @@ export abstract class AITerminalChat extends BaseElement {
     // Get theme colors for terminal
     const defaultBg = this.ctx.getThemeColor('terminal.background', '#1e1e1e');
     const defaultFg = this.ctx.getThemeColor('terminal.foreground', '#cccccc');
-    const cursorBg = this.ctx.getThemeColor('terminalCursor.foreground', '#ffffff');
 
     // Use PTY buffer if available
     if (this.pty) {
       const ptyBuffer = this.pty.getBuffer();
-      const cursor = this.pty.getCursor();
 
       for (let row = 0; row < height && row < ptyBuffer.length; row++) {
         const line = ptyBuffer[row];
@@ -366,17 +381,11 @@ export abstract class AITerminalChat extends BaseElement {
         }
       }
 
-      // Draw cursor if focused
-      if (this.focused && cursor.y < height && cursor.x < width - AITerminalChat.SCROLLBAR_WIDTH) {
-        const cursorCell = buffer.get(x + cursor.x, y + cursor.y);
-        if (cursorCell) {
-          buffer.set(x + cursor.x, y + cursor.y, {
-            ...cursorCell,
-            bg: cursorBg,
-            fg: defaultBg,
-          });
-        }
-      }
+      // Note: We don't draw our own cursor for AI terminal chats.
+      // These are full TUI applications (like Claude Code) that render their
+      // own cursor as part of their screen buffer. The PTY cursor position
+      // may not reflect the actual input location since these apps use cursor
+      // positioning for layout (status bars, output areas, etc.).
     } else {
       // Fill with background when no PTY
       for (let row = 0; row < height; row++) {
