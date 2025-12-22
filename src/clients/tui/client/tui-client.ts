@@ -44,16 +44,13 @@ import {
 // Debug utilities
 import { debugLog, isDebugEnabled } from '../../../debug.ts';
 
-// Node.js file system for watching
-import * as fs from 'fs';
-
 // Config
 import { TUIConfigManager, createTUIConfigManager } from '../config/index.ts';
 import { defaultThemes } from '../../../config/defaults.ts';
 
 // Services
 import { localDocumentService, type DocumentService } from '../../../services/document/index.ts';
-import { fileService, type FileService } from '../../../services/file/index.ts';
+import { fileService, type FileService, type WatchHandle } from '../../../services/file/index.ts';
 import { gitCliService } from '../../../services/git/index.ts';
 import { localSyntaxService, type SyntaxService, type HighlightToken } from '../../../services/syntax/index.ts';
 import {
@@ -205,7 +202,7 @@ export class TUIClient {
   private fileTree: FileTree | null = null;
 
   /** Workspace directory watcher */
-  private workspaceWatcher: fs.FSWatcher | null = null;
+  private workspaceWatcher: WatchHandle | null = null;
 
   /** Debounce timer for workspace refresh */
   private workspaceRefreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1155,29 +1152,34 @@ export class TUIClient {
     this.stopWorkspaceWatcher();
 
     try {
-      // Watch the working directory recursively
-      this.workspaceWatcher = fs.watch(
-        this.workingDirectory,
-        { recursive: true, persistent: true },
-        (_eventType, filename) => {
+      const workspaceUri = `file://${this.workingDirectory}`;
+
+      // Watch the working directory recursively using file service
+      this.workspaceWatcher = this.fileService.watch(
+        workspaceUri,
+        (event) => {
+          // Extract relative path from URI for filtering
+          const relativePath = event.uri.replace(workspaceUri + '/', '');
+
           // Skip hidden files and common noise
-          if (filename && (
-            filename.startsWith('.git/') ||
-            filename.includes('node_modules/') ||
-            filename.endsWith('.swp') ||
-            filename.endsWith('~')
-          )) {
+          if (
+            relativePath.startsWith('.git/') ||
+            relativePath.includes('node_modules/') ||
+            relativePath.endsWith('.swp') ||
+            relativePath.endsWith('~')
+          ) {
             return;
           }
 
-          this.log(`Workspace file change detected: ${filename}`);
+          this.log(`Workspace file ${event.type}: ${relativePath}`);
           this.scheduleWorkspaceRefresh();
+        },
+        {
+          recursive: true,
+          debounceMs: 100,
+          excludePatterns: ['**/.git/**', '**/node_modules/**', '**/*.swp', '**/*~'],
         }
       );
-
-      this.workspaceWatcher.on('error', (error) => {
-        this.log(`Workspace watcher error: ${error}`);
-      });
 
       this.log(`Started watching workspace: ${this.workingDirectory}`);
     } catch (error) {
@@ -1190,7 +1192,7 @@ export class TUIClient {
    */
   private stopWorkspaceWatcher(): void {
     if (this.workspaceWatcher) {
-      this.workspaceWatcher.close();
+      this.workspaceWatcher.dispose();
       this.workspaceWatcher = null;
     }
     if (this.workspaceRefreshTimer) {
