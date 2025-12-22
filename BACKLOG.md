@@ -66,7 +66,7 @@ Issues and improvements to address in future sessions.
   - Hint bar shows shortcuts when focused
   - Dialog input appears at bottom and handles Escape to cancel
 
-- [x] **Terminal and editor scroll-up boundary jitter** - Fixed by only triggering re-renders when scroll position actually changes. Previously, scroll events at boundaries would still call `markDirty()` even when scroll position was clamped and unchanged, causing unnecessary re-renders.
+- [x] **Terminal and editor scroll-up boundary jitter** - Mostly fixed by only triggering re-renders when scroll position actually changes. Previously, scroll events at boundaries would still call `markDirty()` even when scroll position was clamped and unchanged, causing unnecessary re-renders. Note: Very fast touchpad scrolling at the top boundary may still cause minor jitter - this appears to be related to terminal emulator behavior with rapid scroll events rather than application rendering.
 
 - [ ] **AI terminal chat cursor position incorrect** - The cursor highlight in AI terminal chats (Claude Code, Codex) appears at the wrong position (often at the bottom of the buffer where status messages are written). The issue is that TUI applications like Claude Code use cursor positioning to render their UI, and the final PTY cursor position may not reflect the actual input location. Current implementation tracks DECTCEM cursor visibility (`CSI ?25h/l`) but this doesn't fully solve the problem. Possible approaches:
   - Let the TUI app render its own cursor character and don't overlay ours
