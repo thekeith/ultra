@@ -15,7 +15,7 @@ import type {
   CursorPosition,
   Unsubscribe,
 } from '../pty-backend.ts';
-import { ScreenBuffer, AnsiParser } from '../pty.ts';
+import { ScreenBuffer, AnsiParser } from '../screen-buffer.ts';
 
 // Type for node-pty (avoid import for type checking)
 interface IPty {

@@ -1,5 +1,7 @@
 # PTY Loading Error in Bundled Binary
 
+**STATUS: RESOLVED** - See "Resolution" section at the bottom.
+
 ## Problem Summary
 
 When running the Ultra bundled binary from a directory other than the installation directory, terminal panes fail to open with the error:
@@ -146,105 +148,47 @@ cd /path/to/ultra-1.0 && ./ultra
 bun run dev
 ```
 
-## Resolution Prompt from Claude
+## Resolution
 
-Problem: Ultra's bundled binary (bun build --compile) uses a virtual filesystem (/$bunfs) that intercepts all module resolution. Native modules like node-pty contain .node files that require real filesystem access via dlopen, causing terminal panes to fail with "No PTY backend available" when running the compiled binary.
+The issue was resolved using an **IPC sidecar approach**. The `createRequire` solution from the original prompt does NOT work because Bun's bundled binary intercepts all module resolution, including `createRequire`.
 
-Solution: Install node-pty to ~/.ultra/node_modules on the real filesystem and load it using createRequire anchored at that location.
-Implementation
+### Solution: IPC Bridge
 
-1. Create src/terminal/pty-loader.ts:
+The solution spawns a child `bun` process that runs a PTY bridge script. Since the child process is not bundled, it can load node-pty normally from `~/.ultra/node_modules`.
 
-```typescript
-typescriptimport { createRequire } from 'node:module';
-import * as path from 'path';
-import * as fs from 'fs';
-import * as os from 'os';
+### Implementation
 
-const ULTRA_HOME = path.join(os.homedir(), '.ultra');
-const NODE_MODULES = path.join(ULTRA_HOME, 'node_modules');
+1. **`src/terminal/pty-loader.ts`** - Installs node-pty to `~/.ultra` and writes the bridge script
+2. **`src/terminal/pty-bridge.ts`** - Bridge script that loads node-pty and handles IPC messages
+3. **`src/terminal/backends/ipc-pty.ts`** - PTYBackend implementation that communicates with the bridge via stdin/stdout JSON messages
+4. **`src/terminal/pty-factory.ts`** - Updated to use IPC backend when running in bundled mode
+5. **`src/clients/tui/main.ts`** - Calls `ensurePtyAvailable()` on startup
 
-export async function ensurePTYInstalled(): Promise<boolean> {
-  const ptyPath = path.join(NODE_MODULES, 'node-pty');
-  
-  if (fs.existsSync(ptyPath)) {
-    return true;
-  }
-  
-  console.log('Installing PTY support to ~/.ultra ...');
-  
-  fs.mkdirSync(ULTRA_HOME, { recursive: true });
-  
-  const pkgPath = path.join(ULTRA_HOME, 'package.json');
-  if (!fs.existsSync(pkgPath)) {
-    fs.writeFileSync(pkgPath, JSON.stringify({
-      name: "ultra-runtime",
-      private: true,
-      dependencies: {}
-    }, null, 2));
-  }
-  
-  const proc = Bun.spawn(['bun', 'add', 'node-pty'], {
-    cwd: ULTRA_HOME,
-    stdout: 'inherit',
-    stderr: 'inherit',
-  });
-  
-  const exitCode = await proc.exited;
-  return exitCode === 0;
-}
+### How It Works
 
-export function loadNodePTY(): typeof import('node-pty') | null {
-  try {
-    const ultraRequire = createRequire(path.join(ULTRA_HOME, 'package.json'));
-    return ultraRequire('node-pty');
-  } catch (err) {
-    return null;
-  }
-}
-```
-2. Update src/terminal/pty-factory.ts to use this loader:
+1. On first run, Ultra detects it's in bundled mode (`import.meta.dir.startsWith('/$bunfs')`)
+2. It installs node-pty to `~/.ultra/node_modules` if not present
+3. It writes the bridge script to `~/.ultra/pty-bridge.mjs` (Node.js ESM format)
+4. When a terminal is opened, the IPC backend spawns `node ~/.ultra/pty-bridge.mjs`
+5. The backend communicates with the bridge via JSON messages over stdin/stdout:
+   - `spawn` - Create a PTY
+   - `write` - Write data to PTY
+   - `resize` - Resize PTY
+   - `kill` - Kill PTY
+   - Events: `data`, `exit`, `ready`
 
-Call ensurePTYInstalled() during app initialization (show a one-time "Installing PTY support..." message)
-Use loadNodePTY() to get the module
-Fall back gracefully if unavailable
+### Files Modified
 
-3. Integrate into app startup:
+- `src/terminal/pty-loader.ts` (new)
+- `src/terminal/pty-bridge.ts` (new)
+- `src/terminal/backends/ipc-pty.ts` (new)
+- `src/terminal/pty-factory.ts` (updated)
+- `src/clients/tui/main.ts` (updated)
 
-In src/app.ts or main initialization, call await ensurePTYInstalled() before any terminal pane can be opened
-Cache the loaded module so subsequent terminal spawns are instant
+### Why createRequire Doesn't Work
 
-Verification
-Before implementing, test that createRequire works from a bundled binary:
+Even though `createRequire` is a Node.js API that should create a require function anchored at a real filesystem path, Bun's bundled binary intercepts the resulting `require()` calls. The only way to load native modules is to spawn an unbundled child process.
 
-```bash
-bash# Setup
-mkdir -p ~/.ultra && cd ~/.ultra
-echo '{"name":"ultra-runtime","private":true}' > package.json
-bun add node-pty
+### Why Node.js Instead of Bun for the Bridge
 
-# Test script
-cat > /tmp/test-pty.ts << 'EOF'
-import { createRequire } from 'node:module';
-import * as path from 'path';
-import * as os from 'os';
-
-const ultraHome = path.join(os.homedir(), '.ultra');
-const req = createRequire(path.join(ultraHome, 'package.json'));
-
-try {
-  const pty = req('node-pty');
-  const term = pty.spawn('echo', ['hello'], { name: 'xterm-256color', cols: 80, rows: 24 });
-  term.onData((data: string) => console.log('OUTPUT:', data.trim()));
-  term.onExit(() => console.log('SUCCESS: PTY works!'));
-} catch (e) {
-  console.log('FAILED:', e);
-}
-EOF
-
-# Bundle and run from different directory
-bun build --compile /tmp/test-pty.ts --outfile /tmp/test-pty-bin
-cd /tmp && ./test-pty-bin
-```
-
-If this prints "SUCCESS: PTY works!", proceed with implementation. If createRequire is still intercepted, we'll need a sidecar IPC approach (let me know).
+We originally tried using `bun` to run the bridge script, but discovered that Bun's `tty.ReadStream` implementation doesn't properly emit `data` events from PTY file descriptors. This is a Bun compatibility issue with Node.js's tty module. Node.js handles this correctly, so we use Node.js to run the bridge script in bundled mode.

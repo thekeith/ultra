@@ -7,6 +7,7 @@
 
 import { TUIClient, createTUIClient } from './client/tui-client.ts';
 import { setDebugEnabled, debugLog } from '../../debug.ts';
+import { isBundledBinary, ensurePtyAvailable } from '../../terminal/pty-loader.ts';
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -45,6 +46,21 @@ let client: TUIClient | null = null;
 
 async function main(): Promise<void> {
   debugLog('[TUI Main] Starting Ultra TUI...');
+
+  // In bundled binary mode, ensure PTY support is available
+  if (isBundledBinary()) {
+    debugLog('[TUI Main] Running as bundled binary, checking PTY support...');
+    const ptyReady = await ensurePtyAvailable();
+    if (!ptyReady) {
+      console.log('Installing terminal support...');
+      const success = await ensurePtyAvailable();
+      if (!success) {
+        console.error('Failed to install terminal support. Terminal panes will not work.');
+        debugLog('[TUI Main] PTY installation failed');
+      }
+    }
+    debugLog('[TUI Main] PTY support ready');
+  }
 
   client = createTUIClient({
     workingDirectory: folderPath ?? process.cwd(),

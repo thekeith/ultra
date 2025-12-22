@@ -2,19 +2,23 @@
  * PTY Backend Factory
  *
  * Creates PTY backend instances, selecting the appropriate implementation
- * based on availability. Prefers node-pty (for bundled binary compatibility)
- * and falls back to bun-pty (for development).
+ * based on availability and runtime context.
+ *
+ * Priority:
+ * 1. In bundled binary: IPC backend (communicates with pty-bridge.ts)
+ * 2. In development: node-pty or bun-pty directly
  */
 
 import type { PTYBackend, PTYBackendOptions } from './pty-backend.ts';
 import { debugLog } from '../debug.ts';
+import { isBundledBinary, getBridgePath, isPtyInstalled } from './pty-loader.ts';
 
 // Backend availability flags
 let nodePtyAvailable: boolean | null = null;
 let bunPtyAvailable: boolean | null = null;
 
 /**
- * Check if node-pty is available.
+ * Check if node-pty is available (development mode only).
  */
 async function checkNodePty(): Promise<boolean> {
   if (nodePtyAvailable !== null) return nodePtyAvailable;
@@ -32,7 +36,7 @@ async function checkNodePty(): Promise<boolean> {
 }
 
 /**
- * Check if bun-pty is available.
+ * Check if bun-pty is available (development mode only).
  */
 async function checkBunPty(): Promise<boolean> {
   if (bunPtyAvailable !== null) return bunPtyAvailable;
@@ -52,14 +56,33 @@ async function checkBunPty(): Promise<boolean> {
 /**
  * Create a PTY backend using the best available implementation.
  *
- * Priority:
- * 1. node-pty (works in bundled binary)
- * 2. bun-pty (development mode)
+ * In bundled binary mode, uses IPC backend to communicate with pty-bridge.ts.
+ * In development mode, uses node-pty or bun-pty directly.
  *
  * @throws Error if no PTY backend is available
  */
 export async function createPtyBackend(options: PTYBackendOptions = {}): Promise<PTYBackend> {
-  // Try node-pty first (better for bundled binaries)
+  // In bundled binary mode, use IPC backend
+  if (isBundledBinary()) {
+    if (!isPtyInstalled()) {
+      throw new Error(
+        'PTY not available. Run Ultra from its installation directory first, ' +
+          'or reinstall to set up PTY support.'
+      );
+    }
+
+    try {
+      const { createIpcPtyBackend } = await import('./backends/ipc-pty.ts');
+      const bridgePath = getBridgePath();
+      debugLog(`[PTYFactory] Using IPC backend with bridge: ${bridgePath}`);
+      return createIpcPtyBackend(options, bridgePath);
+    } catch (error) {
+      debugLog(`[PTYFactory] Failed to create IPC backend: ${error}`);
+      throw new Error(`Failed to create IPC PTY backend: ${error}`);
+    }
+  }
+
+  // Development mode: try node-pty first, then bun-pty
   if (await checkNodePty()) {
     try {
       const { createNodePtyBackend } = await import('./backends/node-pty.ts');
