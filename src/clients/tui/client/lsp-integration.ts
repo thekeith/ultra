@@ -48,6 +48,8 @@ export interface LSPIntegrationCallbacks {
   setStatusBarSignature?: (text: string) => void;
   /** Called when diagnostics update for a document */
   onDiagnosticsUpdate?: (uri: string, diagnostics: LSPDiagnostic[]) => void;
+  /** Called when a completion item is accepted (Enter/Tab pressed) */
+  onCompletionAccepted?: (item: LSPCompletionItem, prefix: string, startColumn: number) => void;
 }
 
 export interface DocumentInfo {
@@ -121,6 +123,11 @@ export class LSPIntegration {
     this.autocompletePopup = createAutocompletePopup('lsp-autocomplete', overlayCallbacks);
     this.hoverTooltip = createHoverTooltip('lsp-hover', overlayCallbacks);
     this.signatureHelp = createSignatureHelp('lsp-signature', overlayCallbacks);
+
+    // Setup autocomplete selection callback
+    this.autocompletePopup.onSelect((item, prefix, startColumn) => {
+      this.callbacks.onCompletionAccepted?.(item, prefix, startColumn);
+    });
 
     // Register overlays with manager
     this.overlayManager.addOverlay(this.autocompletePopup);
@@ -264,7 +271,9 @@ export class LSPIntegration {
     uri: string,
     position: LSPPosition,
     screenX: number,
-    screenY: number
+    screenY: number,
+    prefix: string = '',
+    startColumn: number = 0
   ): Promise<void> {
     if (!this.isEnabled()) return;
 
@@ -277,7 +286,7 @@ export class LSPIntegration {
       }
 
       // Show popup with LSP completion items
-      this.autocompletePopup.showCompletions(completions, screenX, screenY);
+      this.autocompletePopup.showCompletions(completions, screenX, screenY, prefix, startColumn);
     } catch (error) {
       debugLog(`[LSPIntegration] Completion failed: ${error}`);
       this.autocompletePopup.hide();
@@ -291,7 +300,9 @@ export class LSPIntegration {
     uri: string,
     position: LSPPosition,
     screenX: number,
-    screenY: number
+    screenY: number,
+    prefix: string = '',
+    startColumn: number = 0
   ): void {
     this.cancelCompletion();
 
@@ -299,7 +310,7 @@ export class LSPIntegration {
 
     this.completionDebounceTimer = setTimeout(() => {
       this.completionDebounceTimer = null;
-      this.triggerCompletion(uri, position, screenX, screenY);
+      this.triggerCompletion(uri, position, screenX, screenY, prefix, startColumn);
     }, debounceMs);
   }
 

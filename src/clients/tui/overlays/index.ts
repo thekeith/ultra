@@ -91,3 +91,23 @@ export {
   createGotoLineDialog,
   type GotoLineCallbacks,
 } from './goto-line.ts';
+
+// LSP overlays
+export {
+  AutocompletePopup,
+  createAutocompletePopup,
+  type AutocompleteItem,
+  type CompletionSelectCallback,
+  type CompletionDismissCallback,
+} from './autocomplete-popup.ts';
+
+export {
+  HoverTooltip,
+  createHoverTooltip,
+} from './hover-tooltip.ts';
+
+export {
+  SignatureHelpOverlay,
+  createSignatureHelp,
+  type SignatureDisplayMode,
+} from './signature-help.ts';

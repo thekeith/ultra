@@ -335,6 +335,11 @@ export abstract class AITerminalChat extends BaseElement {
   render(buffer: ScreenBuffer): void {
     const { x, y, width, height } = this.bounds;
 
+    // Get theme colors for terminal
+    const defaultBg = this.ctx.getThemeColor('terminal.background', '#1e1e1e');
+    const defaultFg = this.ctx.getThemeColor('terminal.foreground', '#cccccc');
+    const cursorBg = this.ctx.getThemeColor('terminalCursor.foreground', '#ffffff');
+
     // Use PTY buffer if available
     if (this.pty) {
       const ptyBuffer = this.pty.getBuffer();
@@ -350,15 +355,15 @@ export abstract class AITerminalChat extends BaseElement {
 
           buffer.set(x + col, y + row, {
             char: cell.char,
-            fg: cell.fg ?? this.currentFg,
-            bg: cell.bg ?? this.currentBg,
+            fg: cell.fg ?? defaultFg,
+            bg: cell.bg ?? defaultBg,
             bold: cell.bold,
           });
         }
 
         // Fill rest of line
         for (let col = line.length; col < width - AITerminalChat.SCROLLBAR_WIDTH; col++) {
-          buffer.set(x + col, y + row, { char: ' ', fg: this.currentFg, bg: this.currentBg });
+          buffer.set(x + col, y + row, { char: ' ', fg: defaultFg, bg: defaultBg });
         }
       }
 
@@ -368,8 +373,8 @@ export abstract class AITerminalChat extends BaseElement {
         if (cursorCell) {
           buffer.set(x + cursor.x, y + cursor.y, {
             ...cursorCell,
-            bg: this.ctx.getThemeColor('terminalCursor.foreground', '#ffffff'),
-            fg: this.currentBg,
+            bg: cursorBg,
+            fg: defaultBg,
           });
         }
       }
@@ -377,13 +382,13 @@ export abstract class AITerminalChat extends BaseElement {
       // Fill with background when no PTY
       for (let row = 0; row < height; row++) {
         for (let col = 0; col < width - AITerminalChat.SCROLLBAR_WIDTH; col++) {
-          buffer.set(x + col, y + row, { char: ' ', fg: this.currentFg, bg: this.currentBg });
+          buffer.set(x + col, y + row, { char: ' ', fg: defaultFg, bg: defaultBg });
         }
       }
     }
 
     // Draw scrollbar
-    this.renderScrollbar(buffer);
+    this.renderScrollbar(buffer, defaultBg);
 
     // Show status if not running
     if (!this.pty?.isRunning() && !this.starting) {
@@ -393,11 +398,12 @@ export abstract class AITerminalChat extends BaseElement {
       const msgX = x + Math.floor((width - statusMsg.length) / 2);
       const msgY = y + Math.floor(height / 2);
 
-      buffer.writeString(msgX, msgY, statusMsg, '#888888', this.currentBg);
+      const statusFg = this.ctx.getThemeColor('descriptionForeground', '#888888');
+      buffer.writeString(msgX, msgY, statusMsg, statusFg, defaultBg);
     }
   }
 
-  protected renderScrollbar(buffer: ScreenBuffer): void {
+  protected renderScrollbar(buffer: ScreenBuffer, trackBg: string): void {
     const { x, y, width, height } = this.bounds;
     const scrollbarX = x + width - 1;
 
@@ -405,7 +411,6 @@ export abstract class AITerminalChat extends BaseElement {
     const viewOffset = this.pty ? this.pty.getViewOffset() : 0;
 
     const scrollbarBg = this.ctx.getThemeColor('scrollbarSlider.background', '#4a4a4a');
-    const trackBg = this.currentBg;
 
     // Calculate thumb position and size
     const thumbSize = Math.max(1, Math.floor((height / Math.max(1, totalLines)) * height));

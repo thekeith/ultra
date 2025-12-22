@@ -3046,9 +3046,54 @@ export class TUIClient {
         onDiagnosticsUpdate: (uri, lspDiagnostics) => {
           this.updateEditorDiagnostics(uri, lspDiagnostics);
         },
+        onCompletionAccepted: (item, prefix, startColumn) => {
+          this.applyCompletion(item, prefix, startColumn);
+        },
       },
       this.workingDirectory
     );
+  }
+
+  /**
+   * Apply a completion item to the current document.
+   */
+  private applyCompletion(
+    item: import('../../../services/lsp/types.ts').LSPCompletionItem,
+    prefix: string,
+    startColumn: number
+  ): void {
+    const element = this.window.getFocusedElement();
+    if (!(element instanceof DocumentEditor)) {
+      debugLog('[TUIClient] No document editor focused for completion');
+      return;
+    }
+
+    // Get the text to insert
+    const insertText = item.insertText ?? item.label;
+
+    // Get the current cursor position
+    const cursors = element.getCursors();
+    if (cursors.length === 0) return;
+
+    const cursor = cursors[0]!;
+    const line = cursor.position.line;
+    const column = cursor.position.column;
+
+    // Calculate the range to replace (from startColumn to current column)
+    const deleteLength = column - startColumn;
+
+    if (deleteLength > 0) {
+      // Delete the typed prefix first
+      for (let i = 0; i < deleteLength; i++) {
+        element.deleteBackward();
+      }
+    }
+
+    // Insert the completion text
+    element.insertText(insertText);
+
+    debugLog(`[TUIClient] Applied completion: "${insertText}" (replaced ${deleteLength} chars)`);
+    this.scheduleRender();
   }
 
   /**
@@ -3123,10 +3168,37 @@ export class TUIClient {
   private async lspTriggerCompletion(): Promise<void> {
     if (!this.lspIntegration) return;
 
+    const element = this.window.getFocusedElement();
+    if (!(element instanceof DocumentEditor)) return;
+
     const info = this.getCurrentEditorInfo();
     if (!info) return;
 
-    await this.lspIntegration.triggerCompletion(info.uri, info.position, info.screenX, info.screenY);
+    // Calculate prefix and startColumn
+    const line = element.getLines()[info.position.line];
+    let prefix = '';
+    let startColumn = info.position.character;
+
+    if (line) {
+      for (let i = info.position.character - 1; i >= 0; i--) {
+        const ch = line.text[i];
+        if (ch && /[\w_$]/.test(ch)) {
+          prefix = ch + prefix;
+          startColumn = i;
+        } else {
+          break;
+        }
+      }
+    }
+
+    await this.lspIntegration.triggerCompletion(
+      info.uri,
+      info.position,
+      info.screenX,
+      info.screenY,
+      prefix,
+      startColumn
+    );
   }
 
   /**
@@ -3193,40 +3265,46 @@ export class TUIClient {
   ): void {
     if (!this.lspIntegration) return;
 
+    // Calculate screen coordinates for popup positioning
+    const bounds = editor.getBounds();
+    const gutterWidth = editor.getGutterWidth();
+    const scrollTop = editor.getScrollTop();
+    const scrollLeft = editor.getScrollLeft();
+
+    const screenX = bounds.x + gutterWidth + (position.column - scrollLeft);
+    const screenY = bounds.y + (position.line - scrollTop) + 1; // +1 to show below cursor
+
+    // Get the current word prefix up to cursor
+    const line = editor.getLines()[position.line];
+    let prefix = '';
+    let startColumn = position.column;
+
+    if (line) {
+      for (let i = position.column - 1; i >= 0; i--) {
+        const ch = line.text[i];
+        if (ch && /[\w_$]/.test(ch)) {
+          prefix = ch + prefix;
+          startColumn = i;
+        } else {
+          break;
+        }
+      }
+    }
+
     // Check if this character should trigger completion
     if (this.lspIntegration.shouldTriggerCompletion(char)) {
-      // Calculate screen coordinates for popup positioning
-      const bounds = editor.getBounds();
-      const gutterWidth = editor.getGutterWidth();
-      const scrollTop = editor.getScrollTop();
-      const scrollLeft = editor.getScrollLeft();
-
-      const screenX = bounds.x + gutterWidth + (position.column - scrollLeft);
-      const screenY = bounds.y + (position.line - scrollTop) + 1; // +1 to show below cursor
-
       // Trigger completion with debounce
       this.lspIntegration.triggerCompletionDebounced(
         uri,
         { line: position.line, character: position.column },
         screenX,
-        screenY
+        screenY,
+        prefix,
+        startColumn
       );
     } else if (this.lspIntegration.isCompletionVisible()) {
       // Update filter if completion is already visible
-      // Get the current word prefix up to cursor
-      const line = editor.getLines()[position.line];
-      if (line) {
-        let prefix = '';
-        for (let i = position.column - 1; i >= 0; i--) {
-          const ch = line.text[i];
-          if (ch && /[\w_$]/.test(ch)) {
-            prefix = ch + prefix;
-          } else {
-            break;
-          }
-        }
-        this.lspIntegration.updateCompletionFilter(prefix);
-      }
+      this.lspIntegration.updateCompletionFilter(prefix);
     }
   }
 
