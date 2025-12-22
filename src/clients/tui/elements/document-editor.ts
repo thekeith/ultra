@@ -1695,14 +1695,20 @@ export class DocumentEditor extends BaseElement {
       // Render gutter: [diagnostic icon][line number][fold indicator][space]
       // Only show line number on first wrapped row
       if (wrapOffset === 0) {
-        const lineNumStr = String(bufferLine + 1).padStart(lineNumWidth, ' ');
+        const lineNum = String(bufferLine + 1);
+        const padding = ' '.repeat(lineNumWidth - lineNum.length);
         const foldIndicator = this.foldingEnabled ? this.getFoldIndicator(bufferLine) : '';
-        const gutterStr = lineNumStr + foldIndicator + ' ';
 
-        // Use git status color for line number if available (1-based line)
+        // Use git status color for line number background only (1-based line)
         const gitStatus = this.gitLineChanges.get(bufferLine + 1);
-        const lineNumFg = gitStatus ? this.getGitLineColor(gitStatus) : gutterFg;
-        buffer.writeString(x, screenY, gutterStr, lineNumFg, currentGutterBg);
+        const lineNumBg = gitStatus ? this.getGitLineColor(gitStatus) : currentGutterBg;
+
+        // Write padding with normal gutter background
+        buffer.writeString(x, screenY, padding, gutterFg, currentGutterBg);
+        // Write line number digits with git status background
+        buffer.writeString(x + padding.length, screenY, lineNum, gutterFg, lineNumBg);
+        // Write fold indicator and space with normal gutter background
+        buffer.writeString(x + lineNumWidth, screenY, foldIndicator + ' ', gutterFg, currentGutterBg);
 
         // Overlay diagnostic icon in first column if there's a diagnostic
         const severity = this.getHighestSeverityForLine(bufferLine);

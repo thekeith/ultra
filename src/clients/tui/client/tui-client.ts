@@ -144,6 +144,9 @@ export class TUIClient {
   /** Whether client is running */
   private running = false;
 
+  /** Counter for untitled documents */
+  private untitledCounter = 1;
+
   /** Render scheduled flag */
   private renderScheduled = false;
 
@@ -601,8 +604,9 @@ export class TUIClient {
 
   /**
    * Configure document editor callbacks.
+   * @param uri File URI, or null for untitled documents
    */
-  private configureDocumentEditor(editor: DocumentEditor, uri: string): void {
+  private configureDocumentEditor(editor: DocumentEditor, uri: string | null): void {
     // Debounce timer for syntax highlighting updates
     let syntaxUpdateTimer: ReturnType<typeof setTimeout> | null = null;
     // Debounce timer for LSP document change notifications
@@ -613,21 +617,24 @@ export class TUIClient {
         // Update status bar (dirty indicator may change)
         this.updateStatusBarFile(editor);
 
-        // Debounce syntax highlighting updates (200ms delay)
-        if (syntaxUpdateTimer) {
-          clearTimeout(syntaxUpdateTimer);
-        }
-        syntaxUpdateTimer = setTimeout(() => {
-          this.updateSyntaxHighlighting(uri, editor);
-        }, 200);
+        // Only update syntax/LSP for saved files with a URI
+        if (uri) {
+          // Debounce syntax highlighting updates (200ms delay)
+          if (syntaxUpdateTimer) {
+            clearTimeout(syntaxUpdateTimer);
+          }
+          syntaxUpdateTimer = setTimeout(() => {
+            this.updateSyntaxHighlighting(uri, editor);
+          }, 200);
 
-        // Debounce LSP document change notifications
-        if (lspUpdateTimer) {
-          clearTimeout(lspUpdateTimer);
+          // Debounce LSP document change notifications
+          if (lspUpdateTimer) {
+            clearTimeout(lspUpdateTimer);
+          }
+          lspUpdateTimer = setTimeout(() => {
+            this.lspDocumentChanged(uri, content);
+          }, 100);
         }
-        lspUpdateTimer = setTimeout(() => {
-          this.lspDocumentChanged(uri, content);
-        }, 100);
       },
       onCursorChange: () => {
         // Update cursor position in status bar
@@ -637,16 +644,22 @@ export class TUIClient {
         this.saveCurrentDocument();
       },
       onCharTyped: (char, position) => {
-        // Trigger autocomplete if character is a trigger
-        this.handleCharTyped(editor, uri, char, position);
+        // Trigger autocomplete if character is a trigger (only for saved files)
+        if (uri) {
+          this.handleCharTyped(editor, uri, char, position);
+        }
       },
       onFocus: () => {
-        // Check for external file changes when editor receives focus
-        this.checkExternalFileChanges(uri, editor);
+        // Check for external file changes when editor receives focus (only for saved files)
+        if (uri) {
+          this.checkExternalFileChanges(uri, editor);
+        }
       },
     };
     editor.setCallbacks(callbacks);
-    editor.setUri(uri);
+    if (uri) {
+      editor.setUri(uri);
+    }
 
     // Apply minimap setting
     const minimapEnabled = this.configManager.getWithDefault('editor.minimap.enabled', false);
@@ -770,6 +783,45 @@ export class TUIClient {
   }
 
   /**
+   * Create a new untitled document.
+   */
+  newFile(): DocumentEditor | null {
+    // Determine which pane to use
+    const pane = this.getTargetEditorPane();
+    if (!pane) {
+      this.window.showNotification('No editor pane available', 'error');
+      return null;
+    }
+
+    // Generate unique untitled name
+    const filename = `Untitled-${this.untitledCounter++}`;
+
+    // Add editor element via factory
+    const editorId = pane.addElement('DocumentEditor', filename);
+    const editor = pane.getElement(editorId) as DocumentEditor | null;
+
+    if (!editor) {
+      this.window.showNotification('Failed to create editor', 'error');
+      return null;
+    }
+
+    // Configure the editor callbacks (null URI for untitled)
+    this.configureDocumentEditor(editor, null);
+
+    // Set empty content
+    editor.setContent('');
+
+    // Focus the new editor
+    this.window.focusElement(editor);
+
+    // Mark session dirty
+    this.markSessionDirty();
+
+    this.log(`Created new file: ${filename}`);
+    return editor;
+  }
+
+  /**
    * Save the current document.
    */
   async saveCurrentDocument(): Promise<boolean> {
@@ -781,8 +833,9 @@ export class TUIClient {
 
     const uri = editor.getUri();
     if (!uri) {
-      this.window.showNotification('Document has no file path', 'warning');
-      return false;
+      // Untitled file - trigger Save As
+      await this.showSaveAsDialog();
+      return true;
     }
 
     try {
@@ -1490,7 +1543,7 @@ export class TUIClient {
     });
 
     this.commandHandlers.set('file.new', () => {
-      this.window.showNotification('New file not yet implemented', 'info');
+      this.newFile();
       return true;
     });
 

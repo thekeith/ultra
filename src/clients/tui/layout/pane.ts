@@ -16,6 +16,7 @@ import type {
 import type { ScreenBuffer } from '../rendering/buffer.ts';
 import { BaseElement, type ElementContext } from '../elements/base.ts';
 import { createElement, createElementWithFallback } from '../elements/factory.ts';
+import { DocumentEditor } from '../elements/document-editor.ts';
 
 // ============================================
 // Types
@@ -593,6 +594,10 @@ export class Pane {
       const isActive = i === this.activeElementIndex;
       const title = this.truncateTitle(element.getTitle(), 20);
 
+      // Check if element is a modified/untitled document
+      const isModified = element instanceof DocumentEditor &&
+        (element.isModified() || element.getUri() === null);
+
       // Active tab uses focus-aware colors
       let bg: string;
       let fg: string;
@@ -604,15 +609,27 @@ export class Pane {
         fg = colors.tabInactiveForeground;
       }
 
-      // Tab content: " title × "
-      const tabContent = ` ${title} × `;
+      // Tab content: "● title × " for modified, " title × " for clean
+      const indicator = isModified ? '●' : ' ';
+      const tabContent = `${indicator}${title} × `;
 
-      // Draw tab
-      for (let j = 0; j < tabContent.length && x + j < this.bounds.x + this.bounds.width; j++) {
-        buffer.set(x + j, y, { char: tabContent[j]!, fg, bg });
+      // Draw tab (first char may be indicator with special color)
+      if (isModified && x < this.bounds.x + this.bounds.width) {
+        const modifiedColor = this.callbacks.getThemeColor('editorGutter.modifiedBackground', '#f9e2af');
+        buffer.set(x, y, { char: indicator, fg: modifiedColor, bg });
+        x += 1;
+      } else if (x < this.bounds.x + this.bounds.width) {
+        buffer.set(x, y, { char: ' ', fg, bg });
+        x += 1;
       }
 
-      x += tabContent.length;
+      // Draw rest of tab content (title and close button)
+      const restContent = `${title} × `;
+      for (let j = 0; j < restContent.length && x + j < this.bounds.x + this.bounds.width; j++) {
+        buffer.set(x + j, y, { char: restContent[j]!, fg, bg });
+      }
+
+      x += restContent.length;
 
       // Separator
       if (i < this.elements.length - 1 && x < this.bounds.x + this.bounds.width) {
