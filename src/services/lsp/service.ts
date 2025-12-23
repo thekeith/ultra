@@ -84,9 +84,9 @@ export class LocalLSPService implements LSPService {
       throw LSPError.serverNotFound(languageId);
     }
 
-    // Check if command exists
-    const exists = await this.commandExists(config.command);
-    if (!exists) {
+    // Find the full path to the command
+    const commandPath = await this.findCommand(config.command);
+    if (!commandPath) {
       this.failedServers.add(languageId);
       this.emitStatusChange({
         languageId,
@@ -102,8 +102,9 @@ export class LocalLSPService implements LSPService {
     // Emit starting status
     this.emitStatusChange({ languageId, status: 'starting' });
 
-    // Start the client
-    const client = new LSPClient(config.command, config.args, workspacePath);
+    // Start the client with the resolved command path
+    const client = new LSPClient(commandPath, config.args, workspacePath);
+    client.debugEnabled = true; // Enable LSP client debug logging
 
     // Set up notification handler
     client.onNotification((method, params) => {
@@ -214,27 +215,32 @@ export class LocalLSPService implements LSPService {
   // ─────────────────────────────────────────────────────────────────────────
 
   async documentOpened(uri: string, languageId: string, content: string): Promise<void> {
-    this.debugLog(`documentOpened: ${uri} (${languageId})`);
+    this.debugLog(`documentOpened: ${uri} (${languageId}), workspaceRoot=${this.workspaceRoot}`);
 
     // Try to start server if not already running
     let client = this.clients.get(languageId);
     if (!client && !this.failedServers.has(languageId)) {
       try {
+        this.debugLog(`documentOpened: starting server for ${languageId}`);
         await this.startServer(languageId, `file://${this.workspaceRoot}`);
         client = this.clients.get(languageId);
-      } catch {
+        this.debugLog(`documentOpened: server started for ${languageId}, client=${!!client}`);
+      } catch (error) {
         // Server failed to start, continue without LSP
+        this.debugLog(`documentOpened: server failed to start for ${languageId}: ${error}`);
         return;
       }
     }
 
     if (!client) {
+      this.debugLog(`documentOpened: no client available for ${languageId}, failedServers=${[...this.failedServers].join(', ')}`);
       return;
     }
 
     const version = 1;
     this.documentVersions.set(uri, version);
     this.documentLanguages.set(uri, languageId);
+    this.debugLog(`documentOpened: registered ${uri} with languageId=${languageId}`);
 
     client.didOpen(uri, languageId, version, content);
   }
@@ -303,13 +309,20 @@ export class LocalLSPService implements LSPService {
   }
 
   async getHover(uri: string, position: LSPPosition): Promise<LSPHover | null> {
+    const languageId = this.documentLanguages.get(uri);
+    this.debugLog(`getHover: uri=${uri}, languageId=${languageId}, registeredDocs=${[...this.documentLanguages.keys()].join(', ')}`);
+
     const client = this.getClientForDocument(uri);
     if (!client) {
+      this.debugLog(`getHover: no client for uri=${uri} (languageId=${languageId}), available clients: ${[...this.clients.keys()].join(', ')}`);
       return null;
     }
 
     try {
-      return await client.getHover(uri, position);
+      this.debugLog(`getHover: requesting hover from ${languageId} client`);
+      const result = await client.getHover(uri, position);
+      this.debugLog(`getHover: result=${result ? JSON.stringify(result).substring(0, 500) : 'null'}`);
+      return result;
     } catch (error) {
       this.debugLog(`getHover error: ${error}`);
       return null;
@@ -507,17 +520,57 @@ export class LocalLSPService implements LSPService {
     return this.clients.get(languageId) || null;
   }
 
-  private async commandExists(command: string): Promise<boolean> {
+  /**
+   * Find the full path to a command.
+   * Returns the full path if found, null otherwise.
+   */
+  private async findCommand(command: string): Promise<string | null> {
+    // First try `which` with the current PATH
     try {
       const proc = Bun.spawn(['which', command], {
         stdout: 'pipe',
         stderr: 'pipe',
       });
       await proc.exited;
-      return proc.exitCode === 0;
+      if (proc.exitCode === 0) {
+        const output = await new Response(proc.stdout).text();
+        const resolvedPath = output.trim();
+        if (resolvedPath) {
+          this.debugLog(`Found ${command} via which: ${resolvedPath}`);
+          return resolvedPath;
+        }
+      }
     } catch {
-      return false;
+      // Continue to check additional paths
     }
+
+    // Check common additional paths that might not be in bundled binary's PATH
+    const os = await import('os');
+    const path = await import('path');
+    const fs = await import('fs');
+    const homeDir = os.homedir();
+
+    const additionalPaths = [
+      path.join(homeDir, '.cargo', 'bin'),      // Rust tools via rustup
+      path.join(homeDir, '.local', 'bin'),      // User-local binaries
+      '/opt/homebrew/bin',                       // Homebrew on Apple Silicon
+      '/usr/local/bin',                          // Homebrew on Intel Mac
+      path.join(homeDir, 'go', 'bin'),          // Go tools
+      path.join(homeDir, '.bun', 'bin'),        // Bun global packages
+    ];
+
+    for (const dir of additionalPaths) {
+      const fullPath = path.join(dir, command);
+      try {
+        await fs.promises.access(fullPath, fs.constants.X_OK);
+        this.debugLog(`Found ${command} at ${fullPath}`);
+        return fullPath;
+      } catch {
+        // Not found or not executable, continue
+      }
+    }
+
+    return null;
   }
 
   private handleNotification(languageId: string, method: string, params: unknown): void {

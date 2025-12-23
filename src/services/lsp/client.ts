@@ -681,11 +681,15 @@ export class LSPClient {
    */
   async getHover(uri: string, position: LSPPosition): Promise<LSPHover | null> {
     try {
-      return await this.request<LSPHover | null>('textDocument/hover', {
+      this.debugLog(`getHover: uri=${uri}, position=${JSON.stringify(position)}`);
+      const result = await this.request<LSPHover | null>('textDocument/hover', {
         textDocument: { uri },
         position,
       });
-    } catch {
+      this.debugLog(`getHover result: ${result ? JSON.stringify(result).substring(0, 500) : 'null'}`);
+      return result;
+    } catch (error) {
+      this.debugLog(`getHover error: ${error}`);
       return null;
     }
   }

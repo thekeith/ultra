@@ -9,6 +9,7 @@ import type { Rect, KeyEvent, MouseEvent, InputEvent } from '../types.ts';
 import { isKeyEvent, isMouseEvent } from '../types.ts';
 import type { ScreenBuffer } from '../rendering/buffer.ts';
 import type { LSPHover } from '../../../services/lsp/types.ts';
+import { debugLog } from '../../../debug.ts';
 
 // ============================================
 // Hover Tooltip
@@ -53,16 +54,21 @@ export class HoverTooltip implements Overlay {
    * @param y Screen Y position (cursor line)
    */
   showHover(hover: LSPHover, x: number, y: number): void {
+    debugLog(`[HoverTooltip] showHover: hover=${JSON.stringify(hover).substring(0, 300)}, x=${x}, y=${y}`);
+
     // Parse hover content
     this.content = this.parseHoverContent(hover);
+    debugLog(`[HoverTooltip] showHover: parsed content (${this.content.length} lines): ${JSON.stringify(this.content).substring(0, 200)}`);
 
     if (this.content.length === 0) {
+      debugLog('[HoverTooltip] showHover: no content, hiding');
       this.hide();
       return;
     }
 
     this.visible = true;
     this.calculateBounds(x, y);
+    debugLog(`[HoverTooltip] showHover: bounds=${JSON.stringify(this.bounds)}, visible=${this.visible}`);
     this.callbacks.onDirty();
   }
 
@@ -141,7 +147,11 @@ export class HoverTooltip implements Overlay {
   // ─────────────────────────────────────────────────────────────────────────
 
   render(buffer: ScreenBuffer): void {
-    if (!this.visible || this.content.length === 0) return;
+    if (!this.visible || this.content.length === 0) {
+      return;
+    }
+
+    debugLog(`[HoverTooltip] render: visible=${this.visible}, content lines=${this.content.length}, bounds=${JSON.stringify(this.bounds)}`);
 
     const { x, y, width, height } = this.bounds;
     const bgColor = this.callbacks.getThemeColor('editorHoverWidget.background', '#252526');

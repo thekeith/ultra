@@ -837,12 +837,16 @@ export class TUIClient {
    * Open a file in the editor.
    */
   async openFile(uri: string, options: OpenFileOptions = {}): Promise<DocumentEditor | null> {
+    this.log(`openFile called: ${uri}`);
+
     // Check if already open
     const existing = this.openDocuments.get(uri);
     if (existing) {
+      this.log(`openFile: found existing entry for ${uri}, editorId=${existing.editorId}`);
       // Find the editor across all panes
       const editor = this.findEditorById(existing.editorId);
       if (editor) {
+        this.log(`openFile: editor exists, returning early (skipping LSP notification)`);
         // Editor still exists, just focus it
         if (options.focus !== false) {
           this.window.focusElement(editor);
@@ -4812,15 +4816,23 @@ export class TUIClient {
    * Show hover information at current cursor position.
    */
   private async lspShowHover(): Promise<void> {
-    if (!this.lspIntegration) return;
+    this.log('lspShowHover called');
+
+    if (!this.lspIntegration) {
+      this.log('lspShowHover: no lspIntegration');
+      return;
+    }
 
     const info = this.getCurrentEditorInfo();
     if (!info) {
+      this.log('lspShowHover: no editor info');
       this.window.showNotification('No editor focused', 'info');
       return;
     }
 
+    this.log(`lspShowHover: calling showHover with uri=${info.uri}, position=${JSON.stringify(info.position)}, screen=(${info.screenX},${info.screenY})`);
     await this.lspIntegration.showHover(info.uri, info.position, info.screenX, info.screenY);
+    this.log('lspShowHover: showHover returned');
   }
 
   /**

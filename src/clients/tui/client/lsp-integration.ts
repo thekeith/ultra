@@ -384,19 +384,31 @@ export class LSPIntegration {
     screenX: number,
     screenY: number
   ): Promise<void> {
-    if (!this.isEnabled()) return;
+    debugLog(`[LSPIntegration] showHover: uri=${uri}, position=${JSON.stringify(position)}, screen=(${screenX},${screenY})`);
+
+    if (!this.isEnabled()) {
+      debugLog('[LSPIntegration] showHover: LSP disabled');
+      return;
+    }
 
     const hoverEnabled = this.callbacks.getSetting('lsp.hover.enabled') ?? true;
-    if (!hoverEnabled) return;
+    if (!hoverEnabled) {
+      debugLog('[LSPIntegration] showHover: hover disabled in settings');
+      return;
+    }
 
     try {
+      debugLog('[LSPIntegration] showHover: calling lspService.getHover');
       const hover = await this.lspService.getHover(uri, position);
+      debugLog(`[LSPIntegration] showHover: result=${hover ? JSON.stringify(hover).substring(0, 200) : 'null'}`);
 
       if (!hover) {
+        debugLog('[LSPIntegration] showHover: no hover, hiding tooltip');
         this.hoverTooltip.hide();
         return;
       }
 
+      debugLog('[LSPIntegration] showHover: showing tooltip');
       this.hoverTooltip.showHover(hover, screenX, screenY);
     } catch (error) {
       debugLog(`[LSPIntegration] Hover failed: ${error}`);
