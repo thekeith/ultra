@@ -837,16 +837,12 @@ export class TUIClient {
    * Open a file in the editor.
    */
   async openFile(uri: string, options: OpenFileOptions = {}): Promise<DocumentEditor | null> {
-    this.log(`openFile called: ${uri}`);
-
     // Check if already open
     const existing = this.openDocuments.get(uri);
     if (existing) {
-      this.log(`openFile: found existing entry for ${uri}, editorId=${existing.editorId}`);
       // Find the editor across all panes
       const editor = this.findEditorById(existing.editorId);
       if (editor) {
-        this.log(`openFile: editor exists, returning early (skipping LSP notification)`);
         // Editor still exists, just focus it
         if (options.focus !== false) {
           this.window.focusElement(editor);
@@ -4599,11 +4595,7 @@ export class TUIClient {
 
     // Restore UI state
     if (session.ui) {
-      // Restore terminal panel height (session overrides config)
-      if (session.ui.terminalHeight) {
-        this.terminalPanelHeight = session.ui.terminalHeight;
-      }
-
+      // Terminal height comes from config, not session (user preference)
       // Restore terminal visibility
       if (session.ui.terminalVisible) {
         await this.showTerminalPanel();

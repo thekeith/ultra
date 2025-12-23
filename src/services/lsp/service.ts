@@ -215,32 +215,27 @@ export class LocalLSPService implements LSPService {
   // ─────────────────────────────────────────────────────────────────────────
 
   async documentOpened(uri: string, languageId: string, content: string): Promise<void> {
-    this.debugLog(`documentOpened: ${uri} (${languageId}), workspaceRoot=${this.workspaceRoot}`);
+    this.debugLog(`documentOpened: ${uri} (${languageId})`);
 
     // Try to start server if not already running
     let client = this.clients.get(languageId);
     if (!client && !this.failedServers.has(languageId)) {
       try {
-        this.debugLog(`documentOpened: starting server for ${languageId}`);
         await this.startServer(languageId, `file://${this.workspaceRoot}`);
         client = this.clients.get(languageId);
-        this.debugLog(`documentOpened: server started for ${languageId}, client=${!!client}`);
-      } catch (error) {
+      } catch {
         // Server failed to start, continue without LSP
-        this.debugLog(`documentOpened: server failed to start for ${languageId}: ${error}`);
         return;
       }
     }
 
     if (!client) {
-      this.debugLog(`documentOpened: no client available for ${languageId}, failedServers=${[...this.failedServers].join(', ')}`);
       return;
     }
 
     const version = 1;
     this.documentVersions.set(uri, version);
     this.documentLanguages.set(uri, languageId);
-    this.debugLog(`documentOpened: registered ${uri} with languageId=${languageId}`);
 
     client.didOpen(uri, languageId, version, content);
   }
@@ -309,20 +304,13 @@ export class LocalLSPService implements LSPService {
   }
 
   async getHover(uri: string, position: LSPPosition): Promise<LSPHover | null> {
-    const languageId = this.documentLanguages.get(uri);
-    this.debugLog(`getHover: uri=${uri}, languageId=${languageId}, registeredDocs=${[...this.documentLanguages.keys()].join(', ')}`);
-
     const client = this.getClientForDocument(uri);
     if (!client) {
-      this.debugLog(`getHover: no client for uri=${uri} (languageId=${languageId}), available clients: ${[...this.clients.keys()].join(', ')}`);
       return null;
     }
 
     try {
-      this.debugLog(`getHover: requesting hover from ${languageId} client`);
-      const result = await client.getHover(uri, position);
-      this.debugLog(`getHover: result=${result ? JSON.stringify(result).substring(0, 500) : 'null'}`);
-      return result;
+      return await client.getHover(uri, position);
     } catch (error) {
       this.debugLog(`getHover error: ${error}`);
       return null;

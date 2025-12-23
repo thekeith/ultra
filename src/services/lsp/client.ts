@@ -6,6 +6,7 @@
  */
 
 import type { Subprocess } from 'bun';
+import { isDebugEnabled } from '../../debug.ts';
 
 // LSP Types
 export interface LSPPosition {
@@ -173,7 +174,7 @@ export class LSPClient {
   private workspaceRoot: string;
   private notificationHandler: NotificationHandler | null = null;
   private serverCapabilities: Record<string, unknown> = {};
-  public debugEnabled = false;  // Enable via --debug flag
+  // Debug logging is controlled globally via --debug flag
 
   /**
    * Create and initialize an LSP client
@@ -200,11 +201,9 @@ export class LSPClient {
   static async create(
     command: string,
     args: string[],
-    workspaceRoot: string,
-    debug: boolean = false
+    workspaceRoot: string
   ): Promise<LSPClient | null> {
     const client = new LSPClient(command, args, workspaceRoot);
-    client.debugEnabled = debug;
     const success = await client.start();
     return success ? client : null;
   }
@@ -218,7 +217,7 @@ export class LSPClient {
   }
 
   private debugLog(msg: string): void {
-    if (this.debugEnabled) {
+    if (isDebugEnabled()) {
       const timestamp = new Date().toISOString();
       const message = `[${timestamp}] [LSPClient ${this.command}] ${msg}\n`;
       try {
@@ -310,7 +309,6 @@ export class LSPClient {
       return true;
     } catch (error) {
       this.debugLog(`Failed to start: ${error}`);
-      console.error('LSP: Failed to start server:', error);
       return false;
     }
   }
@@ -382,7 +380,7 @@ export class LSPClient {
       }
     } catch (error) {
       // Server closed or error
-      console.error('LSP: Read error:', error);
+      this.debugLog(`Read error: ${error}`);
     }
   }
 
@@ -444,7 +442,6 @@ export class LSPClient {
       } catch (error) {
         this.debugLog(`Failed to parse message: ${error}`);
         this.debugLog(`Raw message (first 500 chars): ${messageStr.substring(0, 500)}`);
-        console.error('LSP: Failed to parse message:', error);
       }
     }
   }
