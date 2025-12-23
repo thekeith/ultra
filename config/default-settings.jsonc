@@ -1,0 +1,92 @@
+{
+  // Editor
+  "editor.fontSize": 14, // Font size in pixels
+  "editor.tabSize": 2, // Number of spaces per tab
+  "editor.insertSpaces": true, // Use spaces instead of tabs
+  "editor.autoIndent": "full", // Auto-indent mode: "none", "keep", or "full"
+  "editor.autoClosingBrackets": "always", // Auto-close brackets: "always", "languageDefined", "beforeWhitespace", "never"
+  "editor.wordWrap": "on", // Word wrap: "off", "on", "wordWrapColumn", "bounded"
+  "editor.lineNumbers": "on", // Line numbers: "on", "off", "relative"
+  "editor.folding": true, // Enable code folding
+  "editor.renderWhitespace": "selection", // Show whitespace: "none", "boundary", "selection", "trailing", "all"
+  "editor.mouseWheelScrollSensitivity": 3, // Scroll speed multiplier (1-10)
+  "editor.cursorBlinkRate": 500, // Cursor blink interval in milliseconds
+  "editor.scrollBeyondLastLine": true, // Allow scrolling past the last line
+  "editor.diagnostics.curlyUnderline": true, // Use squiggly underlines for errors (requires modern terminal)
+  "editor.undoHistoryLimit": 1000, // Maximum undo actions per document
+
+  // Minimap
+  "editor.minimap.enabled": true, // Show the minimap
+  "editor.minimap.width": 10, // Minimap width in characters
+  "editor.minimap.showSlider": "always", // Slider visibility: "always", "mouseover"
+  "editor.minimap.maxColumn": 120, // Maximum column to render
+  "editor.minimap.side": "right", // Minimap position: "left", "right"
+
+  // Files
+  "files.autoSave": "off", // Auto-save: "off", "afterDelay", "onFocusChange", "onWindowChange"
+  "files.watchFiles": "onFocus", // Watch for external changes: "onFocus", "always", "off"
+  "files.exclude": { // Patterns to exclude from file tree
+    "**/node_modules": true,
+    "**/.git": true,
+    "**/.DS_Store": true
+  },
+
+  // Workbench
+  "workbench.colorTheme": "catppuccin-frappe", // Color theme name
+  "workbench.sideBar.visible": true, // Show sidebar on startup
+  "workbench.sideBar.location": "left", // Sidebar position: "left", "right"
+  "workbench.sideBar.focusedBackground": "#2d3139", // Sidebar focused item background color
+  "workbench.startupEditor": "", // File to open on startup (empty for none)
+
+  // TUI Layout
+  "tui.sidebar.width": 36, // Sidebar width in characters
+  "tui.sidebar.visible": true, // Sidebar visibility
+  "tui.terminal.height": 10, // Terminal panel height in rows
+
+  // Terminal
+  "terminal.integrated.shell": "", // Shell path (empty uses $SHELL)
+  "terminal.integrated.position": "bottom", // Panel position: "bottom", "top", "left", "right"
+  "terminal.integrated.defaultHeight": 12, // Default panel height in rows
+  "terminal.integrated.defaultWidth": 40, // Default panel width in columns
+  "terminal.integrated.scrollback": 1000, // Scrollback buffer size in lines
+  "terminal.integrated.openOnStartup": false, // Open terminal panel on startup
+  "terminal.integrated.spawnOnStartup": false, // Spawn terminal process on startup
+
+  // Git
+  "git.statusInterval": 500, // Git status refresh interval in milliseconds
+  "git.panel.location": "sidebar-bottom", // Git panel location: "sidebar-bottom", "sidebar-top", "panel"
+  "git.panel.openOnStartup": true, // Show git panel on startup
+  "git.diffContextLines": 3, // Context lines in diffs
+  "git.inlineDiff.maxHeight": 15, // Max height of inline diff expander in lines
+  "git.inlineDiff.contextLines": 3, // Context lines in inline diffs
+
+  // AI
+  "ai.defaultProvider": "claude-code", // Default AI provider: "claude-code", "codex", "gemini"
+  "ai.panel.defaultWidth": 80, // AI panel width in characters
+  "ai.panel.maxWidthPercent": 50, // Maximum AI panel width as percentage of screen
+  "ai.panel.openOnStartup": false, // Open AI panel on startup
+  "ai.panel.initialPrompt": "You are a helpful software engineer working with another software engineer on a coding project using the Ultra IDE", // System prompt for AI
+
+  // Session
+  "session.restoreOnStartup": true, // Restore previous session on startup
+  "session.autoSave": true, // Auto-save session state
+  "session.autoSaveInterval": 30000, // Auto-save interval in milliseconds
+  "session.save.openFiles": true, // Save open files in session
+  "session.save.cursorPositions": true, // Save cursor positions in session
+  "session.save.scrollPositions": true, // Save scroll positions in session
+  "session.save.foldState": true, // Save fold state in session
+  "session.save.uiLayout": true, // Save UI layout in session
+  "session.save.unsavedContent": true, // Save unsaved content in session
+
+  // LSP
+  "lsp.enabled": true, // Enable language server features
+  "lsp.completionDebounceMs": 250, // Delay before triggering completion (ms)
+  "lsp.triggerCharacters": ".:/<@(", // Characters that trigger completion
+  "lsp.hover.enabled": true, // Show hover information
+  "lsp.signatureHelp.enabled": true, // Show function signature help
+  "lsp.signatureHelp.display": "popup", // Signature display: "popup", "inline", "statusBar"
+  "lsp.diagnostics.enabled": true, // Show diagnostics (errors, warnings)
+  "lsp.diagnostics.showInGutter": true, // Show diagnostic icons in gutter
+  "lsp.diagnostics.underlineErrors": true, // Underline errors in editor
+  "lsp.diagnostics.delay": 500 // Delay before showing diagnostics (ms)
+}

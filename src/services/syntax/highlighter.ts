@@ -61,7 +61,7 @@ const LANGUAGE_MAP: Record<string, string> = {
 
 // Languages to preload for fast highlighting
 const PRELOAD_LANGUAGES = [
-  'typescript', 'tsx', 'javascript', 'jsx', 'json',
+  'typescript', 'tsx', 'javascript', 'jsx', 'json', 'jsonc',
   'css', 'html', 'markdown', 'bash', 'python', 'rust', 'go'
 ];
 

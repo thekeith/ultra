@@ -1,0 +1,88 @@
+[
+  // File operations
+  { "key": "ctrl+s", "command": "file.save" }, // Save current file
+  { "key": "ctrl+shift+s", "command": "file.saveAs" }, // Save as new file
+  { "key": "ctrl+o", "command": "file.open" }, // Open file
+  { "key": "ctrl+n", "command": "file.new" }, // New file
+  { "key": "ctrl+w", "command": "file.close" }, // Close current file
+
+  // Edit operations
+  { "key": "ctrl+z", "command": "edit.undo" }, // Undo
+  { "key": "ctrl+shift+z", "command": "edit.redo" }, // Redo
+  { "key": "ctrl+y", "command": "edit.redo" }, // Redo (alternative)
+  { "key": "ctrl+c", "command": "edit.copy" }, // Copy selection
+  { "key": "ctrl+x", "command": "edit.cut" }, // Cut selection
+  { "key": "ctrl+v", "command": "edit.paste" }, // Paste
+  { "key": "ctrl+a", "command": "edit.selectAll" }, // Select all
+
+  // Multi-cursor and selection
+  { "key": "ctrl+d", "command": "edit.selectNextMatch" }, // Select next occurrence
+  { "key": "ctrl+shift+l", "command": "edit.selectAllOccurrences" }, // Select all occurrences
+  { "key": "ctrl+alt+up", "command": "editor.addCursorAbove" }, // Add cursor above
+  { "key": "ctrl+alt+down", "command": "editor.addCursorBelow" }, // Add cursor below
+  { "key": "escape", "command": "editor.clearCursors", "when": "editorHasMultipleCursors" }, // Clear extra cursors
+
+  // Search
+  { "key": "ctrl+f", "command": "search.find" }, // Find in file
+  { "key": "ctrl+h", "command": "search.replace" }, // Find and replace
+  { "key": "ctrl+shift+f", "command": "search.findInFiles" }, // Find in all files
+  { "key": "f3", "command": "search.findNext" }, // Find next match
+  { "key": "shift+f3", "command": "search.findPrevious" }, // Find previous match
+
+  // Navigation
+  { "key": "ctrl+g", "command": "editor.gotoLine" }, // Go to line number
+  { "key": "ctrl+p", "command": "workbench.quickOpen" }, // Quick open file
+  { "key": "ctrl+shift+p", "command": "workbench.commandPalette" }, // Command palette
+  { "key": "shift+meta+p", "command": "workbench.commandPalette" }, // Command palette (macOS)
+  { "key": "ctrl+shift+o", "command": "editor.gotoSymbol" }, // Go to symbol
+  { "key": "ctrl+tab", "command": "workbench.focusNextPane" }, // Focus next pane
+  { "key": "ctrl+shift+tab", "command": "workbench.focusPreviousPane" }, // Focus previous pane
+  { "key": "ctrl+]", "command": "editor.nextTab" }, // Next tab
+  { "key": "ctrl+[", "command": "editor.previousTab" }, // Previous tab
+
+  // View
+  { "key": "ctrl+shift+b", "command": "workbench.toggleSidebar" }, // Toggle sidebar
+  { "key": "ctrl+`", "command": "workbench.toggleTerminal" }, // Toggle terminal panel
+  { "key": "ctrl+\\", "command": "view.splitVertical" }, // Split editor vertically
+  { "key": "ctrl+shift+\\", "command": "view.splitHorizontal" }, // Split editor horizontally
+  { "key": "ctrl+1", "command": "workbench.focusEditor1" }, // Focus first editor
+  { "key": "ctrl+2", "command": "workbench.focusEditor2" }, // Focus second editor
+  { "key": "ctrl+3", "command": "workbench.focusEditor3" }, // Focus third editor
+
+  // Line operations
+  { "key": "ctrl+l", "command": "editor.selectLine" }, // Select current line
+  { "key": "ctrl+l d", "command": "editor.duplicateLine" }, // Duplicate line (chord)
+  { "key": "ctrl+shift+d", "command": "editor.duplicateSelection" }, // Duplicate selection
+
+  // Terminal
+  { "key": "ctrl+shift+`", "command": "terminal.new" }, // New terminal in panel
+  { "key": "ctrl+shift+t", "command": "terminal.newInPane" }, // New terminal in pane
+
+  // Git
+  { "key": "ctrl+shift+g", "command": "git.focusPanel" }, // Focus git panel
+
+  // Application
+  { "key": "ctrl+q", "command": "workbench.quit" }, // Quit application
+  { "key": "ctrl+,", "command": "workbench.openSettings" }, // Open settings
+  { "key": "ctrl+shift+,", "command": "workbench.openKeybindings" }, // Open keybindings
+
+  // Session (chord keybindings)
+  { "key": "ctrl+k ctrl+s", "command": "session.saveAs" }, // Save session as
+  { "key": "ctrl+k ctrl+o", "command": "session.open" }, // Open session
+
+  // Folding
+  { "key": "ctrl+shift+[", "command": "editor.fold" }, // Fold region
+  { "key": "ctrl+shift+]", "command": "editor.unfold" }, // Unfold region
+  { "key": "ctrl+k ctrl+0", "command": "editor.foldAll" }, // Fold all regions
+  { "key": "ctrl+k ctrl+j", "command": "editor.unfoldAll" }, // Unfold all regions
+
+  // Comments
+  { "key": "ctrl+k ctrl+c", "command": "editor.commentLine" }, // Comment line
+  { "key": "ctrl+k ctrl+u", "command": "editor.uncommentLine" }, // Uncomment line
+  { "key": "ctrl+/", "command": "editor.toggleComment" }, // Toggle comment
+
+  // LSP
+  { "key": "ctrl+shift+k", "command": "lsp.goToDefinition" }, // Go to definition
+  { "key": "ctrl+space", "command": "lsp.triggerCompletion" }, // Trigger autocomplete
+  { "key": "ctrl+shift+space", "command": "lsp.triggerSignatureHelp" } // Show signature help
+]

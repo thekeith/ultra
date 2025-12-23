@@ -3,7 +3,7 @@
  *
  * Manages configuration for the TUI client.
  * Config is stored in ~/.ultra/ with user settings/keybindings and sessions.
- * Default settings and keybindings are loaded from config/default-*.json files.
+ * Default configs are embedded at build time from config/default-*.jsonc files.
  */
 
 import { mkdir, cp, rm } from 'fs/promises';
@@ -12,9 +12,9 @@ import { debugLog } from '../../../debug.ts';
 import type { EditorSettings } from '../../../config/settings.ts';
 import type { KeyBinding } from '../../../services/session/types.ts';
 
-// Import default configs from JSON files (source of truth)
-import defaultSettingsJson from '../../../../config/default-settings.json' with { type: 'json' };
-import defaultKeybindingsJson from '../../../../config/default-keybindings.json' with { type: 'json' };
+// Import embedded defaults (generated at build time from JSONC files)
+// Source of truth: config/default-settings.jsonc and config/default-keybindings.jsonc
+import { defaultKeybindings, defaultSettings } from '../../../config/defaults.ts';
 
 // ============================================
 // Hot-Reload Types
@@ -54,26 +54,58 @@ export type FileWatchMode = 'onFocus' | 'always' | 'off';
 
 /**
  * TUI-specific settings (extends EditorSettings).
+ * All settings available in the TUI client are defined here.
  */
 export interface TUISettings extends Partial<EditorSettings> {
-  // TUI-specific settings can be added here
+  // ─────────────────────────────────────────────────────────────────────────
+  // TUI Layout
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** Width of the sidebar in characters */
   'tui.sidebar.width'?: number;
+  /** Whether the sidebar is visible */
   'tui.sidebar.visible'?: boolean;
+  /** Height of the terminal panel in rows */
   'tui.terminal.height'?: number;
 
-  // File watching
+  // ─────────────────────────────────────────────────────────────────────────
+  // File Watching
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** When to check for external file changes: 'onFocus', 'always', or 'off' */
   'files.watchFiles'?: FileWatchMode;
 
-  // AI settings
-  'ai.defaultProvider'?: 'claude-code' | 'codex' | 'gemini';
+  // ─────────────────────────────────────────────────────────────────────────
+  // Editor Extensions
+  // ─────────────────────────────────────────────────────────────────────────
 
-  // Diagnostic display settings
-  // Use curly/squiggly underlines for diagnostics (requires terminal support: Kitty, WezTerm, iTerm2, etc.)
+  /** Use curly/squiggly underlines for diagnostics (requires Kitty, WezTerm, iTerm2, etc.) */
   'editor.diagnostics.curlyUnderline'?: boolean;
-
-  // Undo/redo settings
-  // Maximum number of undo actions to keep per document (default: 1000)
+  /** Maximum number of undo actions to keep per document */
   'editor.undoHistoryLimit'?: number;
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Terminal
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** Number of lines to keep in terminal scrollback buffer */
+  'terminal.integrated.scrollback'?: number;
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Git
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** Maximum height of inline diff expander in lines */
+  'git.inlineDiff.maxHeight'?: number;
+  /** Number of context lines to show in inline diffs */
+  'git.inlineDiff.contextLines'?: number;
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // AI
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** Default AI provider: 'claude-code', 'codex', or 'gemini' */
+  'ai.defaultProvider'?: 'claude-code' | 'codex' | 'gemini';
 }
 
 /**
@@ -84,13 +116,13 @@ export interface ConfigPaths {
   baseDir: string;
   /** User config directory (~/.ultra/) */
   userDir: string;
-  /** User settings file (~/.ultra/settings.json) */
+  /** User settings file (~/.ultra/settings.jsonc) - supports comments */
   userSettings: string;
-  /** User keybindings file (~/.ultra/keybindings.json) */
+  /** User keybindings file (~/.ultra/keybindings.jsonc) - supports comments */
   userKeybindings: string;
   /** Workspace settings directory (<project>/.ultra/) - created on demand */
   workspaceDir: string | null;
-  /** Workspace settings file (<project>/.ultra/settings.json) */
+  /** Workspace settings file (<project>/.ultra/settings.jsonc) - supports comments */
   workspaceSettings: string | null;
   /** Sessions directory (~/.ultra/sessions/) */
   sessionsDir: string;
@@ -145,10 +177,10 @@ export class TUIConfigManager {
     this.paths = {
       baseDir,
       userDir,
-      userSettings: `${userDir}/settings.json`,
-      userKeybindings: `${userDir}/keybindings.json`,
+      userSettings: `${userDir}/settings.jsonc`,
+      userKeybindings: `${userDir}/keybindings.jsonc`,
       workspaceDir: workingDirectory ? `${workingDirectory}/.ultra` : null,
-      workspaceSettings: workingDirectory ? `${workingDirectory}/.ultra/settings.json` : null,
+      workspaceSettings: workingDirectory ? `${workingDirectory}/.ultra/settings.jsonc` : null,
       sessionsDir,
       workspaceSessionsDir: `${sessionsDir}/workspaces`,
       namedSessionsDir: `${sessionsDir}/named`,
@@ -427,13 +459,13 @@ export class TUIConfigManager {
 
   /**
    * Get default settings.
+   * Embedded at build time from config/default-settings.jsonc
    */
   private getDefaultSettings(): TUISettings {
-    // Load defaults from JSON file (source of truth)
     // Apply runtime overrides for environment-specific values
-    const defaults = { ...defaultSettingsJson } as TUISettings;
+    const defaults = { ...defaultSettings } as TUISettings;
 
-    // Override shell with environment variable if not set in JSON
+    // Override shell with environment variable if not set
     if (!defaults['terminal.integrated.shell']) {
       defaults['terminal.integrated.shell'] = process.env.SHELL || '/bin/zsh';
     }
@@ -443,10 +475,10 @@ export class TUIConfigManager {
 
   /**
    * Get default keybindings.
-   * Loaded from config/default-keybindings.json (source of truth).
+   * Embedded at build time from config/default-keybindings.jsonc
    */
   private getDefaultKeybindings(): KeyBinding[] {
-    return defaultKeybindingsJson as KeyBinding[];
+    return defaultKeybindings as KeyBinding[];
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -471,7 +503,7 @@ export class TUIConfigManager {
     try {
       const legacyDir = Bun.file(this.paths.legacyDir);
       const stat = await legacyDir.stat();
-      return stat.isDirectory;
+      return stat.isDirectory();
     } catch {
       return false;
     }
@@ -510,7 +542,7 @@ export class TUIConfigManager {
       // 1. Migrate sessions (copy to new location, overwriting if needed)
       try {
         const legacySessionsStat = await Bun.file(legacySessionsDir).stat();
-        if (legacySessionsStat.isDirectory) {
+        if (legacySessionsStat.isDirectory()) {
           // Ensure sessions directory exists
           await mkdir(this.paths.sessionsDir, { recursive: true });
 
@@ -522,27 +554,29 @@ export class TUIConfigManager {
         details.push('No legacy sessions to migrate');
       }
 
-      // 2. Copy settings.json from legacy (overwrites existing - legacy takes precedence)
+      // 2. Copy settings from legacy (overwrites existing - legacy takes precedence)
+      // Legacy uses .json, new format uses .jsonc (with comment support)
       try {
         const legacySettingsFile = Bun.file(legacySettings);
 
         if (await legacySettingsFile.exists()) {
           const content = await legacySettingsFile.text();
           await Bun.write(this.paths.userSettings, content);
-          details.push(`Migrated settings.json (legacy takes precedence)`);
+          details.push(`Migrated settings.json -> settings.jsonc`);
         }
       } catch (e) {
         details.push(`Error migrating settings: ${e}`);
       }
 
-      // 3. Copy keybindings.json from legacy (overwrites existing - legacy takes precedence)
+      // 3. Copy keybindings from legacy (overwrites existing - legacy takes precedence)
+      // Legacy uses .json, new format uses .jsonc (with comment support)
       try {
         const legacyKeybindingsFile = Bun.file(legacyKeybindings);
 
         if (await legacyKeybindingsFile.exists()) {
           const content = await legacyKeybindingsFile.text();
           await Bun.write(this.paths.userKeybindings, content);
-          details.push(`Migrated keybindings.json (legacy takes precedence)`);
+          details.push(`Migrated keybindings.json -> keybindings.jsonc`);
         }
       } catch (e) {
         details.push(`Error migrating keybindings: ${e}`);

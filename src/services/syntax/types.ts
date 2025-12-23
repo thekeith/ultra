@@ -141,6 +141,7 @@ export const EXTENSION_TO_LANGUAGE: Record<string, string> = {
   '.mjs': 'javascript',
   '.cjs': 'javascript',
   '.json': 'json',
+  '.jsonc': 'jsonc',
   '.py': 'python',
   '.rs': 'rust',
   '.go': 'go',
