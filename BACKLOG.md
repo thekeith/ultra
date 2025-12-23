@@ -35,6 +35,13 @@ Issues and improvements to address in future sessions.
   - Ctrl+click always adds a cursor (regardless of click speed)
   - Double/triple click only triggers for plain clicks without modifiers
 
+- [ ] **Select block / Duplicate block** - Add commands for selecting and duplicating code blocks:
+  - `ctrl+b` - Select the code block containing the cursor (expand selection to matching brackets/braces)
+  - `ctrl+b d` (chord) - Duplicate the selected block
+  - Requires detecting block boundaries (matching `{}`, `[]`, `()`)
+  - Should handle nesting levels to progressively expand selection
+  - Consider language-specific block semantics (functions, classes, etc.)
+
 - [ ] **Kitty terminal ctrl+shift+key conflicts** - Kitty terminal has default shortcuts that intercept ctrl+shift+p, ctrl+shift+k, etc. before they reach the application. The first keypress is consumed by Kitty, and only subsequent presses get through. Solutions:
   - Document that users need to unbind these in Kitty config (`map ctrl+shift+p no_op`)
   - Consider alternative default keybindings that don't conflict with Kitty

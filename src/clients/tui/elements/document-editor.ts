@@ -3713,6 +3713,166 @@ export class DocumentEditor extends BaseElement {
   }
 
   /**
+   * Select the current line (line at primary cursor position).
+   */
+  selectCurrentLine(): void {
+    const primaryCursor = this.getPrimaryCursor();
+    this.selectLine(primaryCursor.position.line);
+  }
+
+  /**
+   * Duplicate the current line(s).
+   * If there's a selection, duplicates all lines that contain the selection.
+   * Otherwise, duplicates the line at the cursor.
+   */
+  duplicateLine(): void {
+    const cursorsBefore = this.createCursorSnapshot();
+    const operations: EditOperation[] = [];
+
+    // Process each cursor, collecting lines to duplicate
+    // We need to handle overlapping selections carefully
+    const linesToDuplicate = new Set<number>();
+
+    for (const cursor of this.cursors) {
+      if (cursor.selection && this.hasSelectionContent(cursor.selection)) {
+        // Add all lines in the selection
+        const startLine = Math.min(cursor.selection.anchor.line, cursor.selection.head.line);
+        const endLine = Math.max(cursor.selection.anchor.line, cursor.selection.head.line);
+        for (let i = startLine; i <= endLine; i++) {
+          linesToDuplicate.add(i);
+        }
+      } else {
+        // Just the cursor line
+        linesToDuplicate.add(cursor.position.line);
+      }
+    }
+
+    // Sort lines in descending order so we can insert from bottom to top
+    const sortedLines = Array.from(linesToDuplicate).sort((a, b) => b - a);
+
+    // Find contiguous ranges to duplicate together
+    const ranges: { start: number; end: number }[] = [];
+    let currentRange: { start: number; end: number } | null = null;
+
+    for (const line of sortedLines.sort((a, b) => a - b)) {
+      if (currentRange === null) {
+        currentRange = { start: line, end: line };
+      } else if (line === currentRange.end + 1) {
+        currentRange.end = line;
+      } else {
+        ranges.push(currentRange);
+        currentRange = { start: line, end: line };
+      }
+    }
+    if (currentRange) {
+      ranges.push(currentRange);
+    }
+
+    // Process ranges from bottom to top
+    ranges.sort((a, b) => b.start - a.start);
+
+    for (const range of ranges) {
+      // Build the text to duplicate (all lines in range + newlines)
+      const linesToCopy: string[] = [];
+      for (let i = range.start; i <= range.end; i++) {
+        linesToCopy.push(this.lines[i]!.text);
+      }
+      const textToDuplicate = '\n' + linesToCopy.join('\n');
+
+      // Insert after the last line of the range
+      const insertPos = { line: range.end, column: this.lines[range.end]!.text.length };
+
+      operations.push({
+        type: 'insert',
+        position: insertPos,
+        text: textToDuplicate,
+      });
+
+      // Perform the insert
+      const newLines: DocumentLine[] = linesToCopy.map(text => ({ text }));
+      this.lines.splice(range.end + 1, 0, ...newLines);
+
+      // Move cursors that are below the insertion point
+      for (const cursor of this.cursors) {
+        if (cursor.position.line > range.end) {
+          cursor.position.line += newLines.length;
+          if (cursor.selection) {
+            cursor.selection.anchor.line += newLines.length;
+            cursor.selection.head.line += newLines.length;
+          }
+        }
+      }
+    }
+
+    const cursorsAfter = this.createCursorSnapshot();
+    this.pushUndoAction(operations, cursorsBefore, cursorsAfter);
+
+    this.modified = true;
+    this.contentVersion++;
+    this.updateGutterWidth();
+    this.updateFoldRegions();
+    this.ensurePrimaryCursorVisible();
+    this.callbacks.onContentChange?.(this.getContent());
+    this.ctx.markDirty();
+  }
+
+  /**
+   * Duplicate the current selection.
+   * If there's no selection, duplicates the current line instead.
+   */
+  duplicateSelection(): void {
+    const primaryCursor = this.getPrimaryCursor();
+
+    // If no selection, duplicate the line instead
+    if (!primaryCursor.selection || !this.hasSelectionContent(primaryCursor.selection)) {
+      this.duplicateLine();
+      return;
+    }
+
+    const cursorsBefore = this.createCursorSnapshot();
+    const operations: EditOperation[] = [];
+
+    // Get the selected text
+    const selectedText = this.getSelectedText();
+
+    // Insert at the end of the selection (head position)
+    const insertPos = { ...primaryCursor.position };
+
+    operations.push({
+      type: 'insert',
+      position: insertPos,
+      text: selectedText,
+    });
+
+    // Perform the insert using insertTextAtPosition logic
+    this.insertTextRaw(insertPos, selectedText);
+
+    // Move cursor to end of inserted text
+    const insertedLines = selectedText.split('\n');
+    if (insertedLines.length === 1) {
+      primaryCursor.position.column += selectedText.length;
+    } else {
+      primaryCursor.position.line += insertedLines.length - 1;
+      primaryCursor.position.column = insertedLines[insertedLines.length - 1]!.length;
+    }
+    primaryCursor.desiredColumn = primaryCursor.position.column;
+
+    // Clear selection after duplication
+    primaryCursor.selection = undefined;
+
+    const cursorsAfter = this.createCursorSnapshot();
+    this.pushUndoAction(operations, cursorsBefore, cursorsAfter);
+
+    this.modified = true;
+    this.contentVersion++;
+    this.updateGutterWidth();
+    this.updateFoldRegions();
+    this.ensurePrimaryCursorVisible();
+    this.callbacks.onContentChange?.(this.getContent());
+    this.ctx.markDirty();
+  }
+
+  /**
    * Select the next occurrence of the currently selected text.
    * If nothing is selected, selects the word under the cursor first.
    */

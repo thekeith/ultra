@@ -2186,6 +2186,31 @@ export class TUIClient {
       return true;
     });
 
+    // Line selection and duplication commands
+    this.commandHandlers.set('editor.selectLine', () => {
+      const element = this.window.getFocusedElement();
+      if (element instanceof DocumentEditor) {
+        element.selectCurrentLine();
+      }
+      return true;
+    });
+
+    this.commandHandlers.set('editor.duplicateLine', () => {
+      const element = this.window.getFocusedElement();
+      if (element instanceof DocumentEditor) {
+        element.duplicateLine();
+      }
+      return true;
+    });
+
+    this.commandHandlers.set('editor.duplicateSelection', () => {
+      const element = this.window.getFocusedElement();
+      if (element instanceof DocumentEditor) {
+        element.duplicateSelection();
+      }
+      return true;
+    });
+
     this.commandHandlers.set('editor.addCursorAbove', () => {
       const element = this.window.getFocusedElement();
       if (element instanceof DocumentEditor) {
@@ -3124,6 +3149,9 @@ export class TUIClient {
     'editor.unfold': { label: 'Unfold Region', category: 'Editor' },
     'editor.foldAll': { label: 'Fold All Regions', category: 'Editor' },
     'editor.unfoldAll': { label: 'Unfold All Regions', category: 'Editor' },
+    'editor.selectLine': { label: 'Select Line', category: 'Editor' },
+    'editor.duplicateLine': { label: 'Duplicate Line', category: 'Editor' },
+    'editor.duplicateSelection': { label: 'Duplicate Selection', category: 'Editor' },
     'editor.addCursorAbove': { label: 'Add Cursor Above', category: 'Editor' },
     'editor.addCursorBelow': { label: 'Add Cursor Below', category: 'Editor' },
     'editor.clearCursors': { label: 'Clear Secondary Cursors', category: 'Editor' },

@@ -506,13 +506,18 @@ export class TUIConfigManager {
       { key: 'ctrl+[', command: 'editor.previousTab' },
 
       // View
-      { key: 'ctrl+b', command: 'workbench.toggleSidebar' },
+      { key: 'ctrl+shift+b', command: 'workbench.toggleSidebar' },
       { key: 'ctrl+`', command: 'workbench.toggleTerminal' },
       { key: 'ctrl+\\', command: 'view.splitVertical' },
       { key: 'ctrl+shift+\\', command: 'view.splitHorizontal' },
       { key: 'ctrl+1', command: 'workbench.focusEditor1' },
       { key: 'ctrl+2', command: 'workbench.focusEditor2' },
       { key: 'ctrl+3', command: 'workbench.focusEditor3' },
+
+      // Line selection and duplication
+      { key: 'ctrl+l', command: 'editor.selectLine' },
+      { key: 'ctrl+l d', command: 'editor.duplicateLine' },
+      { key: 'ctrl+shift+d', command: 'editor.duplicateSelection' },
 
       // Terminal
       { key: 'ctrl+shift+`', command: 'terminal.new' },
