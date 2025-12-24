@@ -8,15 +8,15 @@ import { spawn } from 'bun-pty';
 
 // Re-export screen buffer types and classes from screen-buffer.ts
 // These are separated to allow imports without loading bun-pty
+export type { TerminalCell } from './screen-buffer.ts';
 export {
-  TerminalCell,
   createEmptyCell,
   ansiToHex,
   ScreenBuffer,
   AnsiParser,
 } from './screen-buffer.ts';
 
-import { ScreenBuffer, AnsiParser } from './screen-buffer.ts';
+import { ScreenBuffer, AnsiParser, type TerminalCell } from './screen-buffer.ts';
 
 export interface PTYSize {
   cols: number;

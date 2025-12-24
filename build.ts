@@ -67,8 +67,7 @@ const generatedTs = `/**
  *   - config/BOOT.md
  */
 
-import type { KeyBinding } from '../input/keymap.ts';
-import type { Theme } from '../ui/themes/theme-loader.ts';
+import type { KeyBinding, Theme } from '../services/session/types.ts';
 
 export const defaultKeybindings: KeyBinding[] = ${JSON.stringify(keybindings, null, 2)};
 
@@ -84,7 +83,16 @@ console.log(`Generated ${outputFile}`);
 
 // Step 2: Compile the binary
 console.log("Compiling ultra binary...");
+
+// Auto-detect platform and architecture for cross-platform builds
+const platform = process.platform; // 'darwin', 'linux', 'win32'
+const arch = process.arch; // 'arm64', 'x64'
+const bunPlatform = platform === 'win32' ? 'windows' : platform;
+const target = `bun-${bunPlatform}-${arch}`;
+
+console.log(`Building for target: ${target}`);
+
 // Mark node-pty as external since it may not be installed (we fall back to bun-pty)
-await $`bun build --compile --target=bun-darwin-arm64 --external node-pty ./src/index.ts --outfile ultra`;
+await $`bun build --compile --target=${target} --external node-pty ./src/index.ts --outfile ultra`;
 
 console.log("Build complete!");

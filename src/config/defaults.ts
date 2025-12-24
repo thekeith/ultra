@@ -11,8 +11,7 @@
  *   - config/BOOT.md
  */
 
-import type { KeyBinding } from '../input/keymap.ts';
-import type { Theme } from '../ui/themes/theme-loader.ts';
+import type { KeyBinding, Theme } from '../services/session/types.ts';
 
 export const defaultKeybindings: KeyBinding[] = [
   {
