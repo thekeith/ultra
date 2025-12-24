@@ -100,11 +100,11 @@ Add new constants to the appropriate section in constants.ts with JSDoc comments
 
 ### Color Utilities
 
-Import color functions from `src/ui/colors.ts`:
+Import color functions from `src/core/colors.ts`:
 
 ```typescript
 // Good
-import { hexToRgb, rgbToHex, lighten, darken } from '../colors.ts';
+import { hexToRgb, rgbToHex, lighten, darken } from '../../core/colors.ts';
 
 // Bad - don't use deprecated methods on classes
 this.hexToRgb(color);  // Wrong
@@ -327,7 +327,6 @@ bun test                 # Run all tests
 bun test --watch         # Watch mode
 bun test tests/unit/     # Unit tests only
 bun test tests/integration/  # Integration tests only
-bun test tests/e2e/      # End-to-end tests only
 bun test --update-snapshots  # Update snapshot files
 bun run typecheck        # TypeScript type checking
 ```
@@ -338,9 +337,7 @@ bun run typecheck        # TypeScript type checking
 tests/
 ├── unit/                # Service method tests
 ├── integration/         # ECP adapter tests (JSON-RPC)
-├── e2e/                 # Full workflow tests
 ├── fixtures/            # Test data (documents, configs, git repos)
-├── snapshots/           # Snapshot files (auto-generated)
 └── helpers/             # Test utilities (TestECPClient, etc.)
 ```
 
@@ -503,11 +500,13 @@ These issues were identified during the architecture review:
 |-------|----------|-------------|
 | `console.error` usage | Multiple files | Should use `debugLog()` instead |
 | Silent failures | Git, LSP, Config | Operations fail without error feedback |
-| Hardcoded tabSize | `document.ts:813` | Uses `2` instead of settings |
-| Render loop inefficiency | `window.ts` | `buffer.clear()` defeats dirty tracking |
 | No input validation | Settings | Any value accepted without validation |
 | Memory unbounded | CacheManager | No size limits, potential memory leak |
-| when clauses unused | keymap.ts | Context conditions not implemented |
+
+**Resolved issues:**
+- ~~Hardcoded tabSize~~ - Fixed in `document.ts`, now uses `settings.get('editor.tabSize')`
+- ~~Render loop inefficiency~~ - Fixed in `window.ts`, removed `buffer.clear()` call
+- ~~when clauses unused~~ - Implemented in `LocalSessionService.resolveKeybinding()`
 
 ### Service Interface Pattern
 

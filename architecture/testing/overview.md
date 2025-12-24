@@ -191,12 +191,6 @@ tests/
 │   ├── session.test.ts            # session/* and config/* methods
 │   └── syntax.test.ts             # syntax/* methods
 │
-├── e2e/                           # End-to-end workflow tests
-│   ├── editing-workflow.test.ts
-│   ├── git-workflow.test.ts
-│   ├── multi-file-workflow.test.ts
-│   └── session-restore.test.ts
-│
 ├── fixtures/                      # Test data
 │   ├── documents/                 # Sample source files
 │   │   ├── typescript/
@@ -296,9 +290,6 @@ bun test tests/unit/
 
 # Run only integration tests
 bun test tests/integration/
-
-# Run only e2e tests
-bun test tests/e2e/
 
 # Debug mode (verbose output)
 DEBUG_TESTS=1 bun test
