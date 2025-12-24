@@ -22,14 +22,19 @@ export interface EditorSettings {
   'editor.mouseWheelScrollSensitivity': number;
   'editor.cursorBlinkRate': number;
   'editor.scrollBeyondLastLine': boolean;
+  'editor.diagnostics.curlyUnderline': boolean;
+  'editor.undoHistoryLimit': number;
   'files.autoSave': 'off' | 'afterDelay' | 'onFocusChange' | 'onWindowChange';
+  'files.watchFiles': 'onFocus' | 'always' | 'off';
   'files.exclude': Record<string, boolean>;
   'workbench.colorTheme': string;
   'workbench.sideBar.visible': boolean;
   'workbench.sideBar.location': 'left' | 'right';
   'workbench.sideBar.focusedBackground': string;
   'workbench.startupEditor': string;
-  'ultra.sidebar.width': number;
+  'tui.sidebar.width': number;
+  'tui.sidebar.visible': boolean;
+  'tui.terminal.height': number;
   'ultra.ai.model': string;
   'ultra.ai.apiKey': string;
   'terminal.integrated.shell': string;
@@ -40,6 +45,8 @@ export interface EditorSettings {
   'git.panel.location': 'sidebar-bottom' | 'sidebar-top' | 'panel';
   'git.panel.openOnStartup': boolean;
   'git.diffContextLines': number;
+  'git.inlineDiff.maxHeight': number;
+  'git.inlineDiff.contextLines': number;
   'terminal.integrated.openOnStartup': boolean;
   'terminal.integrated.spawnOnStartup': boolean;
   'ai.panel.defaultWidth': number;
@@ -101,18 +108,23 @@ const defaultSettings: EditorSettings = {
   'editor.mouseWheelScrollSensitivity': 3,
   'editor.cursorBlinkRate': 500,
   'editor.scrollBeyondLastLine': true,
+  'editor.diagnostics.curlyUnderline': true,
+  'editor.undoHistoryLimit': 1000,
   'files.autoSave': 'off',
+  'files.watchFiles': 'onFocus',
   'files.exclude': {
     '**/node_modules': true,
     '**/.git': true,
     '**/.DS_Store': true
   },
-  'workbench.colorTheme': 'One Dark',
+  'workbench.colorTheme': 'catppuccin-frappe',
   'workbench.sideBar.visible': true,
   'workbench.sideBar.location': 'left',
   'workbench.sideBar.focusedBackground': '#2d3139',
   'workbench.startupEditor': '~/.ultra/BOOT.md',
-  'ultra.sidebar.width': 30,
+  'tui.sidebar.width': 36,
+  'tui.sidebar.visible': true,
+  'tui.terminal.height': 10,
   'ultra.ai.model': 'claude-sonnet-4-20250514',
   'ultra.ai.apiKey': '${env:ANTHROPIC_API_KEY}',
   'terminal.integrated.shell': process.env.SHELL || '/bin/zsh',
@@ -123,6 +135,8 @@ const defaultSettings: EditorSettings = {
   'git.panel.location': 'sidebar-bottom',
   'git.panel.openOnStartup': true,
   'git.diffContextLines': 3,
+  'git.inlineDiff.maxHeight': 15,
+  'git.inlineDiff.contextLines': 3,
   'terminal.integrated.openOnStartup': true,
   'terminal.integrated.spawnOnStartup': true,
   'ai.panel.defaultWidth': 80,

@@ -10,6 +10,7 @@ import type {
   SessionInfo,
   KeyBinding,
   ParsedKey,
+  KeybindingContext,
   ThemeInfo,
   Theme,
   SettingsSchema,
@@ -155,8 +156,10 @@ export interface SessionService {
   /**
    * Resolve a key press to a command.
    * Returns null if no binding matches.
+   * @param key The parsed key event
+   * @param context Optional context for evaluating when clauses
    */
-  resolveKeybinding(key: ParsedKey): string | null;
+  resolveKeybinding(key: ParsedKey, context?: KeybindingContext): string | null;
 
   /**
    * Get the key binding for a command.

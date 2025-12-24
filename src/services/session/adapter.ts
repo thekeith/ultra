@@ -7,7 +7,7 @@
 import type { SessionService } from './interface.ts';
 import { SessionError } from './errors.ts';
 import type { EditorSettings } from '../../config/settings.ts';
-import type { KeyBinding, ParsedKey } from './types.ts';
+import type { KeyBinding, ParsedKey, KeybindingContext } from './types.ts';
 
 /**
  * ECP error codes (JSON-RPC 2.0 compatible).
@@ -238,12 +238,12 @@ export class SessionServiceAdapter {
   }
 
   private keybindingsResolve(params: unknown): HandlerResult<{ command: string | null }> {
-    const p = params as { key: ParsedKey };
+    const p = params as { key: ParsedKey; context?: KeybindingContext };
     if (!p?.key) {
       return { error: { code: SessionECPErrorCodes.InvalidParams, message: 'key is required' } };
     }
 
-    const command = this.service.resolveKeybinding(p.key);
+    const command = this.service.resolveKeybinding(p.key, p.context);
     return { result: { command } };
   }
 

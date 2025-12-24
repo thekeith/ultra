@@ -121,3 +121,10 @@ export {
   createSignatureHelp,
   type SignatureDisplayMode,
 } from './signature-help.ts';
+
+export {
+  ReferencesPicker,
+  createReferencesPicker,
+  type ReferenceItem,
+  type ReferencePreviewLoader,
+} from './references-picker.ts';

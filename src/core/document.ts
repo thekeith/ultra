@@ -810,7 +810,7 @@ export class Document {
         removeCount = 1;
       } else {
         // Remove up to tabSize spaces
-        const tabSize = 2;  // TODO: get from settings
+        const tabSize = settings.get('editor.tabSize');
         for (let i = 0; i < tabSize && i < lineContent.length; i++) {
           if (lineContent[i] === ' ') {
             removeCount++;

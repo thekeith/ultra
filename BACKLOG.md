@@ -133,6 +133,18 @@ Issues and improvements to address in future sessions.
 
 ## Testing
 
+- [ ] **Session service test failures** - Multiple tests failing in `tests/integration/session.test.ts` and `tests/unit/services/session/local-session-service.test.ts`:
+  - `session/delete` - "Session not found: named-delete-test"
+  - `session/current` - Returns null instead of expected session state
+  - `getCurrentSession returns session after init` - Returns null
+  - `shutdown saves session` - Events array is empty, "saved" event not emitted
+  - Root cause appears to be session initialization/lifecycle issues
+
+- [ ] **Git panel test failures** - Tests failing in `tests/unit/clients/tui/elements/git-panel.test.ts`:
+  - `Space stages/unstages file` - Returns null instead of expected path
+  - `Ctrl+C commits` - Commit callback not triggered
+  - May be related to mock setup or event handling changes
+
 ---
 
 ## Archived Features (from src/archived/)

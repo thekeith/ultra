@@ -17,6 +17,7 @@ import type {
   SessionInfo,
   KeyBinding,
   ParsedKey,
+  KeybindingContext,
   ThemeInfo,
   Theme,
   SettingsSchema,
@@ -78,7 +79,7 @@ export class LocalSessionService implements SessionService {
   private currentSession: SessionState | null = null;
   private keybindings: KeyBinding[] = [];
   private themes: Map<string, Theme> = new Map();
-  private currentThemeId: string = 'One Dark';
+  private currentThemeId: string = 'catppuccin-frappe';
   private initialized = false;
 
   // Session paths configuration
@@ -812,17 +813,78 @@ export class LocalSessionService implements SessionService {
     }
   }
 
-  resolveKeybinding(key: ParsedKey): string | null {
+  resolveKeybinding(key: ParsedKey, context?: KeybindingContext): string | null {
     const keyString = this.formatKey(key);
 
     for (const binding of this.keybindings) {
       if (binding.key === keyString) {
-        // TODO: Evaluate when clause if present
+        // Evaluate when clause if present
+        if (binding.when && context) {
+          if (!this.evaluateWhenClause(binding.when, context)) {
+            continue; // Skip this binding, try next one
+          }
+        }
         return binding.command;
       }
     }
 
     return null;
+  }
+
+  /**
+   * Evaluate a when clause expression against the current context.
+   * Supports simple boolean conditions like "editorHasMultipleCursors"
+   * and negations like "!terminalHasFocus".
+   */
+  private evaluateWhenClause(when: string, context: KeybindingContext): boolean {
+    // Split by && for AND conditions
+    const conditions = when.split('&&').map(c => c.trim());
+
+    for (const condition of conditions) {
+      if (!this.evaluateCondition(condition, context)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Evaluate a single condition.
+   */
+  private evaluateCondition(condition: string, context: KeybindingContext): boolean {
+    // Handle negation
+    if (condition.startsWith('!')) {
+      return !this.evaluateCondition(condition.slice(1), context);
+    }
+
+    // Handle OR conditions (||)
+    if (condition.includes('||')) {
+      const orParts = condition.split('||').map(c => c.trim());
+      return orParts.some(part => this.evaluateCondition(part, context));
+    }
+
+    // Evaluate simple boolean properties
+    switch (condition) {
+      case 'editorHasMultipleCursors':
+        return context.editorHasMultipleCursors;
+      case 'editorHasFocus':
+        return context.editorHasFocus;
+      case 'terminalHasFocus':
+        return context.terminalHasFocus;
+      case 'fileTreeHasFocus':
+        return context.fileTreeHasFocus;
+      case 'searchIsActive':
+        return context.searchIsActive;
+      case 'findWidgetVisible':
+        return context.findWidgetVisible;
+      case 'editorHasSelection':
+        return context.editorHasSelection;
+      default:
+        // Unknown condition - log and return true (permissive)
+        this.debugLog(`Unknown when clause condition: ${condition}`);
+        return true;
+    }
   }
 
   getBindingForCommand(commandId: string): string | null {

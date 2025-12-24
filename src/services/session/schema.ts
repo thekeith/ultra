@@ -119,6 +119,18 @@ export const settingsSchema: SettingsSchema = {
       default: true,
       description: 'Allow scrolling past the last line',
     },
+    'editor.diagnostics.curlyUnderline': {
+      type: 'boolean',
+      default: true,
+      description: 'Use curly/squiggly underlines for diagnostics (requires Kitty, WezTerm, iTerm2, etc.)',
+    },
+    'editor.undoHistoryLimit': {
+      type: 'number',
+      default: 1000,
+      minimum: 100,
+      maximum: 10000,
+      description: 'Maximum number of undo actions to keep per document',
+    },
 
     // ─────────────────────────────────────────────────────────────────────────
     // Files Settings
@@ -128,6 +140,12 @@ export const settingsSchema: SettingsSchema = {
       default: 'off',
       enum: ['off', 'afterDelay', 'onFocusChange', 'onWindowChange'],
       description: 'Auto-save mode',
+    },
+    'files.watchFiles': {
+      type: 'string',
+      default: 'onFocus',
+      enum: ['onFocus', 'always', 'off'],
+      description: 'When to check for external file changes',
     },
     'files.exclude': {
       type: 'object',
@@ -144,7 +162,7 @@ export const settingsSchema: SettingsSchema = {
     // ─────────────────────────────────────────────────────────────────────────
     'workbench.colorTheme': {
       type: 'string',
-      default: 'One Dark',
+      default: 'catppuccin-frappe',
       description: 'Color theme to use',
     },
     'workbench.sideBar.visible': {
@@ -170,15 +188,31 @@ export const settingsSchema: SettingsSchema = {
     },
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Ultra-specific Settings
+    // TUI-specific Settings
     // ─────────────────────────────────────────────────────────────────────────
-    'ultra.sidebar.width': {
+    'tui.sidebar.width': {
       type: 'number',
-      default: 30,
+      default: 36,
       minimum: 15,
       maximum: 80,
       description: 'Sidebar width in characters',
     },
+    'tui.sidebar.visible': {
+      type: 'boolean',
+      default: true,
+      description: 'Whether the sidebar is visible',
+    },
+    'tui.terminal.height': {
+      type: 'number',
+      default: 10,
+      minimum: 4,
+      maximum: 50,
+      description: 'Height of the terminal panel in rows',
+    },
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Ultra Application Settings
+    // ─────────────────────────────────────────────────────────────────────────
     'ultra.ai.model': {
       type: 'string',
       default: 'claude-sonnet-4-20250514',

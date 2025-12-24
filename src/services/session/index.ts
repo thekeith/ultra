@@ -17,6 +17,7 @@ export type {
   SessionInfo,
   KeyBinding,
   ParsedKey,
+  KeybindingContext,
   ThemeInfo,
   ThemeColors,
   Theme,

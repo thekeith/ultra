@@ -194,6 +194,26 @@ export interface KeyBinding {
 }
 
 /**
+ * Context for evaluating keybinding when clauses.
+ */
+export interface KeybindingContext {
+  /** Whether editor has multiple cursors */
+  editorHasMultipleCursors: boolean;
+  /** Whether editor is focused */
+  editorHasFocus: boolean;
+  /** Whether terminal is focused */
+  terminalHasFocus: boolean;
+  /** Whether file tree is focused */
+  fileTreeHasFocus: boolean;
+  /** Whether search is active */
+  searchIsActive: boolean;
+  /** Whether in find dialog */
+  findWidgetVisible: boolean;
+  /** Whether text is selected */
+  editorHasSelection: boolean;
+}
+
+/**
  * Parsed key event.
  */
 export interface ParsedKey {

@@ -680,9 +680,8 @@ export class Window {
    * Render the window to the buffer.
    */
   render(): ScreenBuffer {
-    // Clear buffer
-    const bg = this.getThemeColor('editor.background', '#1e1e1e');
-    this.buffer.clear(bg, '#cccccc');
+    // Note: Components are responsible for filling their own areas.
+    // We don't clear the buffer here to enable dirty-tracking optimization.
 
     // Render pane container
     this.paneContainer.render(this.buffer);
