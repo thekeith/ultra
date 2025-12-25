@@ -354,17 +354,17 @@ This requires extending `GitDiffBrowser` to support commit-to-commit diffs (not 
 
 ## Implementation Order
 
-### Sprint 1: Core Enhancements
-1. [ ] Add summary section to ContentBrowser
-2. [ ] Add `summaryPinned` setting
-3. [ ] Add summary to GitDiffBrowser with stats
-4. [ ] Wire up Timeline Panel `onViewDiff` to open GitDiffBrowser
+### Sprint 1: Core Enhancements ✓
+1. [x] Add summary section to ContentBrowser
+2. [x] Add `summaryPinned` setting
+3. [x] Add summary to GitDiffBrowser with stats
+4. [x] Wire up Timeline Panel `onViewDiff` to open GitDiffBrowser
 
-### Sprint 2: Side-by-Side View
-4. [ ] Add `diffViewMode` property
-5. [ ] Implement side-by-side rendering
-6. [ ] Add 'v' keybinding to toggle view mode
-7. [ ] Synced scrolling between panels
+### Sprint 2: Side-by-Side View ✓
+4. [x] Add `diffViewMode` property
+5. [x] Implement side-by-side rendering
+6. [x] Add 'v' keybinding to toggle view mode
+7. [x] Synced scrolling between panels (inherent in single-list design)
 
 ### Sprint 3: Auto-Refresh
 8. [ ] Add file watcher for git index changes
