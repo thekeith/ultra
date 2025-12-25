@@ -352,6 +352,42 @@ export const settingsSchema: SettingsSchema = {
     },
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Diff Viewer Settings
+    // ─────────────────────────────────────────────────────────────────────────
+    'tui.diffViewer.summaryPinned': {
+      type: 'boolean',
+      default: true,
+      description: 'Keep summary section pinned at top while scrolling',
+    },
+    'tui.diffViewer.defaultViewMode': {
+      type: 'string',
+      default: 'unified',
+      enum: ['unified', 'side-by-side'],
+      description: 'Default diff view mode',
+    },
+    'tui.diffViewer.autoRefresh': {
+      type: 'boolean',
+      default: true,
+      description: 'Automatically refresh diff when files change',
+    },
+    'tui.diffViewer.showDiagnostics': {
+      type: 'boolean',
+      default: true,
+      description: 'Show LSP diagnostics on added lines in diff viewer',
+    },
+    'tui.diffViewer.editMode': {
+      type: 'string',
+      default: 'stage-modified',
+      enum: ['stage-modified', 'direct-write'],
+      description: 'Editing behavior: stage-modified creates a modified hunk, direct-write modifies the file',
+    },
+    'tui.contentBrowser.summaryPinned': {
+      type: 'boolean',
+      default: true,
+      description: 'Default summary pinned state for content browsers',
+    },
+
+    // ─────────────────────────────────────────────────────────────────────────
     // AI Panel Settings
     // ─────────────────────────────────────────────────────────────────────────
     'ai.panel.defaultWidth': {

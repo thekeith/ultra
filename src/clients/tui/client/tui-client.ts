@@ -16,6 +16,7 @@ import {
   GitPanel,
   OutlinePanel,
   GitTimelinePanel,
+  GitDiffBrowser,
   TerminalSession,
   TerminalPanel,
   AITerminalChat,
@@ -36,7 +37,9 @@ import {
   type AITerminalChatState,
   type AIProvider,
   type TerminalTabDropdownInfo,
+  type GitDiffBrowserCallbacks,
 } from '../elements/index.ts';
+import { createGitDiffArtifact } from '../artifacts/git-diff-artifact.ts';
 import type { Pane } from '../layout/pane.ts';
 
 // Dialog system
@@ -847,9 +850,8 @@ export class TUIClient {
     timelinePanel.setRepoUri(`file://${this.workingDirectory}`);
 
     const callbacks: GitTimelinePanelCallbacks = {
-      onViewDiff: async (commit, _filePath) => {
-        // TODO: Show diff for commit
-        this.window.showNotification(`View diff: ${commit.shortHash} - ${commit.message}`, 'info');
+      onViewDiff: async (commit, filePath) => {
+        await this.openCommitDiff(commit.hash, commit.shortHash, commit.message, filePath);
       },
       onViewFileAtCommit: async (commit, filePath) => {
         await this.openFileAtCommit(commit.hash, filePath);
@@ -970,6 +972,86 @@ export class TUIClient {
       }
     } catch (error) {
       this.window.showNotification(`Failed to get file at commit: ${error}`, 'error');
+    }
+  }
+
+  /**
+   * Open a diff viewer showing changes from a specific commit.
+   *
+   * @param commitHash Full commit hash
+   * @param shortHash Short commit hash for display
+   * @param message Commit message for title
+   * @param filePath Optional file path to filter to a specific file
+   */
+  private async openCommitDiff(
+    commitHash: string,
+    shortHash: string,
+    message: string,
+    filePath?: string
+  ): Promise<void> {
+    try {
+      const repoUri = `file://${this.workingDirectory}`;
+
+      // Get list of files changed in this commit
+      const changedFiles = filePath
+        ? [filePath]
+        : await gitCliService.getCommitFiles(repoUri, commitHash);
+
+      if (changedFiles.length === 0) {
+        this.window.showNotification('No changes in this commit', 'info');
+        return;
+      }
+
+      // Get diffs for each file and create artifacts
+      const artifacts = [];
+      for (const file of changedFiles) {
+        const hunks = await gitCliService.diffCommit(repoUri, commitHash, file);
+        if (hunks.length > 0) {
+          const artifact = createGitDiffArtifact(file, hunks, {
+            staged: false, // Commit diffs are historical, not staged
+            changeType: 'modified', // TODO: Could detect add/delete from diff
+          });
+          artifacts.push(artifact);
+        }
+      }
+
+      if (artifacts.length === 0) {
+        this.window.showNotification('No diff data for this commit', 'info');
+        return;
+      }
+
+      // Find or create a pane for the diff viewer
+      const pane = this.editorPaneId
+        ? this.window.getPaneContainer().getPane(this.editorPaneId)
+        : this.window.getPaneContainer().ensureRoot();
+
+      if (!pane) return;
+
+      // Create the diff browser tab
+      const truncatedMessage = message.length > 30 ? message.substring(0, 30) + '…' : message;
+      const title = `${shortHash}: ${truncatedMessage}`;
+      const diffBrowserId = pane.addElement('GitDiffBrowser', title);
+      const diffBrowser = pane.getElement(diffBrowserId) as GitDiffBrowser | null;
+
+      if (diffBrowser) {
+        // Configure the diff browser
+        diffBrowser.setBrowserSubtitle(`Commit ${shortHash}`);
+        diffBrowser.setArtifacts(artifacts);
+
+        // Set up callbacks for opening files
+        const callbacks: GitDiffBrowserCallbacks = {
+          onOpenFile: (path, line) => {
+            this.openFile(`file://${this.workingDirectory}/${path}`, { line });
+          },
+        };
+        diffBrowser.setGitCallbacks(callbacks);
+
+        // Focus the new tab
+        this.window.focusElement(diffBrowser);
+      }
+    } catch (error) {
+      debugLog(`[TUIClient] Failed to open commit diff: ${error}`);
+      this.window.showNotification(`Failed to open diff: ${error}`, 'error');
     }
   }
 

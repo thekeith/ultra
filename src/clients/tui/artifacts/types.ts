@@ -112,6 +112,22 @@ export interface ContentBrowserState {
   expandedNodeIds: string[];
   /** Current view mode */
   viewMode: ViewMode;
+  /** Whether summary is pinned */
+  summaryPinned?: boolean;
+}
+
+/**
+ * An item displayed in the summary section of a content browser.
+ */
+export interface SummaryItem {
+  /** Display label */
+  label: string;
+  /** Value to display (string or number) */
+  value: string | number;
+  /** Optional color for the value */
+  color?: string;
+  /** Optional action when clicked */
+  action?: () => void;
 }
 
 /**

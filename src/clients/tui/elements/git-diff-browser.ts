@@ -9,7 +9,7 @@ import { ContentBrowser } from './content-browser.ts';
 import type { ElementContext } from './base.ts';
 import type { KeyEvent } from '../types.ts';
 import type { ScreenBuffer } from '../rendering/buffer.ts';
-import type { ArtifactNode, ArtifactAction, ContentBrowserCallbacks } from '../artifacts/types.ts';
+import type { ArtifactNode, ArtifactAction, ContentBrowserCallbacks, SummaryItem } from '../artifacts/types.ts';
 import type { GitDiffHunk, DiffLine } from '../../../services/git/types.ts';
 import {
   type GitDiffArtifact,
@@ -95,6 +95,37 @@ export class GitDiffBrowser extends ContentBrowser<GitDiffArtifact> {
   setGitCallbacks(callbacks: GitDiffBrowserCallbacks): void {
     this.gitCallbacks = { ...this.gitCallbacks, ...callbacks };
     this.setCallbacks(callbacks);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Summary
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Build summary showing file count and total additions/deletions.
+   */
+  protected override buildSummary(): SummaryItem[] {
+    const artifacts = this.getArtifacts();
+    if (artifacts.length === 0) {
+      return [];
+    }
+
+    let totalAdditions = 0;
+    let totalDeletions = 0;
+
+    for (const artifact of artifacts) {
+      totalAdditions += artifact.additions;
+      totalDeletions += artifact.deletions;
+    }
+
+    const addedFg = this.ctx.getThemeColor('gitDecoration.addedResourceForeground', '#81b88b');
+    const deletedFg = this.ctx.getThemeColor('gitDecoration.deletedResourceForeground', '#c74e39');
+
+    return [
+      { label: 'Files', value: artifacts.length },
+      { label: '+', value: totalAdditions, color: addedFg },
+      { label: '-', value: totalDeletions, color: deletedFg },
+    ];
   }
 
   // ─────────────────────────────────────────────────────────────────────────

@@ -16,6 +16,7 @@ import type {
   ViewMode,
   ContentBrowserCallbacks,
   ContentBrowserState,
+  SummaryItem,
 } from '../artifacts/types.ts';
 
 // ============================================
@@ -74,6 +75,15 @@ export abstract class ContentBrowser<T extends Artifact = Artifact> extends Base
 
   /** Height of the hints bar when focused (0 to disable) */
   protected hintBarHeight = 2;
+
+  /** Summary items displayed at top */
+  protected summaryItems: SummaryItem[] = [];
+
+  /** Whether the summary section is pinned (stays visible while scrolling) */
+  protected summaryPinned = true;
+
+  /** Whether to show the summary section */
+  protected showSummary = true;
 
   // Mouse state
   private lastClickTime = 0;
@@ -148,6 +158,7 @@ export abstract class ContentBrowser<T extends Artifact = Artifact> extends Base
   setArtifacts(artifacts: T[]): void {
     this.rootNodes = this.buildNodes(artifacts);
     this.rebuildFlatView();
+    this.refreshSummary();
     this.ctx.markDirty();
   }
 
@@ -225,6 +236,87 @@ export abstract class ContentBrowser<T extends Artifact = Artifact> extends Base
   setBrowserSubtitle(subtitle: string): void {
     this.browserSubtitle = subtitle;
     this.ctx.markDirty();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Summary Section
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Set summary items to display.
+   * Override buildSummary() in subclasses to auto-generate from artifacts.
+   */
+  setSummary(items: SummaryItem[]): void {
+    this.summaryItems = items;
+    this.ctx.markDirty();
+  }
+
+  /**
+   * Get current summary items.
+   */
+  getSummary(): SummaryItem[] {
+    return this.summaryItems;
+  }
+
+  /**
+   * Set whether the summary is pinned (visible while scrolling).
+   */
+  setSummaryPinned(pinned: boolean): void {
+    if (this.summaryPinned !== pinned) {
+      this.summaryPinned = pinned;
+      this.ctx.markDirty();
+    }
+  }
+
+  /**
+   * Get whether the summary is pinned.
+   */
+  isSummaryPinned(): boolean {
+    return this.summaryPinned;
+  }
+
+  /**
+   * Toggle summary pinned state.
+   */
+  toggleSummaryPinned(): void {
+    this.setSummaryPinned(!this.summaryPinned);
+  }
+
+  /**
+   * Set whether to show the summary section.
+   */
+  setShowSummary(show: boolean): void {
+    if (this.showSummary !== show) {
+      this.showSummary = show;
+      this.ctx.markDirty();
+    }
+  }
+
+  /**
+   * Build summary items from current artifacts.
+   * Override in subclasses to provide artifact-specific summaries.
+   * Called automatically after setArtifacts().
+   */
+  protected buildSummary(): SummaryItem[] {
+    // Default: no summary. Subclasses override.
+    return [];
+  }
+
+  /**
+   * Refresh summary from current artifacts.
+   */
+  protected refreshSummary(): void {
+    this.summaryItems = this.buildSummary();
+  }
+
+  /**
+   * Get the height of the summary section in rows.
+   */
+  protected getSummaryHeight(): number {
+    if (!this.showSummary || this.summaryItems.length === 0) {
+      return 0;
+    }
+    return 1; // Single row for summary
   }
 
   /**
@@ -444,12 +536,13 @@ export abstract class ContentBrowser<T extends Artifact = Artifact> extends Base
   }
 
   /**
-   * Get content height (excluding header and hints bar).
+   * Get content height (excluding header, summary, and hints bar).
    */
   protected getContentHeight(): number {
     const headerHeight = this.showHeader ? 1 : 0;
+    const summaryHeight = this.summaryPinned ? this.getSummaryHeight() : 0;
     const hintsHeight = this.focused ? this.hintBarHeight : 0;
-    return Math.max(0, this.bounds.height - headerHeight - hintsHeight);
+    return Math.max(0, this.bounds.height - headerHeight - summaryHeight - hintsHeight);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -487,6 +580,12 @@ export abstract class ContentBrowser<T extends Artifact = Artifact> extends Base
       }
       buffer.writeString(x, currentY, headerText.padEnd(width, ' '), headerFg, headerBg);
       currentY++;
+    }
+
+    // Render summary section (if pinned and has items)
+    if (this.summaryPinned && this.summaryItems.length > 0) {
+      this.renderSummary(buffer, x, currentY, width, fg, bg);
+      currentY += this.getSummaryHeight();
     }
 
     // Calculate content area
@@ -591,6 +690,73 @@ export abstract class ContentBrowser<T extends Artifact = Artifact> extends Base
     }
   }
 
+  /**
+   * Render the summary section.
+   */
+  protected renderSummary(
+    buffer: ScreenBuffer,
+    x: number,
+    y: number,
+    width: number,
+    fg: string,
+    bg: string
+  ): void {
+    if (this.summaryItems.length === 0) return;
+
+    const summaryBg = this.ctx.getThemeColor('sideBarSectionHeader.background', '#383838');
+    const dimFg = '#888888';
+
+    // Build summary line: "Files: 5  +10  -3  Staged: 2"
+    let line = ' ';
+    let col = x;
+
+    // Clear the row first
+    buffer.writeString(x, y, ' '.repeat(width), fg, summaryBg);
+
+    for (let i = 0; i < this.summaryItems.length; i++) {
+      const item = this.summaryItems[i]!;
+      const itemText = `${item.label}: ${item.value}`;
+
+      // Check if we have room
+      if (line.length + itemText.length + 2 > width) break;
+
+      // Write label in dim color
+      for (const char of item.label) {
+        if (col < x + width - 1) {
+          buffer.set(col++, y, { char, fg: dimFg, bg: summaryBg });
+        }
+      }
+      // Write colon
+      if (col < x + width - 1) {
+        buffer.set(col++, y, { char: ':', fg: dimFg, bg: summaryBg });
+      }
+
+      // Write value with optional color
+      const valueStr = String(item.value);
+      const valueFg = item.color ?? fg;
+      for (const char of valueStr) {
+        if (col < x + width - 1) {
+          buffer.set(col++, y, { char, fg: valueFg, bg: summaryBg });
+        }
+      }
+
+      // Add spacing between items
+      if (i < this.summaryItems.length - 1) {
+        if (col < x + width - 2) {
+          buffer.set(col++, y, { char: ' ', fg, bg: summaryBg });
+          buffer.set(col++, y, { char: ' ', fg, bg: summaryBg });
+        }
+      }
+    }
+
+    // Add pin indicator at the end
+    const pinIndicator = this.summaryPinned ? ' 📌' : '';
+    if (pinIndicator && col + pinIndicator.length < x + width) {
+      const pinX = x + width - 3;
+      buffer.writeString(pinX, y, ' 📌', dimFg, summaryBg);
+    }
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Input Handling
   // ─────────────────────────────────────────────────────────────────────────
@@ -670,6 +836,12 @@ export abstract class ContentBrowser<T extends Artifact = Artifact> extends Base
     // View mode toggle
     if (event.key === 'Tab' && !event.ctrl && !event.alt) {
       this.toggleViewMode();
+      return true;
+    }
+
+    // Toggle summary pinned
+    if (event.key === 'p' && !event.ctrl && !event.alt && !event.shift) {
+      this.toggleSummaryPinned();
       return true;
     }
 
@@ -825,6 +997,7 @@ export abstract class ContentBrowser<T extends Artifact = Artifact> extends Base
       selectedIndex: this.selectedIndex,
       expandedNodeIds: Array.from(this.collapsedNodeIds),
       viewMode: this.viewMode,
+      summaryPinned: this.summaryPinned,
     };
   }
 
@@ -841,6 +1014,9 @@ export abstract class ContentBrowser<T extends Artifact = Artifact> extends Base
     }
     if (s.viewMode) {
       this.viewMode = s.viewMode;
+    }
+    if (s.summaryPinned !== undefined) {
+      this.summaryPinned = s.summaryPinned;
     }
     this.ctx.markDirty();
   }
