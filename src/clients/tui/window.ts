@@ -8,7 +8,7 @@ import type { Rect, Size, InputEvent, KeyEvent, MouseEvent } from './types.ts';
 import { isKeyEvent, isMouseEvent, containsPoint } from './types.ts';
 import type { ScreenBuffer } from './rendering/buffer.ts';
 import { createScreenBuffer } from './rendering/buffer.ts';
-import { PaneContainer, createPaneContainer, type PaneContainerCallbacks, type FocusableElementType } from './layout/index.ts';
+import { PaneContainer, createPaneContainer, type PaneContainerCallbacks, type FocusableElementType, type TabDropdownInfo } from './layout/index.ts';
 import { StatusBar, createStatusBar, type StatusBarCallbacks } from './status-bar/index.ts';
 import { OverlayManager, createOverlayManager, type OverlayManagerCallbacks, type NotificationType } from './overlays/index.ts';
 import { FocusManager, createFocusManager, type FocusChangeCallback } from './input/index.ts';
@@ -43,6 +43,8 @@ export interface WindowConfig {
   onElementCloseRequest?: (elementId: string, element: BaseElement) => Promise<boolean>;
   /** Whether status bar starts expanded */
   statusBarExpanded?: boolean;
+  /** Called when tab dropdown is requested */
+  onShowTabDropdown?: (paneId: string, tabs: TabDropdownInfo[], x: number, y: number) => void;
 }
 
 /**
@@ -136,6 +138,7 @@ export class Window {
       getBackgroundForFocus: (type, focused) => this.getBackgroundForFocus(type, focused),
       getForegroundForFocus: (type, focused) => this.getForegroundForFocus(type, focused),
       getSelectionBackground: (type, focused) => this.getSelectionBackground(type, focused),
+      onShowTabDropdown: config.onShowTabDropdown,
     };
     this.paneContainer = createPaneContainer(paneContainerCallbacks);
     this.paneContainer.setFocusManager(this.focusManager);

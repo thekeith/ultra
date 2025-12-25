@@ -46,6 +46,15 @@ type LayoutNode = Pane | SplitNode;
 export type FocusableElementType = 'editor' | 'sidebar' | 'panel' | 'terminal';
 
 /**
+ * Tab info for dropdown menu.
+ */
+export interface TabDropdownInfo {
+  id: string;
+  title: string;
+  isActive: boolean;
+}
+
+/**
  * Callbacks for pane container events.
  */
 export interface PaneContainerCallbacks {
@@ -63,6 +72,8 @@ export interface PaneContainerCallbacks {
   getForegroundForFocus: (elementType: FocusableElementType, isFocused: boolean) => string;
   /** Get selection background for focus state */
   getSelectionBackground: (elementType: FocusableElementType, isFocused: boolean) => string;
+  /** Called when tab dropdown is requested */
+  onShowTabDropdown?: (paneId: string, tabs: TabDropdownInfo[], x: number, y: number) => void;
 }
 
 // ============================================
@@ -177,11 +188,12 @@ export class PaneContainer implements FocusResolver {
     const callbacks = this.createPaneCallbacks(id);
     const pane = new Pane(id, callbacks);
     this.panes.set(id, pane);
+    this.setupPaneTabDropdown(pane);
     return pane;
   }
 
   private createPaneCallbacks(paneId: string): PaneCallbacks {
-    return {
+    const paneCallbacks: PaneCallbacks = {
       onDirty: () => this.callbacks.onDirty(),
       onFocusRequest: (elementId) => {
         debugLog(`[PaneContainer] Focus request for element: ${elementId} in pane: ${paneId}`);
@@ -198,6 +210,20 @@ export class PaneContainer implements FocusResolver {
       getForegroundForFocus: (type, focused) => this.callbacks.getForegroundForFocus(type, focused),
       getSelectionBackground: (type, focused) => this.callbacks.getSelectionBackground(type, focused),
     };
+
+    return paneCallbacks;
+  }
+
+  /**
+   * Wire up the tab dropdown callback for a pane.
+   * Called after pane creation to set up the dropdown.
+   */
+  private setupPaneTabDropdown(pane: Pane): void {
+    if (this.callbacks.onShowTabDropdown) {
+      pane.setTabDropdownCallback((tabs, x, y) => {
+        this.callbacks.onShowTabDropdown!(pane.id, tabs, x, y);
+      });
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────

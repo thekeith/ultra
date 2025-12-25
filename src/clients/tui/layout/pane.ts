@@ -104,6 +104,12 @@ export class Pane {
   /** Accordion header height */
   private static readonly HEADER_HEIGHT = 1;
 
+  /** Tab scroll offset (number of tabs scrolled from left) */
+  private tabScrollOffset = 0;
+
+  /** Callback for showing tab dropdown menu */
+  private onShowTabDropdown?: (tabs: Array<{ id: string; title: string; isActive: boolean }>, x: number, y: number) => void;
+
   constructor(id: string, callbacks: PaneCallbacks) {
     this.id = id;
     this.callbacks = callbacks;
@@ -365,6 +371,7 @@ export class Pane {
     // Show new
     this.elements[idx]!.onVisibilityChange(true);
     this.layoutElements();
+    this.ensureActiveTabVisible();
     this.markDirty();
     return true;
   }
@@ -383,6 +390,7 @@ export class Pane {
     const next = this.elements[this.activeElementIndex]!;
     next.onVisibilityChange(true);
     this.layoutElements();
+    this.ensureActiveTabVisible();
     this.markDirty();
   }
 
@@ -401,7 +409,110 @@ export class Pane {
     const next = this.elements[this.activeElementIndex]!;
     next.onVisibilityChange(true);
     this.layoutElements();
+    this.ensureActiveTabVisible();
     this.markDirty();
+  }
+
+  /**
+   * Set callback for showing tab dropdown menu.
+   */
+  setTabDropdownCallback(
+    callback: (tabs: Array<{ id: string; title: string; isActive: boolean }>, x: number, y: number) => void
+  ): void {
+    this.onShowTabDropdown = callback;
+  }
+
+  /**
+   * Scroll tabs left by the configured amount.
+   */
+  scrollTabsLeft(): void {
+    const scrollAmount = this.callbacks.getSetting('tabBar.scrollAmount', 1);
+    this.tabScrollOffset = Math.max(0, this.tabScrollOffset - scrollAmount);
+    this.markDirty();
+  }
+
+  /**
+   * Scroll tabs right by the configured amount.
+   */
+  scrollTabsRight(): void {
+    const scrollAmount = this.callbacks.getSetting('tabBar.scrollAmount', 1);
+
+    // Calculate max offset so that the last tab is just visible
+    const maxOffset = this.calculateMaxScrollOffset();
+    if (this.tabScrollOffset >= maxOffset) return; // Already at max
+
+    this.tabScrollOffset = Math.min(maxOffset, this.tabScrollOffset + scrollAmount);
+    this.markDirty();
+  }
+
+  /**
+   * Calculate the maximum scroll offset (so last tab is still visible).
+   */
+  private calculateMaxScrollOffset(): number {
+    if (this.elements.length === 0) return 0;
+
+    // Calculate tab widths
+    const tabWidths = this.elements.map((el) => {
+      const title = this.truncateTitle(el.getTitle(), 20);
+      return 1 + title.length + 3; // indicator + title + " × "
+    });
+
+    const dropdownWidth = 3;
+    const arrowWidth = 3;
+    const availableWidth = this.bounds.width - dropdownWidth - arrowWidth * 2;
+
+    // Find the maximum offset where the last tab is still visible
+    // Work backwards from the end
+    let widthFromEnd = 0;
+    let maxOffset = this.elements.length - 1;
+
+    for (let i = this.elements.length - 1; i >= 0; i--) {
+      const tabW = tabWidths[i]! + (i < this.elements.length - 1 ? 1 : 0); // +1 for separator
+      if (widthFromEnd + tabW <= availableWidth) {
+        widthFromEnd += tabW;
+        maxOffset = i;
+      } else {
+        break;
+      }
+    }
+
+    return Math.max(0, maxOffset);
+  }
+
+  /**
+   * Ensure the active tab is visible by adjusting scroll offset.
+   */
+  private ensureActiveTabVisible(): void {
+    // If active tab is before scroll offset, scroll left to show it
+    if (this.activeElementIndex < this.tabScrollOffset) {
+      this.tabScrollOffset = this.activeElementIndex;
+      return;
+    }
+
+    // Calculate approximate visible range to check if active tab is visible
+    // This is a heuristic - we estimate ~15 chars per tab on average
+    const avgTabWidth = 15;
+    const dropdownWidth = 3;
+    const arrowWidth = 3;
+    const availableWidth = this.bounds.width - dropdownWidth - arrowWidth * 2;
+    const approxVisibleTabs = Math.max(1, Math.floor(availableWidth / avgTabWidth));
+
+    // If active tab is beyond the approximate visible range, scroll right
+    if (this.activeElementIndex >= this.tabScrollOffset + approxVisibleTabs) {
+      // Scroll so active tab is at the right edge of visible area
+      this.tabScrollOffset = Math.max(0, this.activeElementIndex - approxVisibleTabs + 1);
+    }
+  }
+
+  /**
+   * Get tab info for dropdown menu.
+   */
+  getTabsForDropdown(): Array<{ id: string; title: string; isActive: boolean }> {
+    return this.elements.map((el, i) => ({
+      id: el.id,
+      title: el.getTitle(),
+      isActive: i === this.activeElementIndex,
+    }));
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -603,9 +714,7 @@ export class Pane {
 
   private renderTabBar(buffer: ScreenBuffer): void {
     const y = this.bounds.y;
-    let x = this.bounds.x;
     const isPaneFocused = this.callbacks.isPaneFocused();
-
     const colors = this.getThemeColors();
 
     // Get focus-aware tab bar background
@@ -613,7 +722,55 @@ export class Pane {
       ? colors.tabBarBackground
       : this.callbacks.getBackgroundForFocus('editor', false);
 
-    for (let i = 0; i < this.elements.length; i++) {
+    // Calculate tab widths
+    const tabWidths = this.elements.map((el) => {
+      const title = this.truncateTitle(el.getTitle(), 20);
+      return 1 + title.length + 3; // indicator + title + " × "
+    });
+
+    const totalTabWidth = tabWidths.reduce((a, b) => a + b, 0) + Math.max(0, this.elements.length - 1); // +separators
+
+    // Reserve space for dropdown (always visible) and arrows (when needed)
+    const dropdownWidth = 3; // " ▼ "
+    const arrowWidth = 3; // " < " or " > "
+    const availableWidth = this.bounds.width - dropdownWidth;
+
+    // Check if we need scroll arrows
+    const needsScroll = totalTabWidth > availableWidth;
+    const effectiveWidth = needsScroll ? availableWidth - arrowWidth * 2 : availableWidth;
+
+    // Ensure scroll offset is valid
+    this.tabScrollOffset = Math.max(0, Math.min(this.tabScrollOffset, this.elements.length - 1));
+
+    // Calculate which tabs are visible starting from scroll offset
+    let visibleStartIdx = this.tabScrollOffset;
+    let visibleEndIdx = visibleStartIdx;
+    let usedWidth = 0;
+
+    for (let i = visibleStartIdx; i < this.elements.length; i++) {
+      const tabW = tabWidths[i]! + (i > visibleStartIdx ? 1 : 0); // +1 for separator
+      if (usedWidth + tabW <= effectiveWidth) {
+        usedWidth += tabW;
+        visibleEndIdx = i;
+      } else {
+        break;
+      }
+    }
+
+    let x = this.bounds.x;
+
+    // Draw left arrow if needed
+    if (needsScroll) {
+      const canScrollLeft = this.tabScrollOffset > 0;
+      const arrowFg = canScrollLeft ? colors.tabActiveForeground : colors.tabInactiveForeground;
+      buffer.set(x, y, { char: ' ', fg: arrowFg, bg: tabBarBg });
+      buffer.set(x + 1, y, { char: '<', fg: arrowFg, bg: tabBarBg });
+      buffer.set(x + 2, y, { char: ' ', fg: arrowFg, bg: tabBarBg });
+      x += arrowWidth;
+    }
+
+    // Draw visible tabs
+    for (let i = visibleStartIdx; i <= visibleEndIdx && i < this.elements.length; i++) {
       const element = this.elements[i]!;
       const isActive = i === this.activeElementIndex;
       const title = this.truncateTitle(element.getTitle(), 20);
@@ -633,44 +790,51 @@ export class Pane {
         fg = colors.tabInactiveForeground;
       }
 
-      // Tab content: "● title × " for modified, " title × " for clean
-      const indicator = isModified ? '●' : ' ';
-      const tabContent = `${indicator}${title} × `;
-
-      // Draw tab (first char may be indicator with special color)
-      if (isModified && x < this.bounds.x + this.bounds.width) {
+      // Draw tab indicator
+      if (isModified) {
         const modifiedColor = this.callbacks.getThemeColor('editorGutter.modifiedBackground', '#f9e2af');
-        buffer.set(x, y, { char: indicator, fg: modifiedColor, bg });
-        x += 1;
-      } else if (x < this.bounds.x + this.bounds.width) {
+        buffer.set(x, y, { char: '●', fg: modifiedColor, bg });
+      } else {
         buffer.set(x, y, { char: ' ', fg, bg });
-        x += 1;
       }
+      x += 1;
 
-      // Draw rest of tab content (title and close button)
+      // Draw title and close button
       const restContent = `${title} × `;
-      for (let j = 0; j < restContent.length && x + j < this.bounds.x + this.bounds.width; j++) {
+      for (let j = 0; j < restContent.length; j++) {
         buffer.set(x + j, y, { char: restContent[j]!, fg, bg });
       }
-
       x += restContent.length;
 
       // Separator
-      if (i < this.elements.length - 1 && x < this.bounds.x + this.bounds.width) {
+      if (i < visibleEndIdx && i < this.elements.length - 1) {
         buffer.set(x, y, { char: '│', fg: colors.tabBorder, bg: tabBarBg });
         x += 1;
       }
     }
 
-    // Fill rest of tab bar
-    while (x < this.bounds.x + this.bounds.width) {
-      buffer.set(x, y, {
-        char: ' ',
-        fg: tabBarBg,
-        bg: tabBarBg,
-      });
+    // Fill space between tabs and right controls
+    const rightControlsX = this.bounds.x + this.bounds.width - dropdownWidth - (needsScroll ? arrowWidth : 0);
+    while (x < rightControlsX) {
+      buffer.set(x, y, { char: ' ', fg: tabBarBg, bg: tabBarBg });
       x++;
     }
+
+    // Draw right arrow if needed
+    if (needsScroll) {
+      const canScrollRight = visibleEndIdx < this.elements.length - 1;
+      const arrowFg = canScrollRight ? colors.tabActiveForeground : colors.tabInactiveForeground;
+      buffer.set(x, y, { char: ' ', fg: arrowFg, bg: tabBarBg });
+      buffer.set(x + 1, y, { char: '>', fg: arrowFg, bg: tabBarBg });
+      buffer.set(x + 2, y, { char: ' ', fg: arrowFg, bg: tabBarBg });
+      x += arrowWidth;
+    }
+
+    // Draw dropdown button (always visible)
+    const dropdownFg = colors.tabActiveForeground;
+    buffer.set(x, y, { char: ' ', fg: dropdownFg, bg: tabBarBg });
+    buffer.set(x + 1, y, { char: '▼', fg: dropdownFg, bg: tabBarBg });
+    buffer.set(x + 2, y, { char: ' ', fg: dropdownFg, bg: tabBarBg });
   }
 
   private renderAccordion(buffer: ScreenBuffer): void {
@@ -760,14 +924,66 @@ export class Pane {
     // Tab bar is at the top row of the pane
     if (event.y !== this.bounds.y) return false;
 
-    // Find which tab was clicked
-    let x = this.bounds.x;
+    // Calculate layout info (same as renderTabBar)
+    const tabWidths = this.elements.map((el) => {
+      const title = this.truncateTitle(el.getTitle(), 20);
+      return 1 + title.length + 3; // indicator + title + " × "
+    });
 
-    for (let i = 0; i < this.elements.length; i++) {
+    const totalTabWidth = tabWidths.reduce((a, b) => a + b, 0) + Math.max(0, this.elements.length - 1);
+    const dropdownWidth = 3;
+    const arrowWidth = 3;
+    const availableWidth = this.bounds.width - dropdownWidth;
+    const needsScroll = totalTabWidth > availableWidth;
+
+    // Check dropdown button click (rightmost)
+    const dropdownX = this.bounds.x + this.bounds.width - dropdownWidth;
+    if (event.x >= dropdownX) {
+      // Show dropdown menu
+      if (this.onShowTabDropdown) {
+        this.onShowTabDropdown(this.getTabsForDropdown(), dropdownX, this.bounds.y + 1);
+      }
+      return true;
+    }
+
+    // Check right arrow click
+    if (needsScroll) {
+      const rightArrowX = dropdownX - arrowWidth;
+      if (event.x >= rightArrowX && event.x < dropdownX) {
+        this.scrollTabsRight();
+        return true;
+      }
+    }
+
+    // Check left arrow click
+    if (needsScroll && event.x >= this.bounds.x && event.x < this.bounds.x + arrowWidth) {
+      this.scrollTabsLeft();
+      return true;
+    }
+
+    // Calculate visible tabs range (same as renderTabBar)
+    const effectiveWidth = needsScroll ? availableWidth - arrowWidth * 2 : availableWidth;
+    let visibleStartIdx = this.tabScrollOffset;
+    let visibleEndIdx = visibleStartIdx;
+    let usedWidth = 0;
+
+    for (let i = visibleStartIdx; i < this.elements.length; i++) {
+      const tabW = tabWidths[i]! + (i > visibleStartIdx ? 1 : 0);
+      if (usedWidth + tabW <= effectiveWidth) {
+        usedWidth += tabW;
+        visibleEndIdx = i;
+      } else {
+        break;
+      }
+    }
+
+    // Find which tab was clicked
+    let x = this.bounds.x + (needsScroll ? arrowWidth : 0);
+
+    for (let i = visibleStartIdx; i <= visibleEndIdx && i < this.elements.length; i++) {
       const element = this.elements[i]!;
       const title = this.truncateTitle(element.getTitle(), 20);
-      // Tab content: " title × "
-      const tabWidth = 1 + title.length + 3; // space + title + " × "
+      const tabWidth = 1 + title.length + 3; // indicator + title + " × "
 
       if (event.x >= x && event.x < x + tabWidth) {
         // Click is on this tab
@@ -785,7 +1001,7 @@ export class Pane {
 
       x += tabWidth;
       // Account for separator
-      if (i < this.elements.length - 1) {
+      if (i < visibleEndIdx) {
         x += 1;
       }
     }

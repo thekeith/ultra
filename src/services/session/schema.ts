@@ -209,6 +209,13 @@ export const settingsSchema: SettingsSchema = {
       maximum: 50,
       description: 'Height of the terminal panel in rows',
     },
+    'tabBar.scrollAmount': {
+      type: 'number',
+      default: 1,
+      minimum: 1,
+      maximum: 10,
+      description: 'Number of tabs to scroll when clicking tab bar arrows',
+    },
 
     // ─────────────────────────────────────────────────────────────────────────
     // Ultra Application Settings

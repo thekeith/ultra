@@ -35,6 +35,7 @@ export interface EditorSettings {
   'tui.sidebar.width': number;
   'tui.sidebar.visible': boolean;
   'tui.terminal.height': number;
+  'tabBar.scrollAmount': number;
   'ultra.ai.model': string;
   'ultra.ai.apiKey': string;
   'terminal.integrated.shell': string;
@@ -125,6 +126,7 @@ const defaultSettings: EditorSettings = {
   'tui.sidebar.width': 36,
   'tui.sidebar.visible': true,
   'tui.terminal.height': 10,
+  'tabBar.scrollAmount': 1,
   'ultra.ai.model': 'claude-sonnet-4-20250514',
   'ultra.ai.apiKey': '${env:ANTHROPIC_API_KEY}',
   'terminal.integrated.shell': process.env.SHELL || '/bin/zsh',

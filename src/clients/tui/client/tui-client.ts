@@ -28,6 +28,7 @@ import {
   type TerminalSessionCallbacks,
   type AITerminalChatState,
   type AIProvider,
+  type TerminalTabDropdownInfo,
 } from '../elements/index.ts';
 import type { Pane } from '../layout/pane.ts';
 
@@ -44,6 +45,7 @@ import {
   type StagedFile,
   type SearchOptions,
 } from '../overlays/index.ts';
+import { TabSwitcherDialog, type TabInfo } from '../overlays/tab-switcher.ts';
 
 // Debug utilities
 import { debugLog, isDebugEnabled } from '../../../debug.ts';
@@ -178,6 +180,9 @@ export class TUIClient {
   /** Search/Replace dialog */
   private searchReplaceDialog: SearchReplaceDialog | null = null;
 
+  /** Tab switcher dialog */
+  private tabSwitcherDialog: TabSwitcherDialog | null = null;
+
   /** Command handlers */
   private commandHandlers: Map<string, () => boolean | Promise<boolean>> = new Map();
 
@@ -267,6 +272,9 @@ export class TUIClient {
         const focusedElement = this.window.getFocusedElement();
         this.handleFocusChange(focusedElement);
       },
+      onShowTabDropdown: (paneId, tabs, x, y) => {
+        this.showTabSwitcher(paneId, tabs);
+      },
     };
     this.window = createWindow(windowConfig);
 
@@ -315,6 +323,10 @@ export class TUIClient {
       },
     });
     this.window.getOverlayManager().addOverlay(this.searchReplaceDialog);
+
+    // Create tab switcher dialog
+    this.tabSwitcherDialog = new TabSwitcherDialog(overlayCallbacks);
+    this.window.getOverlayManager().addOverlay(this.tabSwitcherDialog);
 
     // Create input handler
     this.inputHandler = createInputHandler();
@@ -1917,6 +1929,16 @@ export class TUIClient {
       return true;
     });
 
+    this.commandHandlers.set('editor.switchTab', async () => {
+      await this.showTabSwitcherForCurrentPane();
+      return true;
+    });
+
+    this.commandHandlers.set('editor.switchTabAllPanes', async () => {
+      await this.showTabSwitcherForAllPanes();
+      return true;
+    });
+
     // View commands
     this.commandHandlers.set('workbench.toggleSidebar', () => {
       this.toggleSidebar();
@@ -2426,6 +2448,11 @@ export class TUIClient {
       });
 
       this.terminalPanel = createTerminalPanel(ctx);
+
+      // Set up dropdown callback for terminal tabs
+      this.terminalPanel.setTabDropdownCallback((tabs, x, y) => {
+        this.showTerminalTabSwitcher(tabs, x, y);
+      });
 
       // Create first terminal if panel is empty
       await this.terminalPanel.createTerminal(this.workingDirectory);
@@ -3160,6 +3187,8 @@ export class TUIClient {
     // Editor tabs
     'editor.nextTab': { label: 'Next Tab', category: 'Editor' },
     'editor.previousTab': { label: 'Previous Tab', category: 'Editor' },
+    'editor.switchTab': { label: 'Switch Tab (Current Pane)', category: 'Editor' },
+    'editor.switchTabAllPanes': { label: 'Switch Tab (All Panes)', category: 'Editor' },
     // Search
     'search.find': { label: 'Find', category: 'Search' },
     'search.replace': { label: 'Find and Replace', category: 'Search' },
@@ -3387,6 +3416,170 @@ export class TUIClient {
         { line: result.value.line - 1, column: result.value.column ? result.value.column - 1 : 0 },
         false
       );
+      this.scheduleRender();
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Tab Switcher
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Show tab switcher for a specific pane.
+   */
+  private async showTabSwitcher(paneId: string, tabs: Array<{ id: string; title: string; isActive: boolean }>): Promise<void> {
+    if (!this.tabSwitcherDialog) return;
+
+    const pane = this.window.getPaneContainer().getPane(paneId);
+    if (!pane) return;
+
+    // Convert to TabInfo format
+    const tabInfos: TabInfo[] = tabs.map((tab) => {
+      const element = pane.getElement(tab.id);
+      const filePath = element instanceof DocumentEditor ? element.getUri() ?? undefined : undefined;
+      const isModified = element instanceof DocumentEditor && element.isModified();
+
+      return {
+        id: tab.id,
+        title: tab.title,
+        paneId,
+        isActive: tab.isActive,
+        isModified,
+        filePath,
+      };
+    });
+
+    // Find current tab for highlight
+    const currentTab = tabInfos.find((t) => t.isActive);
+
+    const result = await this.tabSwitcherDialog.showWithItems(
+      {
+        title: 'Switch Tab',
+        placeholder: 'Type to filter tabs...',
+        showSearchInput: true,
+        maxResults: 15,
+      },
+      tabInfos,
+      currentTab?.id
+    );
+
+    if (result.confirmed && result.value) {
+      pane.setActiveElement(result.value.id);
+      this.scheduleRender();
+    }
+  }
+
+  /**
+   * Show tab switcher for current pane via command palette.
+   */
+  private async showTabSwitcherForCurrentPane(): Promise<void> {
+    const focusedPane = this.window.getFocusedPane();
+    if (!focusedPane) return;
+
+    const tabs = focusedPane.getTabsForDropdown();
+    await this.showTabSwitcher(focusedPane.id, tabs);
+  }
+
+  /**
+   * Show tab switcher for all panes via command palette.
+   */
+  private async showTabSwitcherForAllPanes(): Promise<void> {
+    if (!this.tabSwitcherDialog) return;
+
+    const paneContainer = this.window.getPaneContainer();
+    const allTabs: TabInfo[] = [];
+    const focusedPane = this.window.getFocusedPane();
+    const focusedPaneId = focusedPane?.id ?? null;
+
+    // Collect tabs from all panes
+    for (const paneId of paneContainer.getPaneIds()) {
+      const pane = paneContainer.getPane(paneId);
+      if (!pane || pane.getMode() !== 'tabs') continue;
+
+      const elements = pane.getElements();
+      const activeIdx = pane.getActiveElementIndex();
+
+      elements.forEach((element, idx) => {
+        const filePath = element instanceof DocumentEditor ? element.getUri() ?? undefined : undefined;
+        const isModified = element instanceof DocumentEditor && element.isModified();
+
+        allTabs.push({
+          id: element.id,
+          title: element.getTitle(),
+          paneId,
+          isActive: paneId === focusedPaneId && idx === activeIdx,
+          isModified,
+          filePath,
+        });
+      });
+    }
+
+    if (allTabs.length === 0) {
+      this.window.showNotification('No open tabs', 'info');
+      return;
+    }
+
+    // Find current tab for highlight
+    const currentTab = allTabs.find((t) => t.isActive);
+
+    const result = await this.tabSwitcherDialog.showWithItems(
+      {
+        title: 'Switch Tab (All Panes)',
+        placeholder: 'Type to filter tabs...',
+        showSearchInput: true,
+        maxResults: 15,
+      },
+      allTabs,
+      currentTab?.id
+    );
+
+    if (result.confirmed && result.value) {
+      const pane = paneContainer.getPane(result.value.paneId);
+      if (pane) {
+        pane.setActiveElement(result.value.id);
+        // Focus the pane
+        this.window.getFocusManager().focusPane(result.value.paneId);
+        this.scheduleRender();
+      }
+    }
+  }
+
+  /**
+   * Show tab switcher for terminal panel tabs.
+   */
+  private async showTerminalTabSwitcher(
+    tabs: TerminalTabDropdownInfo[],
+    _x: number,
+    _y: number
+  ): Promise<void> {
+    if (!this.tabSwitcherDialog || !this.terminalPanel) return;
+
+    // Convert to TabInfo format
+    const tabInfos: TabInfo[] = tabs.map((tab) => ({
+      id: tab.id,
+      title: tab.title,
+      paneId: 'terminal-panel',
+      isActive: tab.isActive,
+      isModified: false,
+      filePath: undefined,
+    }));
+
+    // Find current tab for highlight
+    const currentTab = tabInfos.find((t) => t.isActive);
+
+    const result = await this.tabSwitcherDialog.showWithItems(
+      {
+        title: 'Switch Terminal',
+        placeholder: 'Type to filter terminals...',
+        showSearchInput: true,
+        maxResults: 15,
+      },
+      tabInfos,
+      currentTab?.id
+    );
+
+    if (result.confirmed && result.value) {
+      this.terminalPanel.setActiveTerminal(result.value.id);
       this.scheduleRender();
     }
   }

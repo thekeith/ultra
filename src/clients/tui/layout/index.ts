@@ -9,4 +9,5 @@ export {
   PaneContainer,
   createPaneContainer,
   type PaneContainerCallbacks,
+  type TabDropdownInfo,
 } from './pane-container.ts';

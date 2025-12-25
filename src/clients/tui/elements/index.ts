@@ -65,6 +65,7 @@ export {
 export {
   TerminalPanel,
   createTerminalPanel,
+  type TerminalTabDropdownInfo,
 } from './terminal-panel.ts';
 
 export {

@@ -12,6 +12,7 @@ import type { ScreenBuffer } from '../rendering/buffer.ts';
 import type { PTYBackend } from '../../../terminal/pty-backend.ts';
 import { createPtyBackend } from '../../../terminal/pty-factory.ts';
 import { debugLog } from '../../../debug.ts';
+import { localSessionService } from '../../../services/session/local.ts';
 
 // ============================================
 // Types
@@ -31,6 +32,15 @@ interface TerminalTab {
 // TerminalPanel Element
 // ============================================
 
+/**
+ * Terminal tab dropdown info for callbacks.
+ */
+export interface TerminalTabDropdownInfo {
+  id: string;
+  title: string;
+  isActive: boolean;
+}
+
 export class TerminalPanel extends BaseElement {
   /** Terminal tabs */
   private tabs: TerminalTab[] = [];
@@ -44,8 +54,27 @@ export class TerminalPanel extends BaseElement {
   /** Next terminal ID counter */
   private nextTerminalId = 1;
 
+  /** Tab scroll offset (number of tabs scrolled from left) */
+  private tabScrollOffset = 0;
+
+  /** Callback for showing tab dropdown menu */
+  private onShowTabDropdown?: (
+    tabs: TerminalTabDropdownInfo[],
+    x: number,
+    y: number
+  ) => void;
+
   constructor(ctx: ElementContext) {
     super('TerminalPanel', 'terminal-panel', 'Terminal', ctx);
+  }
+
+  /**
+   * Set callback for showing tab dropdown menu.
+   */
+  setTabDropdownCallback(
+    callback: (tabs: TerminalTabDropdownInfo[], x: number, y: number) => void
+  ): void {
+    this.onShowTabDropdown = callback;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -215,6 +244,83 @@ export class TerminalPanel extends BaseElement {
     return this.tabs.length;
   }
 
+  /**
+   * Scroll tabs left by configured amount.
+   */
+  scrollTabsLeft(): void {
+    const scrollAmount = localSessionService.getSetting('tabBar.scrollAmount') ?? 1;
+    this.tabScrollOffset = Math.max(0, this.tabScrollOffset - scrollAmount);
+    this.ctx.markDirty();
+  }
+
+  /**
+   * Scroll tabs right by configured amount.
+   */
+  scrollTabsRight(): void {
+    const scrollAmount = localSessionService.getSetting('tabBar.scrollAmount') ?? 1;
+
+    // Calculate max offset so that the last tab is just visible
+    const maxOffset = this.calculateMaxScrollOffset();
+    if (this.tabScrollOffset >= maxOffset) return; // Already at max
+
+    this.tabScrollOffset = Math.min(maxOffset, this.tabScrollOffset + scrollAmount);
+    this.ctx.markDirty();
+  }
+
+  /**
+   * Calculate the maximum scroll offset (so last tab is still visible).
+   */
+  private calculateMaxScrollOffset(): number {
+    if (this.tabs.length === 0) return 0;
+
+    const dropdownWidth = 3;
+    const newTabWidth = 3;
+    const arrowWidth = 3;
+    const availableWidth = this.bounds.width - dropdownWidth - newTabWidth - arrowWidth * 2;
+
+    // Calculate tab widths and find max offset
+    let widthFromEnd = 0;
+    let maxOffset = this.tabs.length - 1;
+
+    for (let i = this.tabs.length - 1; i >= 0; i--) {
+      const tab = this.tabs[i]!;
+      const label = ` ${tab.title} `;
+      const closeBtn = '×';
+      const tabW = label.length + closeBtn.length + 1;
+
+      if (widthFromEnd + tabW <= availableWidth) {
+        widthFromEnd += tabW;
+        maxOffset = i;
+      } else {
+        break;
+      }
+    }
+
+    return Math.max(0, maxOffset);
+  }
+
+  /**
+   * Ensure the active tab is visible (scroll if necessary).
+   */
+  ensureActiveTabVisible(): void {
+    if (this.activeTabIndex < this.tabScrollOffset) {
+      this.tabScrollOffset = this.activeTabIndex;
+    }
+    // We'll adjust the upper bound in render based on visible tabs
+    this.ctx.markDirty();
+  }
+
+  /**
+   * Get tabs for dropdown menu.
+   */
+  getTabsForDropdown(): TerminalTabDropdownInfo[] {
+    return this.tabs.map((tab, index) => ({
+      id: tab.id,
+      title: tab.title,
+      isActive: index === this.activeTabIndex,
+    }));
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Layout
   // ─────────────────────────────────────────────────────────────────────────
@@ -257,14 +363,45 @@ export class TerminalPanel extends BaseElement {
     const tabActiveBg = this.ctx.getThemeColor('tab.activeBackground', '#1e1e1e');
     const tabFg = this.ctx.getThemeColor('tab.inactiveForeground', '#888888');
     const tabActiveFg = this.ctx.getThemeColor('tab.activeForeground', '#ffffff');
-    const borderColor = this.ctx.getThemeColor('panel.border', '#444444');
+    const arrowFg = this.ctx.getThemeColor('tab.inactiveForeground', '#888888');
+    const arrowHoverFg = this.ctx.getThemeColor('tab.activeForeground', '#ffffff');
 
     // Draw tab bar background
     buffer.writeString(x, y, ' '.repeat(width), tabFg, tabBg);
 
-    // Draw tabs
-    let tabX = x;
-    for (let i = 0; i < this.tabs.length; i++) {
+    // Reserve space for controls on the right: dropdown (3) + "+" button (3)
+    // Also potentially left/right arrows (3 each) when tabs overflow
+    const dropdownWidth = 3; // " ▼ "
+    const newTabWidth = 3; // " + "
+    const arrowWidth = 3; // " < " or " > "
+
+    // Calculate available width for tabs
+    let tabAreaStart = x;
+    let tabAreaEnd = x + width - dropdownWidth - newTabWidth;
+
+    // Check if we need scroll arrows
+    const needsScrollArrows = this.tabs.length > 0 && this.tabScrollOffset > 0 || this.checkTabsOverflow(tabAreaEnd - tabAreaStart);
+
+    if (needsScrollArrows) {
+      // Reserve space for left arrow if we're scrolled
+      if (this.tabScrollOffset > 0) {
+        tabAreaStart += arrowWidth;
+      }
+      // Reserve space for right arrow
+      tabAreaEnd -= arrowWidth;
+    }
+
+    // Draw left scroll arrow if needed
+    let leftArrowX = x;
+    if (this.tabScrollOffset > 0) {
+      buffer.writeString(leftArrowX, y, ' < ', arrowHoverFg, tabBg);
+    }
+
+    // Draw tabs in the available area
+    let tabX = tabAreaStart;
+    let lastVisibleTabIndex = -1;
+
+    for (let i = this.tabScrollOffset; i < this.tabs.length; i++) {
       const tab = this.tabs[i]!;
       const isActive = i === this.activeTabIndex;
       const bg = isActive ? tabActiveBg : tabBg;
@@ -275,22 +412,34 @@ export class TerminalPanel extends BaseElement {
       const closeBtn = '×';
       const tabWidth = label.length + closeBtn.length + 1;
 
-      if (tabX + tabWidth > x + width) break; // Don't overflow
+      if (tabX + tabWidth > tabAreaEnd) break; // Don't overflow into control area
 
       buffer.writeString(tabX, y, label, fg, bg);
       buffer.writeString(tabX + label.length, y, closeBtn, '#888888', bg);
       buffer.writeString(tabX + label.length + closeBtn.length, y, ' ', fg, tabBg);
 
       tabX += tabWidth;
+      lastVisibleTabIndex = i;
     }
+
+    // Draw right scroll arrow if there are more tabs
+    const hasMoreTabsRight = lastVisibleTabIndex < this.tabs.length - 1;
+    if (hasMoreTabsRight || this.tabScrollOffset > 0) {
+      const rightArrowX = tabAreaEnd;
+      if (hasMoreTabsRight) {
+        buffer.writeString(rightArrowX, y, ' > ', arrowHoverFg, tabBg);
+      } else {
+        buffer.writeString(rightArrowX, y, '   ', tabFg, tabBg);
+      }
+    }
+
+    // Draw dropdown button (always visible)
+    const dropdownX = x + width - dropdownWidth - newTabWidth;
+    buffer.writeString(dropdownX, y, ' ▼ ', arrowFg, tabBg);
 
     // Draw "+" button for new terminal
-    if (tabX + 3 <= x + width) {
-      buffer.writeString(tabX, y, ' + ', tabFg, tabBg);
-    }
-
-    // Draw border line between tabs and terminal
-    // (optional - terminal background usually provides enough contrast)
+    const newTabX = x + width - newTabWidth;
+    buffer.writeString(newTabX, y, ' + ', tabFg, tabBg);
 
     // Render active session
     const session = this.getActiveSession();
@@ -310,6 +459,19 @@ export class TerminalPanel extends BaseElement {
         buffer.writeString(msgX, msgY, msg, emptyFg, emptyBg);
       }
     }
+  }
+
+  /**
+   * Check if tabs would overflow the given width.
+   */
+  private checkTabsOverflow(availableWidth: number): boolean {
+    let totalWidth = 0;
+    for (const tab of this.tabs) {
+      const label = ` ${tab.title} `;
+      const closeBtn = '×';
+      totalWidth += label.length + closeBtn.length + 1;
+    }
+    return totalWidth > availableWidth;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -337,17 +499,70 @@ export class TerminalPanel extends BaseElement {
   }
 
   override handleMouse(event: MouseEvent): boolean {
-    const { x, y } = this.bounds;
+    const { x, y, width } = this.bounds;
 
     // Check if click is in tab bar
     if (event.type === 'press' && event.y === y) {
+      const dropdownWidth = 3;
+      const newTabWidth = 3;
+      const arrowWidth = 3;
+
+      // Check "+" button (rightmost)
+      const newTabX = x + width - newTabWidth;
+      if (event.x >= newTabX && event.x < newTabX + newTabWidth) {
+        this.createTerminal().catch((err) => {
+          debugLog(`[TerminalPanel] Failed to create terminal: ${err}`);
+        });
+        return true;
+      }
+
+      // Check dropdown button
+      const dropdownX = x + width - dropdownWidth - newTabWidth;
+      if (event.x >= dropdownX && event.x < dropdownX + dropdownWidth) {
+        if (this.onShowTabDropdown) {
+          const tabs = this.getTabsForDropdown();
+          this.onShowTabDropdown(tabs, dropdownX, y + 1);
+        }
+        return true;
+      }
+
+      // Check scroll arrows
+      const needsScrollArrows = this.tabScrollOffset > 0 || this.checkTabsOverflow(width - dropdownWidth - newTabWidth);
+
+      let tabAreaStart = x;
+      let tabAreaEnd = x + width - dropdownWidth - newTabWidth;
+
+      if (needsScrollArrows) {
+        tabAreaEnd -= arrowWidth;
+      }
+
+      // Left arrow
+      if (this.tabScrollOffset > 0 && event.x >= x && event.x < x + arrowWidth) {
+        this.scrollTabsLeft();
+        return true;
+      }
+
+      // Adjust tab area start if left arrow is shown
+      if (this.tabScrollOffset > 0) {
+        tabAreaStart += arrowWidth;
+      }
+
+      // Right arrow
+      const rightArrowX = tabAreaEnd;
+      if (needsScrollArrows && event.x >= rightArrowX && event.x < rightArrowX + arrowWidth) {
+        this.scrollTabsRight();
+        return true;
+      }
+
       // Calculate which tab was clicked
-      let tabX = x;
-      for (let i = 0; i < this.tabs.length; i++) {
+      let tabX = tabAreaStart;
+      for (let i = this.tabScrollOffset; i < this.tabs.length; i++) {
         const tab = this.tabs[i]!;
         const label = ` ${tab.title} `;
         const closeBtn = '×';
         const tabWidth = label.length + closeBtn.length + 1;
+
+        if (tabX + tabWidth > tabAreaEnd) break;
 
         if (event.x >= tabX && event.x < tabX + tabWidth) {
           // Check if close button was clicked
@@ -360,14 +575,6 @@ export class TerminalPanel extends BaseElement {
         }
 
         tabX += tabWidth;
-      }
-
-      // Check if "+" button was clicked
-      if (event.x >= tabX && event.x < tabX + 3) {
-        this.createTerminal().catch((err) => {
-          debugLog(`[TerminalPanel] Failed to create terminal: ${err}`);
-        });
-        return true;
       }
 
       return true;
