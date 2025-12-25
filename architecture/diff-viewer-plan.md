@@ -384,10 +384,10 @@ This requires extending `GitDiffBrowser` to support commit-to-commit diffs (not 
 17. [x] Add keybindings (e to edit, Escape to cancel, Ctrl+S to save)
 18. [x] Implement hunk modification (direct-write mode, stage-modified placeholder)
 
-### Sprint 6: Abstraction (After Validation)
-19. [ ] Extract ViewerItem interface
-20. [ ] Extract BaseViewer from ContentBrowser
-21. [ ] Document patterns for future viewers
+### Sprint 6: Abstraction ✓
+19. [x] Extract ViewerItem interface (ViewerItem, ViewerCallbacks, ViewerState)
+20. [x] Extract BaseViewer from ContentBrowser (simpler alternative for lists/trees)
+21. [x] Document patterns for future viewers (architecture/viewer-patterns.md)
 
 ## File Changes Summary
 

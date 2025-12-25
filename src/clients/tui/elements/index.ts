@@ -11,6 +11,10 @@ export {
 } from './base.ts';
 
 export {
+  BaseViewer,
+} from './base-viewer.ts';
+
+export {
   type ElementCreator,
   registerElement,
   isElementRegistered,
