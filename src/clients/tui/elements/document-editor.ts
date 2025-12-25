@@ -3188,14 +3188,14 @@ export class DocumentEditor extends BaseElement {
 
   /**
    * Update gutter width based on line count.
-   * Gutter layout: [line number][fold indicator][space]
+   * Gutter layout: [lineNum (right-justified in lineNumWidth)][foldIndicator][space]
    */
   private updateGutterWidth(): void {
     const digits = String(this.lines.length).length;
-    // digits + 1 (fold indicator) + 1 (space) = digits + 2
-    // Add 1 more for fold indicator when folding is enabled
+    const lineNumWidth = Math.max(3, digits); // Same calculation as in render()
     const foldWidth = this.foldingEnabled ? 1 : 0;
-    this.gutterWidth = Math.max(4, digits + 1 + foldWidth + 1);
+    // Total: lineNumWidth + foldIndicator (if enabled) + trailing space
+    this.gutterWidth = lineNumWidth + foldWidth + 1;
   }
 
   /**

@@ -1,93 +1,66 @@
 # CODEX Feedback for Ultra 1.0
 
 ## Scope & Approach
-Reviewed the current codebase excluding `src/archived/` as requested. Focus areas: runtime configuration, build pipeline, ECP/services layer, TUI client wiring, tests, and documentation alignment. No automated tests were executed.
+Reviewed the current codebase with emphasis on Claude’s recent additions (AI terminal chat integration, session persistence updates, pane/container work, and test fixes). Focused on settings/configuration flow, session restore, TUI wiring, and remaining TODOs. No automated tests were executed.
+
+## What’s Working Well
+- AI terminal chat plumbing is in place (Claude/Codex/Gemini) with PTY integration and session persistence hooks.
+- Session serialization now covers panes, terminals, and AI chats; restoration logic is reasonably complete.
+- Test suite was updated to match API changes and is reportedly green in the latest Claude commit.
 
 ## High-Impact Issues & Risks
 
-### 1) Typecheck breakage from stale paths in generated defaults
-- **Where**: `src/config/defaults.ts` imports types from `../ui/themes/theme-loader.ts` and `../input/keymap.ts` (paths no longer exist in the new TUI layout).
-- **Why it’s a concern**: `tsc --noEmit` (and editor diagnostics) will fail due to missing modules. This blocks type checking and creates confusion for contributors.
-- **Potential impact**: CI or local typecheck failures; IDE type info is broken for default settings/types.
+### 1) Settings/config drift between TUI config and session settings
+- **Where**: `config/default-settings.jsonc`, `src/config/settings.ts`, `src/services/session/schema.ts`, `src/clients/tui/config/config-manager.ts`.
+- **What**: TUI uses JSONC defaults embedded in `src/config/defaults.ts`, while session settings use `Settings` + `settingsSchema`. Defaults and keys diverge:
+  - `ai.panel.openOnStartup` false (JSONC) vs true (schema + settings).
+  - `terminal.integrated.openOnStartup`/`spawnOnStartup` false (JSONC) vs true (schema + settings).
+  - `workbench.startupEditor` empty (JSONC) vs `~/.ultra/BOOT.md` (schema + settings).
+  - `ai.defaultProvider` and `terminal.integrated.scrollback` exist in JSONC/TUI but not in schema/settings.
+- **Impact**: Different defaults and validation behavior between TUI and session services; some settings silently ignored or never validated.
 - **Next steps**:
-  - Update the type-only imports to the current locations (likely `src/services/session/types.ts` for `Theme` and `KeyBinding`).
-  - Re-run `bun run build` to regenerate defaults once types are corrected.
+  - Consolidate defaults/schema into a single source of truth (prefer the JSONC + generated defaults, or generate schema from it).
+  - Add missing keys (`ai.defaultProvider`, `terminal.integrated.scrollback`) to `EditorSettings` + schema or remove them from JSONC.
+  - Align defaults across JSONC, schema, and `Settings`.
 
-### 2) Dual configuration systems with divergent defaults and paths
+### 2) AI settings are partially ignored
+- **Where**: `src/clients/tui/elements/ai-terminal-chat.ts`, `src/clients/tui/client/tui-client.ts`, `src/services/session/types.ts`.
+- **What**:
+  - `ai.panel.*` settings are defined but not used anywhere in the TUI layout logic.
+  - `aiPanelVisible`/`aiPanelWidth` exist in session UI state but are never serialized/deserialized.
+  - `AITerminalChat` pulls `ai.panel.initialPrompt` from the global `settings` singleton, not from the TUI config manager, so user config in `~/.ultra/settings.jsonc` won’t apply.
+- **Impact**: User-configured AI panel behavior and prompt are ignored; session restore doesn’t capture AI panel UI state.
+- **Next steps**:
+  - Wire `ai.panel.*` into layout logic (panel width, open-on-startup, max width).
+  - Save/restore `aiPanelVisible`/`aiPanelWidth` in session UI state.
+  - Pass config manager settings into `AITerminalChat` instead of the global `settings` singleton.
+
+### 3) AI provider handling is incomplete and failure feedback is weak
+- **Where**: `src/services/session/types.ts`, `src/clients/tui/elements/ai-terminal-chat.ts`.
+- **What**:
+  - `AIProvider` includes `'custom'` but there is no implementation path; it defaults to Claude.
+  - Missing CLI binaries (e.g., `claude`, `codex`, `gemini`) fail silently aside from debug logs.
+- **Impact**: Inconsistent provider behavior and confusing UX when tools aren’t installed.
+- **Next steps**:
+  - Either remove `'custom'` or add a configurable command/args path.
+  - Surface missing-binary errors via notifications.
+
+## Medium-Impact Gaps
+
+### 4) Remaining TODOs in core functionality
 - **Where**:
-  - TUI: `src/clients/tui/config/config-manager.ts` uses `~/.ultra/` and `config/default-settings.jsonc`.
-  - Services/ECP: `src/config/settings.ts` + `src/services/session/schema.ts` uses `~/.config/ultra/` and different defaults.
-- **Why it’s a concern**: two different sources of truth for settings and schema. Keys differ (`tui.sidebar.width` vs `ultra.sidebar.width`, `ai.defaultProvider` vs `ultra.ai.*`) and defaults conflict (`workbench.colorTheme`).
-- **Potential impact**: TUI and ECP clients observe different settings; invalid setting validation; user changes not applied where expected.
-- **Next steps**:
-  - Choose a single configuration root (`~/.ultra` or `~/.config/ultra`) and migrate all loaders to it.
-  - Unify the settings schema with the JSONC defaults; split core vs. TUI-only settings if needed, but keep an explicit mapping.
-  - Align key names (`tui.*` vs `ultra.*`) and update all call sites.
+  - `src/clients/tui/client/lsp-integration.ts` (references picker).
+  - `src/services/document/local.ts` (incremental change tracking for LSP).
+- **Impact**: LSP reference UX is incomplete; document updates may be less efficient.
 
-### 3) Settings schema and defaults are out of sync
-- **Where**: `config/default-settings.jsonc` includes keys not present in `EditorSettings` or `settingsSchema` (e.g., `files.watchFiles`, `tui.*`, `editor.undoHistoryLimit`, `ai.defaultProvider`).
-- **Why it’s a concern**: schema validation can reject or ignore valid user settings; editor behavior can silently diverge from config files.
-- **Potential impact**: user settings not applied; ECP API callers get confusing validation failures.
-- **Next steps**:
-  - Expand `EditorSettings` and `settingsSchema` to cover all defaults used by the TUI.
-  - Add a lint/CI step to detect drift between schema and JSONC defaults.
-
-### 4) Platform-specific build assumptions
-- **Where**: `build.ts` hardcodes `--target=bun-darwin-arm64`, and `pty-loader.ts` fixes permissions under `darwin-${process.arch}`.
-- **Why it’s a concern**: builds on Linux/Windows or Intel macOS will fail or produce incorrect binaries.
-- **Potential impact**: blocked builds for non-Apple ARM; broken terminal support on other platforms.
-- **Next steps**:
-  - Detect `process.platform` and `process.arch` to choose a target and prebuild path.
-  - Document supported build targets (or introduce a build matrix).
-
-## Medium-Impact Issues & Gaps
-
-### 5) Documentation drift vs. current code layout
-- **Where**: `README.md`, `architecture/overview.md`, and `architecture/testing/overview.md`.
-- **Symptoms**:
-  - Old paths referenced (`src/ui`, `src/features/*`) vs. current `src/clients/tui` and `src/services`.
-  - Version mismatch: README shows `v0.8.1`, runtime prints `v1.0.0`, package.json is `0.1.0`.
-  - Testing docs reference `tests/e2e/` which does not exist.
-- **Impact**: onboarding friction; misleading docs and versioning confusion.
-- **Next steps**:
-  - Update docs to match the new directory structure and actual test layout.
-  - Decide on a canonical version source and keep README/runtime/package.json aligned.
-
-### 6) Bun test resolver alias points to a missing directory
-- **Where**: `bunfig.toml` defines `@fixtures/*` → `./tests/fixtures/*`, but there is no `tests/fixtures/`.
-- **Impact**: future tests using `@fixtures` will fail; documentation references a non-existent path.
-- **Next steps**: remove/adjust the alias or create the directory and move relevant fixtures.
-
-## Implementation TODOs That Affect Behavior
-
-### 7) Editor outdent uses a hardcoded tab size
-- **Where**: `src/core/document.ts` uses `const tabSize = 2`.
-- **Impact**: outdent ignores user configuration and behaves incorrectly in projects with different tab sizes.
-- **Next steps**: inject `tabSize` via settings into `Document` or supply it as an operation parameter.
-
-### 8) Keybinding `when` clauses are ignored
-- **Where**: `src/services/session/local.ts` TODO in `resolveKeybinding`.
-- **Impact**: conditional keybindings won’t work; potential command conflicts.
-- **Next steps**: parse and evaluate `when` conditions using current editor state.
-
-### 9) Incremental document change tracking missing
-- **Where**: `src/services/document/local.ts` TODO.
-- **Impact**: LSP updates may be less efficient or incorrect for large files (full content refresh instead of incremental diffs).
-- **Next steps**: implement incremental change tracking and ensure LSP adapters use it.
-
-### 10) LSP references picker not implemented
-- **Where**: `src/clients/tui/client/lsp-integration.ts`.
-- **Impact**: “Find references” UX is incomplete or inconsistent.
-- **Next steps**: add a UI overlay (similar to file picker/searchable dialog) to present references.
-
-## Additional Observations & Insights
-- The new TUI already uses the JSONC-based config defaults (`config/default-settings.jsonc`) and `TUIConfigManager`. The session service still uses the older `Settings`/schema stack. This duplication is the largest architectural divergence and should be resolved early.
-- `docs/api/` appears to be checked in (generated output). If it’s meant to be source-of-truth, ensure it’s regenerated with each release; otherwise consider removing from git and generating in CI.
+### 5) Terminal scrollback setting unused
+- **Where**: `config/default-settings.jsonc`, `src/clients/tui/elements/terminal-session.ts`, `src/clients/tui/elements/ai-terminal-chat.ts`.
+- **What**: `terminal.integrated.scrollback` exists but scrollback is hardcoded to `1000` in terminal elements.
+- **Impact**: Setting has no effect; user expectations won’t match behavior.
 
 ## Recommended Next Steps (Actionable)
-1. **Unify settings**: pick one config root and one schema; update `Settings`, `settingsSchema`, and TUI config manager to share the same definitions.
-2. **Fix type imports in `src/config/defaults.ts`**: point to real type definitions and re-run `bun run build`.
-3. **Resolve doc drift**: update `README.md` and `architecture/*.md` to match actual directories and versions.
-4. **Add config/schema consistency checks**: a simple script or test that verifies JSONC defaults against the schema.
-5. **Make build portable**: detect platform/arch in `build.ts` and PTY install code.
-6. **Close TODOs affecting user behavior**: keybinding `when` clauses, incremental changes, tab size.
+1. **Unify configuration**: reconcile JSONC defaults, schema, and `Settings` into one source of truth and remove/merge duplicate keys.
+2. **Finish AI settings wiring**: use `ai.panel.*` in layout logic, persist UI state, and feed TUI config into `AITerminalChat`.
+3. **Harden AI provider UX**: add error notifications and either implement or drop `'custom'`.
+4. **Close LSP TODOs**: references picker + incremental change tracking.
+5. **Apply scrollback settings**: wire `terminal.integrated.scrollback` into terminal/AI buffer sizing.
