@@ -98,6 +98,21 @@ export {
   type SearchResultBrowserCallbacks,
 } from './search-result-browser.ts';
 
+export {
+  OutlinePanel,
+  createOutlinePanel,
+  type OutlineSymbol,
+  type OutlinePanelState,
+  type OutlinePanelCallbacks,
+} from './outline-panel.ts';
+
+export {
+  parseTypeScriptSymbols,
+  parseMarkdownSymbols,
+  getSymbolParser,
+  hasSymbolParser,
+} from './outline-parsers.ts';
+
 // ============================================
 // Element Registration
 // ============================================
@@ -111,6 +126,7 @@ import { TerminalPanel } from './terminal-panel.ts';
 import { createAITerminalChat } from './ai-terminal-chat.ts';
 import { GitDiffBrowser } from './git-diff-browser.ts';
 import { SearchResultBrowser } from './search-result-browser.ts';
+import { OutlinePanel } from './outline-panel.ts';
 
 /**
  * Register all built-in elements with the factory.
@@ -161,5 +177,13 @@ export function registerBuiltinElements(): void {
 
   registerElement('SearchResultBrowser', (id, title, ctx) => {
     return new SearchResultBrowser(id, title, ctx);
+  });
+
+  registerElement('OutlinePanel', (id, title, ctx, state) => {
+    const panel = new OutlinePanel(id, title, ctx);
+    if (state && typeof state === 'object') {
+      panel.setState(state as import('./outline-panel.ts').OutlinePanelState);
+    }
+    return panel;
   });
 }

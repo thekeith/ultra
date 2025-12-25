@@ -218,6 +218,25 @@ export const settingsSchema: SettingsSchema = {
     },
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Outline Panel Settings
+    // ─────────────────────────────────────────────────────────────────────────
+    'outline.autoFollow': {
+      type: 'boolean',
+      default: true,
+      description: 'Automatically highlight symbol at cursor position',
+    },
+    'outline.collapsedOnStartup': {
+      type: 'boolean',
+      default: true,
+      description: 'Start with outline panel collapsed in sidebar',
+    },
+    'outline.showIcons': {
+      type: 'boolean',
+      default: true,
+      description: 'Show icons for symbol kinds',
+    },
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Ultra Application Settings
     // ─────────────────────────────────────────────────────────────────────────
     'ultra.ai.model': {

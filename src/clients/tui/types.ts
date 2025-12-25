@@ -42,7 +42,8 @@ export type ElementType =
   | 'SearchResultBrowser'
   | 'ContentBrowser'
   | 'ProjectSearch'
-  | 'DiagnosticsView';
+  | 'DiagnosticsView'
+  | 'OutlinePanel';
 
 export interface ElementConfig {
   type: ElementType;

@@ -298,25 +298,25 @@ export class Window {
     if (isMouseEvent(event)) {
       const paneAtPoint = this.paneContainer.findPaneAtPoint(event.x, event.y);
       if (paneAtPoint) {
-        // Focus the pane when clicking anywhere in it (even if empty)
-        if (event.type === 'press' && event.button === 'left') {
-          this.focusPane(paneAtPoint);
-        }
-
-        // First let the pane handle accordion headers
+        // First let the pane handle tab bar / accordion headers (which handle their own focus)
         if (paneAtPoint.handleMouse(event)) {
           return true;
         }
+
         // Then check elements in the pane (visible ones)
         for (const element of paneAtPoint.getElements()) {
           if (element.isVisible() && element.handleMouse(event)) {
+            // Focus the element that handled the click
+            if (event.type === 'press' && event.button === 'left') {
+              this.focusElement(element);
+            }
             return true;
           }
         }
 
-        // If the pane was clicked but nothing handled it, still consider it handled
-        // (e.g., clicking on empty pane content area)
+        // If the pane was clicked but nothing handled it, focus the pane's active element
         if (event.type === 'press' && event.button === 'left') {
+          this.focusPane(paneAtPoint);
           return true;
         }
       }

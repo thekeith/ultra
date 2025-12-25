@@ -14,6 +14,7 @@ import {
   DocumentEditor,
   FileTree,
   GitPanel,
+  OutlinePanel,
   TerminalSession,
   TerminalPanel,
   AITerminalChat,
@@ -21,10 +22,13 @@ import {
   createAITerminalChat,
   createTestContext,
   registerBuiltinElements,
+  getSymbolParser,
   type FileNode,
   type DocumentEditorCallbacks,
   type FileTreeCallbacks,
   type GitPanelCallbacks,
+  type OutlinePanelCallbacks,
+  type OutlineSymbol,
   type TerminalSessionCallbacks,
   type AITerminalChatState,
   type AIProvider,
@@ -75,6 +79,7 @@ import type { PTYBackend } from '../../../terminal/pty-backend.ts';
 
 // LSP
 import { createLSPIntegration, type LSPIntegration } from './lsp-integration.ts';
+import { localLSPService, type LSPDocumentSymbol } from '../../../services/lsp/index.ts';
 
 // ============================================
 // Types
@@ -215,6 +220,9 @@ export class TUIClient {
 
   /** File tree element reference */
   private fileTree: FileTree | null = null;
+
+  /** Outline panel element reference */
+  private outlinePanel: OutlinePanel | null = null;
 
   /** Workspace directory watcher */
   private workspaceWatcher: WatchHandle | null = null;
@@ -516,6 +524,20 @@ export class TUIClient {
       this.configureGitPanel(gitPanel);
     }
 
+    // Add outline panel
+    const outlinePanelId = sidePane.addElement('OutlinePanel', 'Outline');
+    const outlinePanel = sidePane.getElement(outlinePanelId) as OutlinePanel | null;
+    if (outlinePanel) {
+      this.outlinePanel = outlinePanel;
+      this.configureOutlinePanel(outlinePanel);
+
+      // Collapse by default if configured
+      const collapseOnStartup = this.configManager.getWithDefault('outline.collapsedOnStartup', true);
+      if (collapseOnStartup) {
+        sidePane.collapseAccordionSection(outlinePanelId);
+      }
+    }
+
     // Split for main editor area (vertical = side by side)
     const editorPaneId = container.split('vertical', sidePane.id);
     this.editorPaneId = editorPaneId;
@@ -704,6 +726,97 @@ export class TUIClient {
   }
 
   /**
+   * Configure outline panel callbacks.
+   */
+  private configureOutlinePanel(outlinePanel: OutlinePanel): void {
+    // Set auto-follow from config
+    const autoFollow = this.configManager.getWithDefault('outline.autoFollow', true);
+    outlinePanel.setAutoFollow(autoFollow);
+
+    const callbacks: OutlinePanelCallbacks = {
+      onSymbolSelect: async (uri, line, column) => {
+        // Open the file if not already open, then navigate
+        await this.openFile(uri, { focus: true });
+
+        // Find the editor for this file and navigate to position
+        const docInfo = this.openDocuments.get(uri);
+        if (docInfo) {
+          const container = this.window.getPaneContainer();
+          const panes = container.getPanes();
+          for (const pane of panes) {
+            const element = pane.getElement(docInfo.editorId);
+            if (element instanceof DocumentEditor) {
+              // setCursor also ensures the cursor is visible
+              element.setCursor({ line, column });
+              this.window.focusElement(element);
+              break;
+            }
+          }
+        }
+      },
+    };
+    outlinePanel.setCallbacks(callbacks);
+  }
+
+  /**
+   * Update outline panel with symbols for a document.
+   */
+  private async updateOutlineForDocument(uri: string, editor: DocumentEditor): Promise<void> {
+    if (!this.outlinePanel) return;
+
+    // Only update if this is the focused editor
+    const focusedElement = this.window.getFocusedElement();
+    if (focusedElement !== editor) return;
+
+    try {
+      // Try LSP first
+      const symbols = await localLSPService.getDocumentSymbols(uri);
+      if (symbols.length > 0) {
+        const outlineSymbols = this.convertLSPSymbols(symbols as LSPDocumentSymbol[]);
+        this.outlinePanel.setSymbols(outlineSymbols, uri);
+        return;
+      }
+    } catch {
+      // LSP not available or failed, try fallback parser
+    }
+
+    // Fallback: use regex parser
+    const parser = getSymbolParser(uri);
+    if (parser) {
+      const content = editor.getContent();
+      const symbols = parser(content, uri);
+      this.outlinePanel.setSymbols(symbols, uri);
+    } else {
+      // No parser available for this file type
+      this.outlinePanel.clearSymbols();
+    }
+  }
+
+  /**
+   * Convert LSP document symbols to outline symbols.
+   */
+  private convertLSPSymbols(lspSymbols: LSPDocumentSymbol[], parent?: OutlineSymbol): OutlineSymbol[] {
+    return lspSymbols.map((lsp, index) => {
+      const symbol: OutlineSymbol = {
+        id: parent ? `${parent.id}-${index}` : `symbol-${index}`,
+        name: lsp.name,
+        kind: lsp.kind,
+        detail: lsp.detail,
+        startLine: lsp.range.start.line,
+        startColumn: lsp.range.start.character,
+        endLine: lsp.range.end.line,
+        parent,
+      };
+
+      if (lsp.children && lsp.children.length > 0) {
+        symbol.children = this.convertLSPSymbols(lsp.children, symbol);
+      }
+
+      return symbol;
+    });
+  }
+
+  /**
    * Configure document editor callbacks.
    * @param uri File URI, or null for untitled documents
    */
@@ -740,6 +853,12 @@ export class TUIClient {
       onCursorChange: () => {
         // Update cursor position in status bar
         this.updateStatusBarFile(editor);
+
+        // Update outline panel with cursor position for auto-follow
+        if (this.outlinePanel && uri) {
+          const cursor = editor.getCursor();
+          this.outlinePanel.updateCursorPosition(cursor.line, cursor.column);
+        }
       },
       onSave: () => {
         this.saveCurrentDocument();
@@ -754,6 +873,8 @@ export class TUIClient {
         // Check for external file changes when editor receives focus (only for saved files)
         if (uri) {
           this.checkExternalFileChanges(uri, editor);
+          // Update outline panel when switching to this editor
+          this.updateOutlineForDocument(uri, editor);
         }
       },
       onGetDiffHunk: async (bufferLine: number) => {

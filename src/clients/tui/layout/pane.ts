@@ -993,8 +993,9 @@ export class Pane {
           // Close this tab - use async callback if provided
           this.requestElementClose(element);
         } else {
-          // Switch to this tab
+          // Switch to this tab and focus the element
           this.setActiveElement(element.id);
+          this.callbacks.onFocusRequest(element.id);
         }
         return true;
       }
@@ -1027,7 +1028,12 @@ export class Pane {
       // Check if click is on this header
       if (event.y >= y && event.y < y + Pane.HEADER_HEIGHT &&
           event.x >= this.bounds.x && event.x < this.bounds.x + this.bounds.width) {
+        const wasExpanded = this.expandedElementIds.has(element.id);
         this.toggleAccordionSection(element.id);
+        // If we just expanded this section, focus the element
+        if (!wasExpanded) {
+          this.callbacks.onFocusRequest(element.id);
+        }
         return true;
       }
 
@@ -1147,6 +1153,7 @@ export class Pane {
       ContentBrowser: 'Browser',
       ProjectSearch: 'Find',
       DiagnosticsView: 'Problems',
+      OutlinePanel: 'Outline',
     };
     return titles[type] ?? type;
   }

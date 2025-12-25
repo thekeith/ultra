@@ -36,6 +36,10 @@ export interface EditorSettings {
   'tui.sidebar.visible': boolean;
   'tui.terminal.height': number;
   'tabBar.scrollAmount': number;
+  // Outline panel settings
+  'outline.autoFollow': boolean;
+  'outline.collapsedOnStartup': boolean;
+  'outline.showIcons': boolean;
   'ultra.ai.model': string;
   'ultra.ai.apiKey': string;
   'terminal.integrated.shell': string;
@@ -127,6 +131,10 @@ const defaultSettings: EditorSettings = {
   'tui.sidebar.visible': true,
   'tui.terminal.height': 10,
   'tabBar.scrollAmount': 1,
+  // Outline panel settings
+  'outline.autoFollow': true,
+  'outline.collapsedOnStartup': true,
+  'outline.showIcons': true,
   'ultra.ai.model': 'claude-sonnet-4-20250514',
   'ultra.ai.apiKey': '${env:ANTHROPIC_API_KEY}',
   'terminal.integrated.shell': process.env.SHELL || '/bin/zsh',
