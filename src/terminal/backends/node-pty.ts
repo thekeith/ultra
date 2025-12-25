@@ -54,7 +54,10 @@ export class NodePtyBackend implements PTYBackend {
     this._rows = options.rows ?? 24;
     this._cwd = options.cwd ?? process.cwd();
     this.shell = options.shell ?? process.env.SHELL ?? '/bin/zsh';
-    this.args = options.args ?? [];
+    // Start as interactive login shell by default (like Terminal.app, iTerm2)
+    // -i: interactive (sources .zshrc)
+    // -l: login (sources .zprofile/.zlogin)
+    this.args = options.args ?? ['-il'];
     this.env = options.env ?? {};
 
     const scrollback = options.scrollback ?? 1000;
@@ -76,7 +79,13 @@ export class NodePtyBackend implements PTYBackend {
       cols: this._cols,
       rows: this._rows,
       cwd: this._cwd,
-      env: { ...process.env, ...this.env } as Record<string, string>,
+      env: {
+        ...process.env,
+        // Set TERM_PROGRAM so shell prompts know they're in a terminal emulator
+        TERM_PROGRAM: 'ultra',
+        TERM_PROGRAM_VERSION: '0.5.0',
+        ...this.env,
+      } as Record<string, string>,
     }) as IPty;
 
     this._running = true;

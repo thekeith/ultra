@@ -71,6 +71,12 @@ Issues and improvements to address in future sessions.
   - Handling potentially large buffer sizes (compression or truncation)
   - Restoring buffer content when recreating the terminal session
 
+- [ ] **oh-my-zsh terminal compatibility** - The embedded terminal doesn't work correctly with oh-my-zsh. Symptoms: blank prompt, no input echo (though commands execute). The issue is that oh-my-zsh uses zsh's line editor (zle) which relies on terminal escape sequences our ANSI parser doesn't fully support. Starship alone works fine. To fix:
+  - Implement scroll regions (CSI r - DECSTBM)
+  - Add more DEC private modes (bracketed paste 2004, application cursor 1, etc.)
+  - Possibly implement alternate screen buffer (mode 1049)
+  - Test with various zsh frameworks (oh-my-zsh, prezto, zinit)
+
 - [x] **File tree keyboard shortcuts and file operations** - The file tree now has keyboard shortcuts for common file operations:
   - `n` to create new file (inline input for name)
   - `N` (shift+n) to create new folder

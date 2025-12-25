@@ -62,6 +62,9 @@ export class PTY {
       ...process.env as Record<string, string>,
       TERM: 'xterm-256color',
       COLORTERM: 'truecolor',
+      // Set TERM_PROGRAM so shell prompts know they're in a terminal emulator
+      TERM_PROGRAM: 'ultra',
+      TERM_PROGRAM_VERSION: '0.5.0',
       ...options.env
     };
     
@@ -81,7 +84,10 @@ export class PTY {
 
     try {
       // Spawn PTY process using bun-pty
-      this.ptyProcess = spawn(this.shell, [], {
+      // Use -il flags to start as interactive login shell (like Terminal.app, iTerm2)
+      // -i: interactive (sources .zshrc)
+      // -l: login (sources .zprofile/.zlogin)
+      this.ptyProcess = spawn(this.shell, ['-il'], {
         name: 'xterm-256color',
         cols: this._cols,
         rows: this._rows,

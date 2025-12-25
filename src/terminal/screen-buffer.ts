@@ -333,6 +333,67 @@ export class ScreenBuffer {
   }
 
   /**
+   * Insert n blank characters at cursor (ICH - CSI @ )
+   */
+  insertChars(n: number): void {
+    if (this.cursorY < 0 || this.cursorY >= this.rows) return;
+    const row = this.buffer[this.cursorY]!;
+
+    // Shift characters right from cursor position
+    for (let i = 0; i < n; i++) {
+      row.pop(); // Remove last character
+      row.splice(this.cursorX, 0, createEmptyCell()); // Insert blank at cursor
+    }
+  }
+
+  /**
+   * Delete n characters at cursor (DCH - CSI P)
+   */
+  deleteChars(n: number): void {
+    if (this.cursorY < 0 || this.cursorY >= this.rows) return;
+    const row = this.buffer[this.cursorY]!;
+
+    // Remove n characters at cursor, add blanks at end
+    for (let i = 0; i < n && this.cursorX < this.cols; i++) {
+      row.splice(this.cursorX, 1);
+      row.push(createEmptyCell());
+    }
+  }
+
+  /**
+   * Erase n characters at cursor (ECH - CSI X)
+   */
+  eraseChars(n: number): void {
+    if (this.cursorY < 0 || this.cursorY >= this.rows) return;
+
+    for (let i = 0; i < n && this.cursorX + i < this.cols; i++) {
+      this.buffer[this.cursorY]![this.cursorX + i] = createEmptyCell();
+    }
+  }
+
+  /**
+   * Insert n blank lines at cursor (IL - CSI L)
+   */
+  insertLines(n: number): void {
+    for (let i = 0; i < n; i++) {
+      // Remove bottom line, insert blank line at cursor row
+      this.buffer.pop();
+      this.buffer.splice(this.cursorY, 0, this.createEmptyRow());
+    }
+  }
+
+  /**
+   * Delete n lines at cursor (DL - CSI M)
+   */
+  deleteLines(n: number): void {
+    for (let i = 0; i < n; i++) {
+      // Remove line at cursor, add blank line at bottom
+      this.buffer.splice(this.cursorY, 1);
+      this.buffer.push(this.createEmptyRow());
+    }
+  }
+
+  /**
    * Set graphics rendition (colors and attributes)
    */
   setGraphicsRendition(params: number[]): void {
@@ -676,6 +737,29 @@ export class AnsiParser {
         break;
       case 'r': // Set scroll region
         // Ignore for now
+        break;
+      case '@': // ICH - Insert Characters
+        this.screen.insertChars(params[0] || 1);
+        break;
+      case 'P': // DCH - Delete Characters
+        this.screen.deleteChars(params[0] || 1);
+        break;
+      case 'X': // ECH - Erase Characters
+        this.screen.eraseChars(params[0] || 1);
+        break;
+      case 'L': // IL - Insert Lines
+        this.screen.insertLines(params[0] || 1);
+        break;
+      case 'M': // DL - Delete Lines
+        this.screen.deleteLines(params[0] || 1);
+        break;
+      case 'E': // CNL - Cursor Next Line
+        this.screen.cursorDown(params[0] || 1);
+        this.screen.carriageReturn();
+        break;
+      case 'F': // CPL - Cursor Previous Line
+        this.screen.cursorUp(params[0] || 1);
+        this.screen.carriageReturn();
         break;
       default:
         // Unknown CSI command - ignore

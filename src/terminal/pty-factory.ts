@@ -9,6 +9,8 @@
  * 2. In development: node-pty or bun-pty directly
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
 import type { PTYBackend, PTYBackendOptions } from './pty-backend.ts';
 import { debugLog } from '../debug.ts';
 import { isBundledBinary, getBridgePath, isPtyInstalled } from './pty-loader.ts';
@@ -16,6 +18,35 @@ import { isBundledBinary, getBridgePath, isPtyInstalled } from './pty-loader.ts'
 // Backend availability flags
 let nodePtyAvailable: boolean | null = null;
 let bunPtyAvailable: boolean | null = null;
+
+/**
+ * Fix spawn-helper permissions in development mode.
+ * Bun doesn't set executable permissions on binaries when installing packages,
+ * which causes posix_spawnp to fail when node-pty tries to spawn a shell.
+ */
+function fixSpawnHelperPermissions(): void {
+  try {
+    // Find node-pty in node_modules
+    const nodePtyPath = path.join(process.cwd(), 'node_modules', 'node-pty');
+    const spawnHelperPath = path.join(
+      nodePtyPath,
+      'prebuilds',
+      `darwin-${process.arch}`,
+      'spawn-helper'
+    );
+
+    if (fs.existsSync(spawnHelperPath)) {
+      const stats = fs.statSync(spawnHelperPath);
+      // Check if executable bit is missing (mode & 0o111 === 0 means no execute perms)
+      if ((stats.mode & 0o111) === 0) {
+        fs.chmodSync(spawnHelperPath, 0o755);
+        debugLog('[PTYFactory] Fixed spawn-helper permissions');
+      }
+    }
+  } catch (error) {
+    debugLog(`[PTYFactory] Failed to fix spawn-helper permissions: ${error}`);
+  }
+}
 
 /**
  * Check if node-pty is available (development mode only).
@@ -26,6 +57,8 @@ async function checkNodePty(): Promise<boolean> {
   try {
     // Dynamic import to avoid bundling issues
     await import('node-pty');
+    // Fix spawn-helper permissions if needed (Bun doesn't set them correctly)
+    fixSpawnHelperPermissions();
     nodePtyAvailable = true;
     debugLog('[PTYFactory] node-pty is available');
   } catch {
