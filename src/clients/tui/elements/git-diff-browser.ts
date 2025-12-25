@@ -10,7 +10,8 @@ import type { ElementContext } from './base.ts';
 import type { KeyEvent } from '../types.ts';
 import type { ScreenBuffer } from '../rendering/buffer.ts';
 import type { ArtifactNode, ArtifactAction, ContentBrowserCallbacks, SummaryItem } from '../artifacts/types.ts';
-import type { GitDiffHunk, DiffLine } from '../../../services/git/types.ts';
+import type { GitDiffHunk, DiffLine, GitChangeType } from '../../../services/git/types.ts';
+import { TIMEOUTS } from '../../../constants.ts';
 import {
   type GitDiffArtifact,
   type GitDiffFileNode,
@@ -62,6 +63,15 @@ export class GitDiffBrowser extends ContentBrowser<GitDiffArtifact> {
   /** Diff view mode (unified or side-by-side) */
   private diffViewMode: DiffViewMode = 'unified';
 
+  /** Whether auto-refresh is enabled */
+  private autoRefresh = true;
+
+  /** Debounce timer for refresh */
+  private refreshDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Whether this is a historical diff (commit diff vs working tree) */
+  private isHistoricalDiff = false;
+
   /** Git-specific callbacks */
   private gitCallbacks: GitDiffBrowserCallbacks;
 
@@ -75,6 +85,9 @@ export class GitDiffBrowser extends ContentBrowser<GitDiffArtifact> {
     this.gitCallbacks = callbacks;
     this.browserTitle = title;
     this.hintBarHeight = 2;
+
+    // Read auto-refresh setting
+    this.autoRefresh = this.ctx.getSetting('tui.diffViewer.autoRefresh', true);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -127,6 +140,77 @@ export class GitDiffBrowser extends ContentBrowser<GitDiffArtifact> {
   setGitCallbacks(callbacks: GitDiffBrowserCallbacks): void {
     this.gitCallbacks = { ...this.gitCallbacks, ...callbacks };
     this.setCallbacks(callbacks);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Auto-Refresh
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Set whether this is a historical (commit) diff.
+   * Historical diffs don't auto-refresh since commits are immutable.
+   */
+  setHistoricalDiff(isHistorical: boolean): void {
+    this.isHistoricalDiff = isHistorical;
+  }
+
+  /**
+   * Get whether this is a historical diff.
+   */
+  isHistorical(): boolean {
+    return this.isHistoricalDiff;
+  }
+
+  /**
+   * Set whether auto-refresh is enabled.
+   */
+  setAutoRefresh(enabled: boolean): void {
+    this.autoRefresh = enabled;
+  }
+
+  /**
+   * Get whether auto-refresh is enabled.
+   */
+  isAutoRefreshEnabled(): boolean {
+    return this.autoRefresh && !this.isHistoricalDiff;
+  }
+
+  /**
+   * Notify that a git change occurred.
+   * If auto-refresh is enabled, schedules a debounced refresh.
+   * @param changeType The type of git change that occurred
+   */
+  notifyGitChange(changeType: GitChangeType): void {
+    // Only refresh for status changes on non-historical diffs
+    if (!this.isAutoRefreshEnabled()) {
+      return;
+    }
+
+    // Only respond to status changes (file modifications)
+    if (changeType !== 'status') {
+      return;
+    }
+
+    // Debounce the refresh
+    if (this.refreshDebounceTimer) {
+      clearTimeout(this.refreshDebounceTimer);
+    }
+
+    this.refreshDebounceTimer = setTimeout(() => {
+      this.refreshDebounceTimer = null;
+      this.callbacks.onRefresh?.();
+    }, TIMEOUTS.FILE_WATCH_DEBOUNCE);
+  }
+
+  /**
+   * Clean up timers when disposing.
+   */
+  override dispose(): void {
+    if (this.refreshDebounceTimer) {
+      clearTimeout(this.refreshDebounceTimer);
+      this.refreshDebounceTimer = null;
+    }
+    super.dispose();
   }
 
   // ─────────────────────────────────────────────────────────────────────────

@@ -239,6 +239,9 @@ export class TUIClient {
   /** Debounce timer for workspace refresh */
   private workspaceRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
+  /** Unsubscribe function for git change events */
+  private gitChangeUnsubscribe: (() => void) | null = null;
+
   constructor(options: TUIClientOptions = {}) {
     this.workingDirectory = options.workingDirectory ?? process.cwd();
     this.debug = options.debug ?? false;
@@ -461,6 +464,9 @@ export class TUIClient {
     // Stop workspace watcher
     this.stopWorkspaceWatcher();
 
+    // Stop git change listener
+    this.stopGitChangeListener();
+
     // Stop input handler
     this.inputHandler.stop();
 
@@ -590,6 +596,9 @@ export class TUIClient {
     if (gitPanel) {
       await this.loadGitStatus(gitPanel);
     }
+
+    // Start listening for git changes to auto-refresh diff browsers
+    this.startGitChangeListener();
 
     // Set initial focus to the file tree in sidebar
     if (fileTree) {
@@ -1036,6 +1045,7 @@ export class TUIClient {
       if (diffBrowser) {
         // Configure the diff browser
         diffBrowser.setBrowserSubtitle(`Commit ${shortHash}`);
+        diffBrowser.setHistoricalDiff(true); // Commit diffs don't auto-refresh
         diffBrowser.setArtifacts(artifacts);
 
         // Set up callbacks for opening files
@@ -1924,6 +1934,46 @@ export class TUIClient {
         await this.fileTree.refresh();
       }
     }, 300); // 300ms debounce
+  }
+
+  /**
+   * Start listening for git change events to auto-refresh diff browsers.
+   */
+  private startGitChangeListener(): void {
+    this.stopGitChangeListener();
+
+    this.gitChangeUnsubscribe = gitCliService.onChange((event) => {
+      this.log(`Git change event: ${event.type}`);
+      this.notifyDiffBrowsersGitChange(event.type);
+    });
+
+    this.log('Started git change listener');
+  }
+
+  /**
+   * Stop listening for git change events.
+   */
+  private stopGitChangeListener(): void {
+    if (this.gitChangeUnsubscribe) {
+      this.gitChangeUnsubscribe();
+      this.gitChangeUnsubscribe = null;
+    }
+  }
+
+  /**
+   * Notify all active GitDiffBrowsers about a git change.
+   */
+  private notifyDiffBrowsersGitChange(changeType: import('../../../services/git/types.ts').GitChangeType): void {
+    const container = this.window.getPaneContainer();
+    const panes = container.getPanes();
+
+    for (const pane of panes) {
+      for (const element of pane.getElements()) {
+        if (element instanceof GitDiffBrowser) {
+          element.notifyGitChange(changeType);
+        }
+      }
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
