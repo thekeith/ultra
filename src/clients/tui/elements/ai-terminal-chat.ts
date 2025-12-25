@@ -160,6 +160,17 @@ export abstract class AITerminalChat extends BaseElement {
   abstract getProviderName(): string;
 
   /**
+   * Whether this provider uses ink (React-based TUI) to manage its own cursor.
+   * Ink-based apps hide the terminal cursor and draw their own caret as styled
+   * characters. When true, we skip drawing our cursor overlay to avoid conflicts.
+   * @returns true if the provider manages its own cursor, false to use our overlay
+   */
+  protected usesInkCursor(): boolean {
+    // Default: assume provider doesn't use ink, so we draw our cursor overlay
+    return false;
+  }
+
+  /**
    * Called before starting interactive session.
    * Subclasses can override to capture session ID or perform setup.
    * @returns Promise that resolves when ready to start interactive session
@@ -389,10 +400,10 @@ export abstract class AITerminalChat extends BaseElement {
         }
       }
 
-      // Draw cursor at PTY cursor position for all providers.
-      // Ink-based tools (Claude/Gemini) position the cursor at the input location
-      // when the user is typing. We just need to render it there.
-      if (this.focused && viewOffset === 0 &&
+      // Draw cursor overlay only for providers that don't manage their own cursor.
+      // Ink-based apps (Claude/Gemini) hide the terminal cursor and draw their own
+      // caret as styled characters - we skip our overlay to avoid conflicts.
+      if (!this.usesInkCursor() && this.focused && viewOffset === 0 &&
           cursor.y < height && cursor.x < contentWidth) {
         const cursorCell = buffer.get(x + cursor.x, y + cursor.y);
         buffer.set(x + cursor.x, y + cursor.y, {
@@ -609,6 +620,11 @@ export class ClaudeTerminalChat extends AITerminalChat {
     return 'Claude';
   }
 
+  protected override usesInkCursor(): boolean {
+    // Claude Code uses ink for its TUI and manages its own cursor
+    return true;
+  }
+
   /**
    * Before starting, capture session ID if we don't have one.
    * Claude outputs session ID in JSON mode that we can capture.
@@ -818,6 +834,11 @@ export class GeminiTerminalChat extends AITerminalChat {
 
   getProviderName(): string {
     return 'Gemini';
+  }
+
+  protected override usesInkCursor(): boolean {
+    // Gemini CLI uses ink for its TUI and manages its own cursor
+    return true;
   }
 }
 

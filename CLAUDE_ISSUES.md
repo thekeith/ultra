@@ -39,6 +39,10 @@ Both Claude Code and Gemini CLI use **ink** (React-based TUI framework):
 
 Ink manages its own rendering cycle and cursor positioning. It hides the terminal cursor (DECTCEM off) and draws its own cursor using styled characters.
 
+## Status: BACKLOG
+
+This issue is deferred for now. Cursor works correctly for Codex; Claude/Gemini have their own cursor rendering via ink that we cannot easily intercept.
+
 ## What We Tried
 
 1. **Idle detection** - Wait 50ms after last PTY data before showing cursor
@@ -56,6 +60,10 @@ Ink manages its own rendering cycle and cursor positioning. It hides the termina
 4. **Using PTY cursor position directly** - Just render at `cursor.x, cursor.y`
    - Result: Cursor at bottom of buffer
    - Problem: PTY cursor position doesn't represent input location
+
+5. **Skip cursor overlay for ink providers (`usesInkCursor()`)** - Don't draw our cursor overlay for Claude/Gemini, let ink's own cursor be visible
+   - Result: Still doesn't work
+   - Problem: Ink's cursor rendering may not be visible through our terminal emulation layer, or there's an issue with how we're rendering ink's styled cursor characters
 
 ## Root Cause Analysis
 
@@ -86,12 +94,12 @@ The terminal cursor position we track is an artifact of ink's rendering, not the
 
 ## Code References
 
-Current cursor rendering in `ai-terminal-chat.ts`:
+Current cursor rendering in `ai-terminal-chat.ts` (line ~403):
 ```typescript
-// Draw cursor at PTY cursor position for all providers.
-// Ink-based tools (Claude/Gemini) position the cursor at the input location
-// when the user is typing. We just need to render it there.
-if (this.focused && viewOffset === 0 &&
+// Draw cursor overlay only for providers that don't manage their own cursor.
+// Ink-based apps (Claude/Gemini) hide the terminal cursor and draw their own
+// caret as styled characters - we skip our overlay to avoid conflicts.
+if (!this.usesInkCursor() && this.focused && viewOffset === 0 &&
     cursor.y < height && cursor.x < contentWidth) {
   const cursorCell = buffer.get(x + cursor.x, y + cursor.y);
   buffer.set(x + cursor.x, y + cursor.y, {
@@ -102,9 +110,26 @@ if (this.focused && viewOffset === 0 &&
 }
 ```
 
+Provider overrides:
+- `ClaudeTerminalChat.usesInkCursor()` returns `true` (line ~623)
+- `GeminiTerminalChat.usesInkCursor()` returns `true` (line ~839)
+- `CodexTerminalChat` uses default `false` - cursor overlay shown
+
 ## Why Codex Works
 
 Codex likely doesn't use ink or uses a simpler terminal interface that:
 - Keeps the terminal cursor at the input position
 - Doesn't hide the cursor (or shows it when waiting for input)
 - Uses standard readline-style input handling
+
+## Future Investigation Ideas
+
+1. **Inspect ink's actual cursor character** - Run Claude/Gemini in a real terminal, capture the output, and identify exactly what character/styling ink uses for its cursor (likely inverse space or block char)
+
+2. **Check if we're stripping cursor styling** - Our ANSI parser might not be preserving the SGR attributes that make ink's cursor visible (inverse video, specific colors)
+
+3. **Terminal emulator comparison** - Test Claude/Gemini in iTerm2, Alacritty, etc. and compare their terminal capabilities to what we support
+
+4. **Ink source code analysis** - Look at ink's cursor rendering to understand exactly what escape sequences it emits
+
+5. **Alternative approach** - Instead of trying to show a cursor, consider if the UX is acceptable without one for Claude/Gemini (users type blind but see characters appear)

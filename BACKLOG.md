@@ -88,11 +88,17 @@ Issues and improvements to address in future sessions.
 
 - [x] **Terminal and editor scroll-up boundary jitter** - Mostly fixed by only triggering re-renders when scroll position actually changes. Previously, scroll events at boundaries would still call `markDirty()` even when scroll position was clamped and unchanged, causing unnecessary re-renders. Note: Very fast touchpad scrolling at the top boundary may still cause minor jitter - this appears to be related to terminal emulator behavior with rapid scroll events rather than application rendering.
 
-- [ ] **AI terminal chat cursor position incorrect** - The cursor highlight in AI terminal chats (Claude Code, Codex) appears at the wrong position (often at the bottom of the buffer where status messages are written). The issue is that TUI applications like Claude Code use cursor positioning to render their UI, and the final PTY cursor position may not reflect the actual input location. Current implementation tracks DECTCEM cursor visibility (`CSI ?25h/l`) but this doesn't fully solve the problem. Possible approaches:
-  - Let the TUI app render its own cursor character and don't overlay ours
-  - Parse application-specific cursor position hints
-  - Track cursor save/restore sequences more carefully
-  - Research how other terminal emulators handle embedded TUI applications
+- [ ] **AI terminal chat cursor position incorrect for Claude/Gemini** - The cursor is not visible for Claude Code and Gemini CLI in AITerminalChat. Codex works correctly. Both Claude and Gemini use **ink** (React-based TUI framework) which hides the terminal cursor (DECTCEM off) and draws its own cursor as styled characters. Multiple approaches were tried without success. **See [CLAUDE_ISSUES.md](./CLAUDE_ISSUES.md) for full details.** Summary of attempts:
+  - Idle detection (50ms wait) - cursor flickered at wrong position
+  - DECTCEM gating - cursor never shown (ink always hides it)
+  - End-of-content detection - wrong position
+  - PTY cursor position directly - cursor at bottom of buffer
+  - Skip cursor overlay via `usesInkCursor()` hook - ink's cursor still not visible
+
+  Possible root causes to investigate:
+  - Our ANSI parser may strip SGR attributes that make ink's cursor visible
+  - Ink's cursor character may need specific terminal capabilities we don't support
+  - May need to inspect ink's actual escape sequences in a real terminal
 
 - [ ] **Hover on mouse position** - Add automatic hover tooltip when mouse hovers over a symbol for a configurable duration. Requires:
   - Mouse position tracking in DocumentEditor
