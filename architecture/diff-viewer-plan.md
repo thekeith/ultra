@@ -366,10 +366,11 @@ This requires extending `GitDiffBrowser` to support commit-to-commit diffs (not 
 6. [x] Add 'v' keybinding to toggle view mode
 7. [x] Synced scrolling between panels (inherent in single-list design)
 
-### Sprint 3: Auto-Refresh
-8. [ ] Add file watcher for git index changes
-9. [ ] Add `autoRefresh` setting
-10. [ ] Implement refresh debouncing
+### Sprint 3: Auto-Refresh ✓
+8. [x] Subscribe to gitCliService.onChange() for git change events
+9. [x] Add autoRefresh property and read from settings
+10. [x] Implement refresh debouncing (100ms via TIMEOUTS.FILE_WATCH_DEBOUNCE)
+11. [x] Add isHistoricalDiff flag to skip auto-refresh for commit diffs
 
 ### Sprint 4: LSP Diagnostics
 11. [ ] Add diagnostics provider interface
