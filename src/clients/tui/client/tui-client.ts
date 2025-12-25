@@ -275,16 +275,17 @@ export class TUIClient {
       onElementCloseRequest: (elementId, element) => this.handleElementCloseRequest(elementId, element),
       onFocusChange: (_prevElemId, _nextElemId, _prevPaneId, nextPaneId) => {
         // Track last focused editor pane (for opening files from sidebar)
-        if (nextPaneId) {
-          const pane = this.window.getPaneContainer().getPane(nextPaneId);
-          if (pane && pane.getMode() === 'tabs') {
-            this.lastFocusedEditorPaneId = nextPaneId;
-          }
+        const nextPane = nextPaneId ? this.window.getPaneContainer().getPane(nextPaneId) : null;
+        if (nextPane && nextPane.getMode() === 'tabs') {
+          this.lastFocusedEditorPaneId = nextPaneId;
         }
 
         // Look up the focused element and update status bar
         const focusedElement = this.window.getFocusedElement();
-        this.handleFocusChange(focusedElement);
+        // Only update sidebar panels when focus changes in a tabs pane (editor area)
+        // Don't update when clicking on sidebar panels themselves
+        const isTabsPane = nextPane !== null && nextPane.getMode() === 'tabs';
+        this.handleFocusChange(focusedElement, isTabsPane);
       },
       onShowTabDropdown: (paneId, tabs, x, y) => {
         this.showTabSwitcher(paneId, tabs);
@@ -3385,28 +3386,34 @@ export class TUIClient {
   }
 
   /**
-   * Handle focus change to update status bar.
+   * Handle focus change to update status bar and sidebar panels.
+   * @param element The newly focused element
+   * @param updateSidebarPanels Only update sidebar panels when focusing in editor panes (tabs mode)
    */
-  private handleFocusChange(element: BaseElement | null): void {
+  private handleFocusChange(element: BaseElement | null, updateSidebarPanels = false): void {
     if (element instanceof DocumentEditor) {
       this.updateStatusBarFile(element);
 
-      // Update sidebar panels for the focused editor
-      const uri = this.findUriForEditor(element);
-      if (uri) {
-        this.updateOutlineForDocument(uri, element);
-        this.loadTimelineForEditor(element);
+      // Update sidebar panels only when switching tabs in editor pane
+      if (updateSidebarPanels) {
+        const uri = this.findUriForEditor(element);
+        if (uri) {
+          this.updateOutlineForDocument(uri, element);
+          this.loadTimelineForEditor(element);
+        }
       }
     } else {
-      // Not a document editor - clear file-related items
+      // Not a document editor - clear file-related status bar items
       this.clearStatusBarFile();
 
-      // Clear sidebar panels
-      if (this.outlinePanel) {
-        this.outlinePanel.clearSymbols();
-      }
-      if (this.gitTimelinePanel) {
-        this.gitTimelinePanel.clearCommits();
+      // Clear sidebar panels only when switching to non-editor in editor pane
+      if (updateSidebarPanels) {
+        if (this.outlinePanel) {
+          this.outlinePanel.clearSymbols();
+        }
+        if (this.gitTimelinePanel) {
+          this.gitTimelinePanel.clearCommits();
+        }
       }
     }
   }
