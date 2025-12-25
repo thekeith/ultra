@@ -53,6 +53,10 @@ function createTestCallbacks(): PaneCallbacks & {
       callbacks.focusRequests.push(id);
     },
     getThemeColor: (_key: string, fallback = '#ffffff') => fallback,
+    getSetting: <T>(_key: string, defaultValue: T): T => defaultValue,
+    isPaneFocused: () => true,
+    getBackgroundForFocus: (_type: string, _isFocused: boolean) => '#1e1e1e',
+    getForegroundForFocus: (_type: string, _isFocused: boolean) => '#ffffff',
   };
   return callbacks;
 }

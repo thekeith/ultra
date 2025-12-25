@@ -46,6 +46,10 @@ function createTestCallbacks(): PaneContainerCallbacks & { dirtyCount: number } 
       callbacks.dirtyCount++;
     },
     getThemeColor: (_key: string, fallback = '#ffffff') => fallback,
+    getSetting: <T>(_key: string, defaultValue: T): T => defaultValue,
+    getBackgroundForFocus: (_type: string, _isFocused: boolean) => '#1e1e1e',
+    getForegroundForFocus: (_type: string, _isFocused: boolean) => '#ffffff',
+    getSelectionBackground: (_type: string, _isFocused: boolean) => '#264f78',
   };
   return callbacks;
 }

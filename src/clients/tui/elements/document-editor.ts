@@ -111,7 +111,10 @@ interface SearchMatchInternal {
 export interface DocumentEditorState {
   uri?: string;
   scrollTop: number;
-  cursors: Cursor[];
+  /** Primary cursor position (for simplified API) */
+  cursor?: CursorPosition;
+  /** All cursors (for multi-cursor support) */
+  cursors?: Cursor[];
   foldedRegions?: number[];
   /** Serialized undo/redo history for session persistence */
   undoHistory?: SerializedUndoState;
@@ -1277,11 +1280,41 @@ export class DocumentEditor extends BaseElement {
   }
 
   /**
-   * Get primary selection (for backward compatibility).
+   * Get primary selection as start/end range.
+   * Returns null if no selection.
    */
-  getSelection(): Selection | null {
+  getSelection(): { start: CursorPosition; end: CursorPosition } | null {
     const cursor = this.getPrimaryCursor();
-    return cursor.selection ? { ...cursor.selection } : null;
+    if (!cursor.selection) return null;
+
+    // Convert anchor/head to ordered start/end
+    const { start, end } = this.getSelectionRange(cursor.selection);
+    return {
+      start: this.clonePosition(start),
+      end: this.clonePosition(end),
+    };
+  }
+
+  /**
+   * Set selection on primary cursor.
+   */
+  setSelection(range: { start: CursorPosition; end: CursorPosition }): void {
+    const cursor = this.getPrimaryCursor();
+    cursor.selection = {
+      anchor: this.clonePosition(range.start),
+      head: this.clonePosition(range.end),
+    };
+    cursor.position = this.clonePosition(range.end);
+    this.ctx.markDirty();
+  }
+
+  /**
+   * Clear selection on primary cursor.
+   */
+  clearSelection(): void {
+    const cursor = this.getPrimaryCursor();
+    cursor.selection = null;
+    this.ctx.markDirty();
   }
 
   /**
@@ -3422,6 +3455,12 @@ export class DocumentEditor extends BaseElement {
       return true;
     }
 
+    // Select All (Ctrl+A)
+    if (event.ctrl && event.key === 'a') {
+      this.selectAll();
+      return true;
+    }
+
     // Regular character input
     if (event.key.length === 1 && !event.ctrl && !event.alt && !event.meta) {
       this.insertText(event.key);
@@ -4198,9 +4237,11 @@ export class DocumentEditor extends BaseElement {
   // ─────────────────────────────────────────────────────────────────────────
 
   override getState(): DocumentEditorState {
+    const primaryCursor = this.getPrimaryCursor();
     return {
       uri: this.uri ?? undefined,
       scrollTop: this.scrollTop,
+      cursor: { line: primaryCursor.position.line, column: primaryCursor.position.column },
       cursors: this.cursors.map((c) => this.cloneCursor(c)),
       foldedRegions: this.foldManager.getFoldedLines(),
       undoHistory: this.undoManager.serialize(),
@@ -4212,7 +4253,11 @@ export class DocumentEditor extends BaseElement {
     if (s.scrollTop !== undefined) {
       this.scrollTop = s.scrollTop;
     }
-    if (s.cursors && s.cursors.length > 0) {
+    // Handle simplified cursor property (takes precedence)
+    if (s.cursor) {
+      this.setCursor(s.cursor);
+    } else if (s.cursors && s.cursors.length > 0) {
+      // Handle full cursors array
       this.cursors = s.cursors.map((c) => this.cloneCursor(c));
       this.primaryCursorIndex = 0;
     }

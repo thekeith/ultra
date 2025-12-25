@@ -411,7 +411,7 @@ describe('GitPanel', () => {
       expect(node?.section).toBe('unstaged');
     });
 
-    test('Space stages/unstages file', () => {
+    test('u key unstages file', () => {
       let unstagedPath: string | null = null;
       const panelWithCallback = new GitPanel('git2', 'Source Control', ctx, {
         onUnstage: (path) => {
@@ -422,7 +422,7 @@ describe('GitPanel', () => {
       panelWithCallback.setGitState(createTestState());
 
       panelWithCallback.moveDown();
-      panelWithCallback.handleKey({ key: ' ', ctrl: false, alt: false, shift: false, meta: false });
+      panelWithCallback.handleKey({ key: 'u', ctrl: false, alt: false, shift: false, meta: false });
 
       expect(unstagedPath).toBe('src/index.ts');
     });
@@ -447,7 +447,7 @@ describe('GitPanel', () => {
       expect(refreshCalled).toBe(true);
     });
 
-    test('Ctrl+C commits', () => {
+    test('c key commits', () => {
       let commitCalled = false;
       const panelWithCallback = new GitPanel('git2', 'Source Control', ctx, {
         onCommit: () => {
@@ -455,7 +455,7 @@ describe('GitPanel', () => {
         },
       });
 
-      panelWithCallback.handleKey({ key: 'c', ctrl: true, alt: false, shift: false, meta: false });
+      panelWithCallback.handleKey({ key: 'c', ctrl: false, alt: false, shift: false, meta: false });
       expect(commitCalled).toBe(true);
     });
   });

@@ -258,10 +258,11 @@ describe('SearchReplaceDialog', () => {
       expect(handled).toBe(true);
     });
 
-    test('Tab does nothing without replace mode', () => {
+    test('Tab cycles through elements in search mode', () => {
       dialog.show(false);
+      // Tab should cycle through: search, caseSensitive, wholeWord, useRegex, prevBtn, nextBtn
       const handled = dialog.handleInput({ key: 'Tab', ctrl: false, alt: false, shift: false, meta: false });
-      expect(handled).toBe(false);
+      expect(handled).toBe(true);
     });
 
     test('Alt+C toggles case sensitive', () => {

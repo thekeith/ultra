@@ -141,7 +141,7 @@ describe('Session Service ECP Integration', () => {
       expect(result.settings).toBeDefined();
       expect(result.settings['editor.fontSize']).toBe(14);
       expect(result.settings['editor.tabSize']).toBe(2);
-      expect(result.settings['workbench.colorTheme']).toBe('One Dark');
+      expect(result.settings['workbench.colorTheme']).toBe('catppuccin-frappe');
     });
   });
 
@@ -286,6 +286,9 @@ describe('Session Service ECP Integration', () => {
 
   describe('session/current', () => {
     test('returns current session state', async () => {
+      // Save a session first to ensure there's a current session
+      await client.request('session/save', {});
+
       const result = await client.request<{ workspaceRoot: string; documents: unknown[] }>('session/current', {});
 
       expect(result).toBeDefined();

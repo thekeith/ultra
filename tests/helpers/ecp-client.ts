@@ -5,8 +5,11 @@
  * services. Collects notifications for assertions.
  */
 
+import { tmpdir } from 'os';
+import { mkdir } from 'fs/promises';
 import { ECPServer, type ECPServerOptions } from '../../src/ecp/server.ts';
 import type { ECPResponse, ECPNotification } from '../../src/ecp/types.ts';
+import type { LocalSessionService } from '../../src/services/session/local.ts';
 
 /**
  * Options for creating a TestECPClient.
@@ -70,9 +73,24 @@ export class TestECPClient {
 
   /**
    * Initialize async services (call before using session methods).
+   * Sets up temp directories for session persistence during tests.
    */
   async initSession(): Promise<void> {
     await this.server.initialize();
+
+    // Configure temp session paths for testing
+    const testSessionDir = `${tmpdir()}/ultra-test-sessions-${Date.now()}`;
+    await mkdir(testSessionDir, { recursive: true });
+    await mkdir(`${testSessionDir}/workspace`, { recursive: true });
+    await mkdir(`${testSessionDir}/named`, { recursive: true });
+
+    const sessionService = this.server.getService<LocalSessionService>('session');
+    sessionService.setSessionPaths({
+      sessionsDir: testSessionDir,
+      workspaceSessionsDir: `${testSessionDir}/workspace`,
+      namedSessionsDir: `${testSessionDir}/named`,
+      lastSessionFile: `${testSessionDir}/last-session.json`,
+    });
   }
 
   /**

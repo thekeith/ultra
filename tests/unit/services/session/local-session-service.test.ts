@@ -45,7 +45,7 @@ describe('LocalSessionService', () => {
       const settings = service.getAllSettings();
       expect(settings['editor.fontSize']).toBe(14);
       expect(settings['editor.tabSize']).toBe(2);
-      expect(settings['workbench.colorTheme']).toBe('One Dark');
+      expect(settings['workbench.colorTheme']).toBe('catppuccin-frappe');
     });
 
     test('updateSettings updates multiple values', () => {
@@ -134,7 +134,18 @@ describe('LocalSessionService', () => {
   });
 
   describe('sessions', () => {
-    test('getCurrentSession returns session after init', () => {
+    test('getCurrentSession returns session after setCurrentSession', () => {
+      // After init, session is null until explicitly set or loaded
+      expect(service.getCurrentSession()).toBeNull();
+
+      // Set a session
+      service.setCurrentSession({
+        workspaceRoot: '/test/workspace',
+        documents: [],
+        layout: { type: 'pane', id: 'main' },
+        ui: { sidebarVisible: true, sidebarWidth: 36, terminalVisible: false, terminalHeight: 10 },
+      });
+
       const session = service.getCurrentSession();
       expect(session).not.toBeNull();
       expect(session?.workspaceRoot).toBe('/test/workspace');
@@ -333,6 +344,14 @@ describe('LocalSessionService', () => {
     });
 
     test('shutdown saves session', async () => {
+      // Set up a session first (required for save to happen)
+      service.setCurrentSession({
+        workspaceRoot: '/test/workspace',
+        documents: [],
+        layout: { type: 'pane', id: 'main' },
+        ui: { sidebarVisible: true, sidebarWidth: 36, terminalVisible: false, terminalHeight: 10 },
+      });
+
       const events: string[] = [];
       service.onSessionChange((event) => {
         events.push(event.type);
