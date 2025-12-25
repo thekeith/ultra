@@ -3390,10 +3390,37 @@ export class TUIClient {
   private handleFocusChange(element: BaseElement | null): void {
     if (element instanceof DocumentEditor) {
       this.updateStatusBarFile(element);
+
+      // Update sidebar panels for the focused editor
+      const uri = this.findUriForEditor(element);
+      if (uri) {
+        this.updateOutlineForDocument(uri, element);
+        this.loadTimelineForEditor(element);
+      }
     } else {
       // Not a document editor - clear file-related items
       this.clearStatusBarFile();
+
+      // Clear sidebar panels
+      if (this.outlinePanel) {
+        this.outlinePanel.clearSymbols();
+      }
+      if (this.gitTimelinePanel) {
+        this.gitTimelinePanel.clearCommits();
+      }
     }
+  }
+
+  /**
+   * Find the URI for a given editor by looking up in openDocuments.
+   */
+  private findUriForEditor(editor: DocumentEditor): string | null {
+    for (const [uri, docInfo] of this.openDocuments) {
+      if (docInfo.editorId === editor.id) {
+        return uri;
+      }
+    }
+    return null;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
