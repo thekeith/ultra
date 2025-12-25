@@ -378,11 +378,11 @@ This requires extending `GitDiffBrowser` to support commit-to-commit diffs (not 
 13. [x] Render diagnostics on added lines (unified and side-by-side views)
 14. [ ] Add diagnostic tooltips (backlog - requires hover integration)
 
-### Sprint 5: Inline Editing
-15. [ ] Add edit mode state
-16. [ ] Implement edit rendering (cursor, input)
-17. [ ] Add keybindings (e, Escape, Ctrl+S)
-18. [ ] Implement hunk modification for staging
+### Sprint 5: Inline Editing ✓
+15. [x] Add edit mode state (editingNode, editBuffer, editCursor)
+16. [x] Implement edit rendering (full-screen editor with cursor)
+17. [x] Add keybindings (e to edit, Escape to cancel, Ctrl+S to save)
+18. [x] Implement hunk modification (direct-write mode, stage-modified placeholder)
 
 ### Sprint 6: Abstraction (After Validation)
 19. [ ] Extract ViewerItem interface

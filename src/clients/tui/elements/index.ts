@@ -91,6 +91,8 @@ export {
   createGitDiffBrowser,
   type GitDiffBrowserCallbacks,
   type DiagnosticsProvider,
+  type EditCallbacks,
+  type EditSaveMode,
 } from './git-diff-browser.ts';
 
 export {

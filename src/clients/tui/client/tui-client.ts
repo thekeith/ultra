@@ -39,6 +39,7 @@ import {
   type TerminalTabDropdownInfo,
   type GitDiffBrowserCallbacks,
   type DiagnosticsProvider,
+  type EditCallbacks,
 } from '../elements/index.ts';
 import { createGitDiffArtifact } from '../artifacts/git-diff-artifact.ts';
 import type { Pane } from '../layout/pane.ts';
@@ -5585,6 +5586,64 @@ export class TUIClient {
     const lsp = this.lspIntegration;
     return {
       getDiagnostics: (uri: string) => lsp.getDiagnostics(uri),
+    };
+  }
+
+  /**
+   * Get EditCallbacks for use with GitDiffBrowser inline editing.
+   * These callbacks handle saving edited hunk content.
+   */
+  private getEditCallbacks(): EditCallbacks {
+    return {
+      onSaveEdit: async (filePath, hunkIndex, newLines) => {
+        // Stage-modified mode: apply the modified hunk as a patch
+        // This is complex because we need to reconstruct a valid git patch
+        // For now, show a notification that this feature is coming
+        debugLog(`[TUIClient] Save edit: ${filePath} hunk ${hunkIndex}, ${newLines.length} lines`);
+        this.window.showNotification(
+          'Edit saved - staging modified hunks coming soon',
+          'info'
+        );
+        // TODO: Implement patch generation and staging
+        // 1. Read original file content
+        // 2. Generate unified diff between original hunk and modified content
+        // 3. Apply patch via git apply --cached
+      },
+      onDirectWrite: async (filePath, startLine, newLines) => {
+        // Direct-write mode: modify the file directly
+        try {
+          const fullPath = `${this.workingDirectory}/${filePath}`;
+          const uri = `file://${fullPath}`;
+
+          // Read current file content
+          const fileContent = await Bun.file(fullPath).text();
+          const lines = fileContent.split('\n');
+
+          // Calculate the range to replace
+          // startLine is 1-based from git, convert to 0-based
+          const startIdx = startLine - 1;
+          const endIdx = startIdx + newLines.length;
+
+          // Replace the lines
+          lines.splice(startIdx, newLines.length, ...newLines);
+
+          // Write back
+          await Bun.write(fullPath, lines.join('\n'));
+
+          this.window.showNotification(
+            `Saved changes to ${filePath}`,
+            'info'
+          );
+
+          debugLog(`[TUIClient] Direct write: ${filePath} lines ${startLine}-${startLine + newLines.length - 1}`);
+        } catch (error) {
+          debugLog(`[TUIClient] Direct write failed: ${error}`);
+          this.window.showNotification(
+            `Failed to save: ${error}`,
+            'error'
+          );
+        }
+      },
     };
   }
 

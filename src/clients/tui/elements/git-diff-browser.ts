@@ -75,6 +75,31 @@ export interface GitDiffBrowserCallbacks extends ContentBrowserCallbacks<GitDiff
  */
 export type DiffViewMode = 'unified' | 'side-by-side';
 
+/**
+ * Edit mode for saving changes.
+ */
+export type EditSaveMode = 'stage-modified' | 'direct-write';
+
+/**
+ * Cursor position for edit mode.
+ */
+interface EditCursor {
+  /** Line index in edit buffer (0-based) */
+  line: number;
+  /** Column index in line (0-based) */
+  col: number;
+}
+
+/**
+ * Callbacks for edit operations.
+ */
+export interface EditCallbacks {
+  /** Called when edit is saved with modified content */
+  onSaveEdit?: (filePath: string, hunkIndex: number, newLines: string[]) => Promise<void>;
+  /** Called when edit is saved in direct-write mode */
+  onDirectWrite?: (filePath: string, startLine: number, newLines: string[]) => Promise<void>;
+}
+
 // ============================================
 // Git Diff Browser
 // ============================================
@@ -104,6 +129,28 @@ export class GitDiffBrowser extends ContentBrowser<GitDiffArtifact> {
   /** Cached diagnostics per file path */
   private diagnosticsCache = new Map<string, LSPDiagnostic[]>();
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Edit Mode State
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** Node currently being edited (hunk node) */
+  private editingNode: GitDiffHunkNode | null = null;
+
+  /** Edit buffer - lines of text being edited */
+  private editBuffer: string[] = [];
+
+  /** Cursor position in edit buffer */
+  private editCursor: EditCursor = { line: 0, col: 0 };
+
+  /** Edit save mode (from settings) */
+  private editSaveMode: EditSaveMode = 'stage-modified';
+
+  /** Original lines before editing (for comparison) */
+  private originalEditLines: string[] = [];
+
+  /** Edit callbacks */
+  private editCallbacks: EditCallbacks = {};
+
   /** Git-specific callbacks */
   private gitCallbacks: GitDiffBrowserCallbacks;
 
@@ -121,6 +168,7 @@ export class GitDiffBrowser extends ContentBrowser<GitDiffArtifact> {
     // Read settings
     this.autoRefresh = this.ctx.getSetting('tui.diffViewer.autoRefresh', true);
     this.showDiagnostics = this.ctx.getSetting('tui.diffViewer.showDiagnostics', true);
+    this.editSaveMode = this.ctx.getSetting('tui.diffViewer.editMode', 'stage-modified') as EditSaveMode;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -375,6 +423,276 @@ export class GitDiffBrowser extends ContentBrowser<GitDiffArtifact> {
           color: this.ctx.getThemeColor('editorError.foreground', '#f14c4c'),
         };
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Edit Mode
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Set edit callbacks for save operations.
+   */
+  setEditCallbacks(callbacks: EditCallbacks): void {
+    this.editCallbacks = { ...this.editCallbacks, ...callbacks };
+  }
+
+  /**
+   * Check if currently in edit mode.
+   */
+  isEditing(): boolean {
+    return this.editingNode !== null;
+  }
+
+  /**
+   * Get the currently editing node.
+   */
+  getEditingNode(): GitDiffHunkNode | null {
+    return this.editingNode;
+  }
+
+  /**
+   * Start editing a hunk.
+   * Extracts added/modified lines from the hunk for editing.
+   */
+  startEdit(node: ArtifactNode<GitDiffArtifact>): boolean {
+    // Can only edit hunk nodes for unstaged diffs
+    if (!isHunkNode(node) || this.staged || this.isHistoricalDiff) {
+      return false;
+    }
+
+    // Extract lines that can be edited (added lines only)
+    // We edit the "new" content that would be staged
+    const editableLines: string[] = [];
+    for (const line of node.hunk.lines) {
+      if (line.type === 'added' || line.type === 'context') {
+        editableLines.push(line.content);
+      }
+      // Deleted lines are not included in the edit buffer
+      // They represent content being removed
+    }
+
+    if (editableLines.length === 0) {
+      return false; // Nothing to edit
+    }
+
+    this.editingNode = node;
+    this.editBuffer = editableLines;
+    this.originalEditLines = [...editableLines];
+    this.editCursor = { line: 0, col: 0 };
+    this.ctx.markDirty();
+    return true;
+  }
+
+  /**
+   * Cancel edit mode without saving.
+   */
+  cancelEdit(): void {
+    if (!this.editingNode) return;
+
+    this.editingNode = null;
+    this.editBuffer = [];
+    this.originalEditLines = [];
+    this.editCursor = { line: 0, col: 0 };
+    this.ctx.markDirty();
+  }
+
+  /**
+   * Save edit and apply changes.
+   * Behavior depends on editSaveMode setting.
+   */
+  async saveEdit(): Promise<void> {
+    if (!this.editingNode) return;
+
+    const filePath = this.editingNode.artifact.filePath;
+    const hunkIndex = this.editingNode.hunkIndex;
+    const newLines = [...this.editBuffer];
+
+    // Check if content actually changed
+    const hasChanges = !this.arraysEqual(newLines, this.originalEditLines);
+
+    if (hasChanges) {
+      if (this.editSaveMode === 'direct-write') {
+        // Direct write mode: modify the file directly
+        const startLine = this.editingNode.hunk.newStart;
+        await this.editCallbacks.onDirectWrite?.(filePath, startLine, newLines);
+      } else {
+        // Stage-modified mode: create modified hunk for staging
+        await this.editCallbacks.onSaveEdit?.(filePath, hunkIndex, newLines);
+      }
+    }
+
+    // Exit edit mode
+    this.cancelEdit();
+  }
+
+  /**
+   * Check if two string arrays are equal.
+   */
+  private arraysEqual(a: string[], b: string[]): boolean {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return false;
+    }
+    return true;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Edit Mode - Text Manipulation
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Insert a character at cursor position.
+   */
+  private editInsertChar(char: string): void {
+    if (!this.editingNode) return;
+
+    const line = this.editBuffer[this.editCursor.line] ?? '';
+    const before = line.slice(0, this.editCursor.col);
+    const after = line.slice(this.editCursor.col);
+    this.editBuffer[this.editCursor.line] = before + char + after;
+    this.editCursor.col += char.length;
+    this.ctx.markDirty();
+  }
+
+  /**
+   * Insert a newline at cursor position.
+   */
+  private editInsertNewline(): void {
+    if (!this.editingNode) return;
+
+    const line = this.editBuffer[this.editCursor.line] ?? '';
+    const before = line.slice(0, this.editCursor.col);
+    const after = line.slice(this.editCursor.col);
+
+    this.editBuffer[this.editCursor.line] = before;
+    this.editBuffer.splice(this.editCursor.line + 1, 0, after);
+    this.editCursor.line++;
+    this.editCursor.col = 0;
+    this.ctx.markDirty();
+  }
+
+  /**
+   * Delete character before cursor (backspace).
+   */
+  private editDeleteBackward(): void {
+    if (!this.editingNode) return;
+
+    if (this.editCursor.col > 0) {
+      // Delete character before cursor
+      const line = this.editBuffer[this.editCursor.line] ?? '';
+      const before = line.slice(0, this.editCursor.col - 1);
+      const after = line.slice(this.editCursor.col);
+      this.editBuffer[this.editCursor.line] = before + after;
+      this.editCursor.col--;
+    } else if (this.editCursor.line > 0) {
+      // Join with previous line
+      const currentLine = this.editBuffer[this.editCursor.line] ?? '';
+      const prevLine = this.editBuffer[this.editCursor.line - 1] ?? '';
+      this.editCursor.col = prevLine.length;
+      this.editBuffer[this.editCursor.line - 1] = prevLine + currentLine;
+      this.editBuffer.splice(this.editCursor.line, 1);
+      this.editCursor.line--;
+    }
+    this.ctx.markDirty();
+  }
+
+  /**
+   * Delete character at cursor (delete key).
+   */
+  private editDeleteForward(): void {
+    if (!this.editingNode) return;
+
+    const line = this.editBuffer[this.editCursor.line] ?? '';
+    if (this.editCursor.col < line.length) {
+      // Delete character at cursor
+      const before = line.slice(0, this.editCursor.col);
+      const after = line.slice(this.editCursor.col + 1);
+      this.editBuffer[this.editCursor.line] = before + after;
+    } else if (this.editCursor.line < this.editBuffer.length - 1) {
+      // Join with next line
+      const nextLine = this.editBuffer[this.editCursor.line + 1] ?? '';
+      this.editBuffer[this.editCursor.line] = line + nextLine;
+      this.editBuffer.splice(this.editCursor.line + 1, 1);
+    }
+    this.ctx.markDirty();
+  }
+
+  /**
+   * Move cursor left.
+   */
+  private editCursorLeft(): void {
+    if (!this.editingNode) return;
+
+    if (this.editCursor.col > 0) {
+      this.editCursor.col--;
+    } else if (this.editCursor.line > 0) {
+      this.editCursor.line--;
+      this.editCursor.col = (this.editBuffer[this.editCursor.line] ?? '').length;
+    }
+    this.ctx.markDirty();
+  }
+
+  /**
+   * Move cursor right.
+   */
+  private editCursorRight(): void {
+    if (!this.editingNode) return;
+
+    const line = this.editBuffer[this.editCursor.line] ?? '';
+    if (this.editCursor.col < line.length) {
+      this.editCursor.col++;
+    } else if (this.editCursor.line < this.editBuffer.length - 1) {
+      this.editCursor.line++;
+      this.editCursor.col = 0;
+    }
+    this.ctx.markDirty();
+  }
+
+  /**
+   * Move cursor up.
+   */
+  private editCursorUp(): void {
+    if (!this.editingNode) return;
+
+    if (this.editCursor.line > 0) {
+      this.editCursor.line--;
+      const line = this.editBuffer[this.editCursor.line] ?? '';
+      this.editCursor.col = Math.min(this.editCursor.col, line.length);
+    }
+    this.ctx.markDirty();
+  }
+
+  /**
+   * Move cursor down.
+   */
+  private editCursorDown(): void {
+    if (!this.editingNode) return;
+
+    if (this.editCursor.line < this.editBuffer.length - 1) {
+      this.editCursor.line++;
+      const line = this.editBuffer[this.editCursor.line] ?? '';
+      this.editCursor.col = Math.min(this.editCursor.col, line.length);
+    }
+    this.ctx.markDirty();
+  }
+
+  /**
+   * Move cursor to start of line.
+   */
+  private editCursorHome(): void {
+    if (!this.editingNode) return;
+    this.editCursor.col = 0;
+    this.ctx.markDirty();
+  }
+
+  /**
+   * Move cursor to end of line.
+   */
+  private editCursorEnd(): void {
+    if (!this.editingNode) return;
+    const line = this.editBuffer[this.editCursor.line] ?? '';
+    this.editCursor.col = line.length;
+    this.ctx.markDirty();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -949,6 +1267,124 @@ export class GitDiffBrowser extends ContentBrowser<GitDiffArtifact> {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Edit Mode Rendering
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Override render to add edit mode overlay.
+   */
+  override render(buffer: ScreenBuffer): void {
+    // If in edit mode, render the edit overlay instead of normal content
+    if (this.editingNode) {
+      this.renderEditMode(buffer);
+      return;
+    }
+
+    // Normal rendering
+    super.render(buffer);
+  }
+
+  /**
+   * Render the edit mode interface.
+   * Shows a full-screen editor for the hunk content.
+   */
+  private renderEditMode(buffer: ScreenBuffer): void {
+    const { x, y, width, height } = this.bounds;
+    if (height === 0 || width === 0 || !this.editingNode) return;
+
+    // Colors
+    const bg = this.ctx.getBackgroundForFocus('sidebar', this.focused);
+    const fg = this.ctx.getForegroundForFocus('sidebar', this.focused);
+    const headerBg = this.ctx.getThemeColor('sideBarSectionHeader.background', '#383838');
+    const headerFg = this.ctx.getThemeColor('sideBarSectionHeader.foreground', '#cccccc');
+    const cursorBg = this.ctx.getThemeColor('terminalCursor.foreground', '#ffffff');
+    const hintBg = this.ctx.getThemeColor('editorWidget.background', '#2d2d2d');
+    const hintFg = this.ctx.getThemeColor('editorWidget.foreground', '#cccccc');
+    const addedFg = this.ctx.getThemeColor('gitDecoration.addedResourceForeground', '#81b88b');
+    const lineNumFg = '#888888';
+
+    // Clear background
+    for (let row = 0; row < height; row++) {
+      buffer.writeString(x, y + row, ' '.repeat(width), fg, bg);
+    }
+
+    let currentY = y;
+
+    // Header: "Editing: filename.ts @@ hunk @@"
+    const filePath = this.editingNode.artifact.filePath.split('/').pop() ?? 'file';
+    const hunkHeader = formatHunkHeader(this.editingNode.hunk);
+    let headerText = ` Editing: ${filePath} ${hunkHeader}`;
+    if (headerText.length > width) {
+      headerText = headerText.slice(0, width - 1) + '…';
+    }
+    buffer.writeString(x, currentY, headerText.padEnd(width, ' '), headerFg, headerBg);
+    currentY++;
+
+    // Mode indicator
+    const modeText = ` Mode: ${this.editSaveMode === 'direct-write' ? 'Direct Write' : 'Stage Modified'}`;
+    buffer.writeString(x, currentY, modeText.padEnd(width, ' '), lineNumFg, bg);
+    currentY++;
+
+    // Content area (leave room for hints bar)
+    const hintsHeight = 2;
+    const contentHeight = height - 3 - hintsHeight; // -3 for header + mode + bottom border
+
+    // Calculate scroll offset for edit buffer
+    const editScrollTop = Math.max(0, this.editCursor.line - Math.floor(contentHeight / 2));
+
+    // Line number gutter width
+    const gutterWidth = 5;
+    const contentWidth = width - gutterWidth;
+
+    // Render edit buffer lines
+    for (let row = 0; row < contentHeight; row++) {
+      const bufferLine = editScrollTop + row;
+      const screenY = currentY + row;
+
+      if (bufferLine < this.editBuffer.length) {
+        const lineContent = this.editBuffer[bufferLine] ?? '';
+        const lineNum = (bufferLine + 1).toString().padStart(gutterWidth - 1, ' ');
+
+        // Write line number
+        buffer.writeString(x, screenY, lineNum + ' ', lineNumFg, bg);
+
+        // Write content
+        const displayContent = lineContent.length > contentWidth - 1
+          ? lineContent.slice(0, contentWidth - 2) + '…'
+          : lineContent.padEnd(contentWidth - 1, ' ');
+        buffer.writeString(x + gutterWidth, screenY, displayContent, addedFg, bg);
+
+        // Render cursor if on this line
+        if (bufferLine === this.editCursor.line && this.focused) {
+          const cursorX = x + gutterWidth + this.editCursor.col;
+          if (cursorX < x + width) {
+            const cursorChar = buffer.get(cursorX, screenY)?.char ?? ' ';
+            buffer.set(cursorX, screenY, { char: cursorChar, fg: bg, bg: cursorBg });
+          }
+        }
+      } else {
+        // Empty line indicator
+        buffer.writeString(x, screenY, '~'.padEnd(width, ' '), lineNumFg, bg);
+      }
+    }
+
+    // Bottom border
+    const bottomY = y + height - hintsHeight - 1;
+    buffer.writeString(x, bottomY, '─'.repeat(width), lineNumFg, bg);
+
+    // Hints bar
+    const hints = [
+      ' Esc:cancel  Ctrl+S:save  ↑↓←→:move  Enter:newline',
+      ' Backspace:delete  Home/End:line start/end',
+    ];
+    for (let i = 0; i < hintsHeight; i++) {
+      const hint = hints[i] ?? '';
+      const displayHint = hint.length > width ? hint.slice(0, width) : hint.padEnd(width, ' ');
+      buffer.writeString(x, y + height - hintsHeight + i, displayHint, hintFg, hintBg);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Keyboard Hints
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -969,7 +1405,7 @@ export class GitDiffBrowser extends ContentBrowser<GitDiffArtifact> {
         ];
       } else if (node && isHunkNode(node)) {
         return [
-          ` ↑↓:navigate  Enter:toggle  v:${viewLabel}  o:open`,
+          ` ↑↓:navigate  Enter:toggle  v:${viewLabel}  o:open  e:edit`,
           ' s:stage-hunk  d:discard-hunk  p:pin  r:refresh',
         ];
       }
@@ -978,6 +1414,103 @@ export class GitDiffBrowser extends ContentBrowser<GitDiffArtifact> {
         ' s:stage  d:discard  p:pin  r:refresh',
       ];
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Key Handling
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Override handleKey to intercept edit mode keys.
+   */
+  override handleKey(event: KeyEvent): boolean {
+    // Handle edit mode keys first
+    if (this.editingNode) {
+      return this.handleEditKey(event);
+    }
+
+    // Normal key handling
+    return super.handleKey(event);
+  }
+
+  /**
+   * Handle keyboard input in edit mode.
+   */
+  private handleEditKey(event: KeyEvent): boolean {
+    // Escape - cancel edit
+    if (event.key === 'Escape') {
+      this.cancelEdit();
+      return true;
+    }
+
+    // Ctrl+S - save edit
+    if (event.key === 's' && event.ctrl && !event.alt && !event.shift) {
+      void this.saveEdit();
+      return true;
+    }
+
+    // Arrow keys - cursor movement
+    if (event.key === 'ArrowLeft') {
+      this.editCursorLeft();
+      return true;
+    }
+    if (event.key === 'ArrowRight') {
+      this.editCursorRight();
+      return true;
+    }
+    if (event.key === 'ArrowUp') {
+      this.editCursorUp();
+      return true;
+    }
+    if (event.key === 'ArrowDown') {
+      this.editCursorDown();
+      return true;
+    }
+
+    // Home/End - line navigation
+    if (event.key === 'Home') {
+      this.editCursorHome();
+      return true;
+    }
+    if (event.key === 'End') {
+      this.editCursorEnd();
+      return true;
+    }
+
+    // Backspace - delete backward
+    if (event.key === 'Backspace') {
+      this.editDeleteBackward();
+      return true;
+    }
+
+    // Delete - delete forward
+    if (event.key === 'Delete') {
+      this.editDeleteForward();
+      return true;
+    }
+
+    // Enter - insert newline
+    if (event.key === 'Enter') {
+      this.editInsertNewline();
+      return true;
+    }
+
+    // Tab - insert spaces (using editor.tabSize setting)
+    if (event.key === 'Tab' && !event.ctrl && !event.alt) {
+      const tabSize = this.ctx.getSetting('editor.tabSize', 2);
+      const spaces = ' '.repeat(tabSize);
+      this.editInsertChar(spaces);
+      return true;
+    }
+
+    // Regular character input
+    if (event.key.length === 1 && !event.ctrl && !event.alt && !event.meta) {
+      this.editInsertChar(event.key);
+      return true;
+    }
+
+    // Don't propagate other keys in edit mode
+    return true;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1031,6 +1564,14 @@ export class GitDiffBrowser extends ContentBrowser<GitDiffArtifact> {
     if (event.key === 'v' && !event.ctrl && !event.alt && !event.shift) {
       this.toggleDiffViewMode();
       return true;
+    }
+
+    // Edit hunk (e) - only for unstaged, non-historical diffs
+    if (event.key === 'e' && !event.ctrl && !event.alt && !event.shift) {
+      if (!this.staged && !this.isHistoricalDiff && isHunkNode(node)) {
+        this.startEdit(node);
+        return true;
+      }
     }
 
     return false;
