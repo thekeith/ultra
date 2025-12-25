@@ -332,12 +332,33 @@ class SpecViewer extends BaseViewer<SpecSection, SpecViewerItem> {
 }
 ```
 
+## Timeline Panel Integration
+
+The `GitTimelinePanel` already has Enter/double-click triggering `onViewDiff`, but the callback is stubbed:
+
+**Location:** `src/clients/tui/client/tui-client.ts:850-853`
+
+```typescript
+onViewDiff: async (commit, _filePath) => {
+  // TODO: Show diff for commit
+  this.window.showNotification(`View diff: ${commit.shortHash} - ${commit.message}`, 'info');
+},
+```
+
+**Integration Task (Sprint 1):** Wire up `onViewDiff` to open `GitDiffBrowser` showing:
+- For commit diffs: diff between `commit^` and `commit`
+- If `filePath` provided: show only that file's diff
+- If no `filePath`: show all files changed in that commit
+
+This requires extending `GitDiffBrowser` to support commit-to-commit diffs (not just working tree vs staged).
+
 ## Implementation Order
 
 ### Sprint 1: Core Enhancements
 1. [ ] Add summary section to ContentBrowser
 2. [ ] Add `summaryPinned` setting
 3. [ ] Add summary to GitDiffBrowser with stats
+4. [ ] Wire up Timeline Panel `onViewDiff` to open GitDiffBrowser
 
 ### Sprint 2: Side-by-Side View
 4. [ ] Add `diffViewMode` property
