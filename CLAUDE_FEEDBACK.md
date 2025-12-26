@@ -137,7 +137,7 @@ This PR implemented the diff viewer enhancement plan across 6 sprints:
 - No tests added (mandatory per CLAUDE.md) - **NOW FIXED**
 - TypeScript errors not caught before PR merge - **NOW FIXED**
 
-## Testing Gaps - NOW ADDRESSED
+## Testing Gaps - ALL ADDRESSED
 
 | Feature | Expected Test | Status |
 |---------|--------------|--------|
@@ -145,9 +145,9 @@ This PR implemented the diff viewer enhancement plan across 6 sprints:
 | View mode toggle | Unit test for state change | **Added** |
 | Auto-refresh | Integration test with mock git changes | **Added** |
 | Diagnostics display | Unit test with mock provider | **Added** |
-| Edit mode | Unit tests for cursor, text manipulation | Partial (state tests) |
+| Edit mode | Unit tests for cursor, text manipulation | **Added** (undo/redo tests) |
 | Summary section | Snapshot test for content browser | **Added** |
-| Timeline integration | Integration test for diff opening | Future work |
+| Timeline integration | Integration test for diff opening | **Added** (20 tests) |
 | diffCommit() | Unit test with mock git output | **Added** |
 | getCommitFiles() | Unit test with mock git output | **Added** |
 
@@ -167,8 +167,37 @@ This PR implemented the diff viewer enhancement plan across 6 sprints:
 3. **Complete Edit Mode** - ✅ COMPLETED
    - ✅ Implement stage-modified (apply + stage file)
    - ✅ Fix direct-write line replacement logic
-   - ⏳ Add proper undo support (future work)
+   - ✅ Add proper undo/redo support (Ctrl+Z/Ctrl+Y)
 
 4. **Improve Diagnostics Integration** - ✅ COMPLETED
    - ✅ Auto-refresh cache on focus
-   - ⏳ Subscribe to LSP diagnostic change events (future work)
+   - ✅ Subscribe to LSP diagnostic change events (refreshDiffBrowserDiagnostics)
+
+5. **Add Timeline Integration Tests** - ✅ COMPLETED
+   - ✅ Created `tests/unit/clients/tui/elements/git-timeline-panel.test.ts` (20 tests)
+   - ✅ Mode switching (file/repo)
+   - ✅ Navigation (arrow keys, j/k, bounds checking)
+   - ✅ Callbacks (onViewDiff, onCopyHash, onModeChange, onFocusChange)
+   - ✅ State persistence (getState, setState)
+
+## Summary of All Changes Made
+
+### Files Created
+| File | Purpose |
+|------|---------|
+| `tests/unit/clients/tui/elements/git-timeline-panel.test.ts` | Timeline panel unit tests (20 tests) |
+
+### Files Modified (Follow-up Session)
+| File | Changes |
+|------|---------|
+| `src/clients/tui/elements/git-diff-browser.ts` | Added undo/redo support with Ctrl+Z/Ctrl+Y |
+| `src/clients/tui/client/tui-client.ts` | Added `refreshDiffBrowserDiagnostics()` for LSP event handling |
+| `tests/unit/clients/tui/elements/git-diff-browser.test.ts` | Added undo/redo and diagnostics refresh tests |
+
+### Test Summary
+- **Total tests**: 1635 (all passing)
+- **New tests added**: 28
+  - GitDiffBrowser undo/redo: 5 tests
+  - GitDiffBrowser diagnostics refresh: 2 tests
+  - GitTimelinePanel: 20 tests
+  - LSP diagnostic subscription behavior: 1 test

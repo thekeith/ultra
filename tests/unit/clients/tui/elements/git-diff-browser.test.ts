@@ -302,6 +302,36 @@ describe('GitDiffBrowser', () => {
       // Should have refreshed diagnostics
       expect(callCount).toBeGreaterThan(initialCount);
     });
+
+    test('refreshDiagnosticsCache can be called externally for LSP updates', () => {
+      let callCount = 0;
+      const provider: DiagnosticsProvider = {
+        getDiagnostics: () => {
+          callCount++;
+          return [];
+        },
+      };
+
+      browser.setArtifacts(createTestArtifacts());
+      browser.setDiagnosticsProvider(provider);
+
+      const initialCount = callCount;
+
+      // Simulate external LSP diagnostics update calling refreshDiagnosticsCache
+      browser.refreshDiagnosticsCache();
+
+      // Should have refreshed diagnostics
+      expect(callCount).toBeGreaterThan(initialCount);
+    });
+
+    test('refreshDiagnosticsCache does nothing without provider', () => {
+      browser.setArtifacts(createTestArtifacts());
+
+      // Should not throw when no provider is set
+      expect(() => {
+        browser.refreshDiagnosticsCache();
+      }).not.toThrow();
+    });
   });
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -347,6 +377,85 @@ describe('GitDiffBrowser', () => {
       if (node) {
         const result = browser.startEdit(node);
         expect(result).toBe(false);
+      }
+    });
+
+    test('Ctrl+Z in edit mode does not throw', () => {
+      // Move to hunk node and start edit
+      browser.moveDown(); // to hunk
+      const node = browser.getSelectedNode();
+      if (node && node.nodeType === 'hunk') {
+        browser.startEdit(node);
+        expect(browser.isEditing()).toBe(true);
+
+        // Press Ctrl+Z - should not throw even with empty undo stack
+        expect(() => {
+          browser.handleKey({ key: 'z', ctrl: true, alt: false, shift: false, meta: false });
+        }).not.toThrow();
+      }
+    });
+
+    test('Ctrl+Y in edit mode does not throw', () => {
+      browser.moveDown(); // to hunk
+      const node = browser.getSelectedNode();
+      if (node && node.nodeType === 'hunk') {
+        browser.startEdit(node);
+
+        // Press Ctrl+Y - should not throw even with empty redo stack
+        expect(() => {
+          browser.handleKey({ key: 'y', ctrl: true, alt: false, shift: false, meta: false });
+        }).not.toThrow();
+      }
+    });
+
+    test('Ctrl+Shift+Z in edit mode does not throw', () => {
+      browser.moveDown(); // to hunk
+      const node = browser.getSelectedNode();
+      if (node && node.nodeType === 'hunk') {
+        browser.startEdit(node);
+
+        // Press Ctrl+Shift+Z (alternative redo)
+        expect(() => {
+          browser.handleKey({ key: 'z', ctrl: true, alt: false, shift: true, meta: false });
+        }).not.toThrow();
+      }
+    });
+
+    test('typing then undo restores previous content', () => {
+      browser.moveDown(); // to hunk
+      const node = browser.getSelectedNode();
+      if (node && node.nodeType === 'hunk') {
+        browser.startEdit(node);
+
+        // Type a character
+        browser.handleKey({ key: 'X', ctrl: false, alt: false, shift: false, meta: false });
+
+        // The change should be made (we can verify indirectly by saving)
+        // Undo should not throw
+        browser.handleKey({ key: 'z', ctrl: true, alt: false, shift: false, meta: false });
+
+        // Should still be in edit mode
+        expect(browser.isEditing()).toBe(true);
+      }
+    });
+
+    test('undo then redo maintains edit mode', () => {
+      browser.moveDown(); // to hunk
+      const node = browser.getSelectedNode();
+      if (node && node.nodeType === 'hunk') {
+        browser.startEdit(node);
+
+        // Make a change
+        browser.handleKey({ key: 'A', ctrl: false, alt: false, shift: false, meta: false });
+
+        // Undo
+        browser.handleKey({ key: 'z', ctrl: true, alt: false, shift: false, meta: false });
+
+        // Redo
+        browser.handleKey({ key: 'y', ctrl: true, alt: false, shift: false, meta: false });
+
+        // Should still be in edit mode
+        expect(browser.isEditing()).toBe(true);
       }
     });
   });

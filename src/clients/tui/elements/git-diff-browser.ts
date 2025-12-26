@@ -154,6 +154,15 @@ export class GitDiffBrowser extends ContentBrowser<GitDiffArtifact> {
   /** Original lines before editing (for comparison) */
   private originalEditLines: string[] = [];
 
+  /** Undo stack - stores previous states */
+  private editUndoStack: Array<{ lines: string[]; cursor: EditCursor }> = [];
+
+  /** Redo stack - stores undone states */
+  private editRedoStack: Array<{ lines: string[]; cursor: EditCursor }> = [];
+
+  /** Maximum undo history size */
+  private readonly maxUndoSize = 100;
+
   /** Edit callbacks */
   private editCallbacks: EditCallbacks = {};
 
@@ -501,6 +510,8 @@ export class GitDiffBrowser extends ContentBrowser<GitDiffArtifact> {
     this.editBuffer = editableLines;
     this.originalEditLines = [...editableLines];
     this.editCursor = { line: 0, col: 0 };
+    this.editUndoStack = [];
+    this.editRedoStack = [];
     this.ctx.markDirty();
     return true;
   }
@@ -515,6 +526,8 @@ export class GitDiffBrowser extends ContentBrowser<GitDiffArtifact> {
     this.editBuffer = [];
     this.originalEditLines = [];
     this.editCursor = { line: 0, col: 0 };
+    this.editUndoStack = [];
+    this.editRedoStack = [];
     this.ctx.markDirty();
   }
 
@@ -569,6 +582,7 @@ export class GitDiffBrowser extends ContentBrowser<GitDiffArtifact> {
   private editInsertChar(char: string): void {
     if (!this.editingNode) return;
 
+    this.pushUndoState();
     const line = this.editBuffer[this.editCursor.line] ?? '';
     const before = line.slice(0, this.editCursor.col);
     const after = line.slice(this.editCursor.col);
@@ -583,6 +597,7 @@ export class GitDiffBrowser extends ContentBrowser<GitDiffArtifact> {
   private editInsertNewline(): void {
     if (!this.editingNode) return;
 
+    this.pushUndoState();
     const line = this.editBuffer[this.editCursor.line] ?? '';
     const before = line.slice(0, this.editCursor.col);
     const after = line.slice(this.editCursor.col);
@@ -599,6 +614,11 @@ export class GitDiffBrowser extends ContentBrowser<GitDiffArtifact> {
    */
   private editDeleteBackward(): void {
     if (!this.editingNode) return;
+
+    // Only push undo state if there's something to delete
+    if (this.editCursor.col > 0 || this.editCursor.line > 0) {
+      this.pushUndoState();
+    }
 
     if (this.editCursor.col > 0) {
       // Delete character before cursor
@@ -626,6 +646,12 @@ export class GitDiffBrowser extends ContentBrowser<GitDiffArtifact> {
     if (!this.editingNode) return;
 
     const line = this.editBuffer[this.editCursor.line] ?? '';
+
+    // Only push undo state if there's something to delete
+    if (this.editCursor.col < line.length || this.editCursor.line < this.editBuffer.length - 1) {
+      this.pushUndoState();
+    }
+
     if (this.editCursor.col < line.length) {
       // Delete character at cursor
       const before = line.slice(0, this.editCursor.col);
@@ -715,6 +741,70 @@ export class GitDiffBrowser extends ContentBrowser<GitDiffArtifact> {
     if (!this.editingNode) return;
     const line = this.editBuffer[this.editCursor.line] ?? '';
     this.editCursor.col = line.length;
+    this.ctx.markDirty();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Edit Mode - Undo/Redo
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Push current state to undo stack before a modification.
+   * Clears redo stack since we're making a new edit.
+   */
+  private pushUndoState(): void {
+    if (!this.editingNode) return;
+
+    // Save current state
+    this.editUndoStack.push({
+      lines: [...this.editBuffer],
+      cursor: { ...this.editCursor },
+    });
+
+    // Limit undo stack size
+    if (this.editUndoStack.length > this.maxUndoSize) {
+      this.editUndoStack.shift();
+    }
+
+    // Clear redo stack on new edit
+    this.editRedoStack = [];
+  }
+
+  /**
+   * Undo the last edit operation.
+   */
+  private editUndo(): void {
+    if (!this.editingNode || this.editUndoStack.length === 0) return;
+
+    // Save current state to redo stack
+    this.editRedoStack.push({
+      lines: [...this.editBuffer],
+      cursor: { ...this.editCursor },
+    });
+
+    // Restore previous state
+    const state = this.editUndoStack.pop()!;
+    this.editBuffer = state.lines;
+    this.editCursor = state.cursor;
+    this.ctx.markDirty();
+  }
+
+  /**
+   * Redo a previously undone edit operation.
+   */
+  private editRedo(): void {
+    if (!this.editingNode || this.editRedoStack.length === 0) return;
+
+    // Save current state to undo stack
+    this.editUndoStack.push({
+      lines: [...this.editBuffer],
+      cursor: { ...this.editCursor },
+    });
+
+    // Restore next state
+    const state = this.editRedoStack.pop()!;
+    this.editBuffer = state.lines;
+    this.editCursor = state.cursor;
     this.ctx.markDirty();
   }
 
@@ -1397,8 +1487,8 @@ export class GitDiffBrowser extends ContentBrowser<GitDiffArtifact> {
 
     // Hints bar
     const hints = [
-      ' Esc:cancel  Ctrl+S:save  ↑↓←→:move  Enter:newline',
-      ' Backspace:delete  Home/End:line start/end',
+      ' Esc:cancel  Ctrl+S:save  Ctrl+Z:undo  Ctrl+Y:redo',
+      ' ↑↓←→:move  Enter:newline  Backspace:delete  Home/End:start/end',
     ];
     for (let i = 0; i < hintsHeight; i++) {
       const hint = hints[i] ?? '';
@@ -1469,6 +1559,19 @@ export class GitDiffBrowser extends ContentBrowser<GitDiffArtifact> {
     // Ctrl+S - save edit
     if (event.key === 's' && event.ctrl && !event.alt && !event.shift) {
       void this.saveEdit();
+      return true;
+    }
+
+    // Ctrl+Z - undo
+    if (event.key === 'z' && event.ctrl && !event.alt && !event.shift) {
+      this.editUndo();
+      return true;
+    }
+
+    // Ctrl+Y or Ctrl+Shift+Z - redo
+    if ((event.key === 'y' && event.ctrl && !event.alt && !event.shift) ||
+        (event.key === 'z' && event.ctrl && !event.alt && event.shift)) {
+      this.editRedo();
       return true;
     }
 

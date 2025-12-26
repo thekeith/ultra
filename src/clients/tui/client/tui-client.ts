@@ -5799,6 +5799,26 @@ export class TUIClient {
     }));
 
     editor.setDiagnostics(diagnostics);
+
+    // Also refresh diagnostics in any open GitDiffBrowser
+    this.refreshDiffBrowserDiagnostics();
+  }
+
+  /**
+   * Refresh diagnostics cache in all open GitDiffBrowsers.
+   * Called when LSP diagnostics are updated.
+   */
+  private refreshDiffBrowserDiagnostics(): void {
+    const container = this.window.getPaneContainer();
+    const panes = container.getPanes();
+
+    for (const pane of panes) {
+      for (const element of pane.getElements()) {
+        if (element instanceof GitDiffBrowser) {
+          element.refreshDiagnosticsCache();
+        }
+      }
+    }
   }
 }
 
