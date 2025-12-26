@@ -510,9 +510,9 @@ export class GitPanel extends BaseElement {
 
       // Build hints - 2 lines, truncated to fit width
       // Line 1: s:stage, S:stage-all, u:unstage, d:discard
-      // Line 2: c:commit, r:refresh, o:open, Enter:diff
+      // Line 2: c:commit, r:refresh, Enter:diff, o:open
       let line1 = ' s:stage S:all u:unstage d:discard';
-      let line2 = ' c:commit r:refresh o:open';
+      let line2 = ' c:commit r:refresh ↵:diff o:open';
 
       // Truncate and pad to exact width
       if (line1.length > width) line1 = line1.slice(0, width);

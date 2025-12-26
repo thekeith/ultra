@@ -4,6 +4,7 @@ Issues and improvements to address in future sessions.
 
 ## TUI
 
+
 - [ ] **Git panel hint bar truncation** - The keyboard shortcut hints at the bottom of the git panel are truncated to fit narrow widths. Need a better solution that either:
   - Dynamically shows fewer hints based on available width
   - Uses abbreviated key names (e.g., `s` instead of `s:stage`)

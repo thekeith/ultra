@@ -777,6 +777,9 @@ export class TUIClient {
       onRefresh: () => {
         this.refreshGitStatus();
       },
+      onOpenDiff: async (path, staged) => {
+        await this.openFileDiff(path, staged);
+      },
       onOpenFile: async (path) => {
         await this.openFile(`file://${this.workingDirectory}/${path}`);
       },
@@ -1300,29 +1303,38 @@ export class TUIClient {
   }
 
   /**
-   * Open a diff viewer for the current file.
+   * Open a diff viewer for a file.
+   * @param pathOverride Optional relative path to diff (if not provided, uses focused editor)
+   * @param staged Whether to show staged changes (default: false for unstaged)
    */
-  private async openCurrentFileDiff(): Promise<void> {
-    const focusedElement = this.window.getFocusedElement();
-    if (!(focusedElement instanceof DocumentEditor)) {
-      this.window.showNotification('No file open', 'info');
-      return;
-    }
+  private async openFileDiff(pathOverride?: string, staged: boolean = false): Promise<void> {
+    let relativePath: string;
 
-    const uri = this.findUriForEditor(focusedElement);
-    if (!uri) {
-      this.window.showNotification('File not saved', 'info');
-      return;
+    if (pathOverride) {
+      relativePath = pathOverride;
+    } else {
+      // Get path from focused editor
+      const focusedElement = this.window.getFocusedElement();
+      if (!(focusedElement instanceof DocumentEditor)) {
+        this.window.showNotification('No file open', 'info');
+        return;
+      }
+
+      const uri = this.findUriForEditor(focusedElement);
+      if (!uri) {
+        this.window.showNotification('File not saved', 'info');
+        return;
+      }
+
+      const filePath = uri.startsWith('file://') ? uri.slice(7) : uri;
+      relativePath = filePath.startsWith(this.workingDirectory)
+        ? filePath.slice(this.workingDirectory.length + 1)
+        : filePath;
     }
 
     try {
-      const filePath = uri.startsWith('file://') ? uri.slice(7) : uri;
-      const relativePath = filePath.startsWith(this.workingDirectory)
-        ? filePath.slice(this.workingDirectory.length + 1)
-        : filePath;
-
       const repoUri = `file://${this.workingDirectory}`;
-      const hunks = await gitCliService.diff(repoUri, relativePath, false);
+      const hunks = await gitCliService.diff(repoUri, relativePath, staged);
 
       if (hunks.length === 0) {
         this.window.showNotification('No changes in this file', 'info');
@@ -1330,7 +1342,7 @@ export class TUIClient {
       }
 
       const artifact = createGitDiffArtifact(relativePath, hunks, {
-        staged: false,
+        staged,
         changeType: 'modified',
       });
 
@@ -1341,11 +1353,14 @@ export class TUIClient {
 
       if (!pane) return;
 
-      const title = `Diff: ${relativePath.split('/').pop()}`;
+      const title = staged
+        ? `Staged: ${relativePath.split('/').pop()}`
+        : `Diff: ${relativePath.split('/').pop()}`;
       const diffBrowserId = pane.addElement('GitDiffBrowser', title);
       const diffBrowser = pane.getElement(diffBrowserId) as GitDiffBrowser | null;
 
       if (diffBrowser) {
+        diffBrowser.setStaged(staged);
         diffBrowser.setArtifacts([artifact]);
 
         const diagnosticsProvider = this.getDiagnosticsProvider();
@@ -1361,6 +1376,10 @@ export class TUIClient {
           },
           onStageFile: async (path) => {
             await gitCliService.stage(this.workingDirectory, [path]);
+            await this.refreshGitStatus();
+          },
+          onUnstageFile: async (path) => {
+            await gitCliService.unstage(this.workingDirectory, [path]);
             await this.refreshGitStatus();
           },
           onDiscardFile: async (path) => {
@@ -2834,7 +2853,7 @@ export class TUIClient {
     });
 
     this.commandHandlers.set('git.openFileDiff', async () => {
-      await this.openCurrentFileDiff();
+      await this.openFileDiff();
       return true;
     });
 
