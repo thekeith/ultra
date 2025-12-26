@@ -115,6 +115,8 @@ export interface SessionUIState {
   aiPanelVisible?: boolean;
   /** AI panel width */
   aiPanelWidth?: number;
+  /** Sidebar accordion expanded element IDs */
+  sidebarAccordionExpanded?: string[];
 }
 
 /**

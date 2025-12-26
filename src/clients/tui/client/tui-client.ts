@@ -5352,6 +5352,22 @@ export class TUIClient {
     const focusedPane = this.window.getFocusedPane();
     const activePaneId = focusedPane?.id ?? 'main';
 
+    // Get sidebar accordion state (save element types, not IDs, since IDs change between sessions)
+    let sidebarAccordionExpanded: string[] | undefined;
+    if (this.sidebarPaneId) {
+      const sidebarPane = this.window.getPaneContainer().getPane(this.sidebarPaneId);
+      if (sidebarPane) {
+        const paneState = sidebarPane.serialize();
+        if (paneState.expandedElementIds && paneState.elements) {
+          // Map expanded element IDs to their types for stable persistence
+          const expandedIds = new Set(paneState.expandedElementIds);
+          sidebarAccordionExpanded = paneState.elements
+            .filter(elem => expandedIds.has(elem.id))
+            .map(elem => elem.type);
+        }
+      }
+    }
+
     // Serialize UI state
     const ui: SessionUIState = {
       sidebarVisible: this.sidebarPaneId !== null,
@@ -5362,6 +5378,7 @@ export class TUIClient {
       gitPanelWidth: 40,
       activeSidebarPanel: 'files',
       minimapEnabled: this.configManager.getWithDefault('editor.minimap.enabled', false),
+      sidebarAccordionExpanded,
     };
 
     return {
@@ -5582,6 +5599,26 @@ export class TUIClient {
       // Restore terminal visibility
       if (session.ui.terminalVisible) {
         await this.showTerminalPanel();
+      }
+
+      // Restore sidebar accordion state
+      if (session.ui.sidebarAccordionExpanded && this.sidebarPaneId) {
+        const sidebarPane = container.getPane(this.sidebarPaneId);
+        if (sidebarPane) {
+          const paneState = sidebarPane.serialize();
+          if (paneState.elements) {
+            const expandedTypes = new Set(session.ui.sidebarAccordionExpanded);
+            // Collapse all first, then expand the saved ones
+            for (const elem of paneState.elements) {
+              if (expandedTypes.has(elem.type)) {
+                sidebarPane.expandAccordionSection(elem.id);
+              } else {
+                sidebarPane.collapseAccordionSection(elem.id);
+              }
+            }
+            debugLog(`[TUIClient] Restored sidebar accordion state: ${session.ui.sidebarAccordionExpanded.join(', ')}`);
+          }
+        }
       }
     }
 

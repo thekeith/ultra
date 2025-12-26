@@ -66,6 +66,11 @@ Issues and improvements to address in future sessions.
   - If the active terminal's cursor is being rendered correctly
   - Whether inactive terminals are incorrectly showing or affecting cursor state
 
+- [ ] **Sidebar accordion state flash on load** - When restoring a session, the sidebar briefly shows the default accordion state (all panels expanded) before applying the saved state. This happens because sidebar initialization runs before session restore. To fix:
+  - Option 1: Defer first sidebar render until session state is known
+  - Option 2: Pass saved accordion state to sidebar initialization
+  - Option 3: Initialize all accordion sections as collapsed until session loads
+
 - [ ] **Save terminal buffer to session** - Currently, terminal sessions in panes are restored but start fresh (empty buffer). Consider saving and restoring the terminal scrollback buffer so users can see previous output after restarting. This would require:
   - Serializing the terminal buffer (scrollback + visible) to session state
   - Handling potentially large buffer sizes (compression or truncation)
