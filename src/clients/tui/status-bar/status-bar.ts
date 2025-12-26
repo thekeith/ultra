@@ -356,9 +356,9 @@ export class StatusBar {
     const fg = this.callbacks.getThemeColor('statusBar.foreground', '#ffffff');
     const separatorChar = '│';
 
-    // Fill background
+    // Fill background - explicitly set all attributes to ensure clean state
     for (let x = this.bounds.x; x < this.bounds.x + width; x++) {
-      buffer.set(x, y, { char: ' ', fg, bg });
+      buffer.set(x, y, { char: ' ', fg, bg, bold: false, dim: false, italic: false, underline: false, strikethrough: false });
     }
 
     // Render left-aligned items with separators
@@ -370,13 +370,13 @@ export class StatusBar {
 
       const text = ` ${item.content} `;
       for (let i = 0; i < text.length && leftX + i < this.bounds.x + width; i++) {
-        buffer.set(leftX + i, y, { char: text[i]!, fg, bg });
+        buffer.set(leftX + i, y, { char: text[i]!, fg, bg, bold: false, dim: false, italic: false, underline: false, strikethrough: false });
       }
       leftX += text.length;
 
       // Add separator after item (except last)
       if (idx < leftItems.length - 1 && leftX < this.bounds.x + width) {
-        buffer.set(leftX, y, { char: separatorChar, fg, bg, dim: true });
+        buffer.set(leftX, y, { char: separatorChar, fg, bg, bold: false, dim: true, italic: false, underline: false, strikethrough: false });
         leftX++;
       }
     }
@@ -396,13 +396,13 @@ export class StatusBar {
 
       // Add separator before item (except first)
       if (idx > 0) {
-        buffer.set(rightX, y, { char: separatorChar, fg, bg, dim: true });
+        buffer.set(rightX, y, { char: separatorChar, fg, bg, bold: false, dim: true, italic: false, underline: false, strikethrough: false });
       }
 
       // Render item content
       const textStart = rightX + separatorWidth;
       for (let i = 0; i < text.length; i++) {
-        buffer.set(textStart + i, y, { char: text[i]!, fg, bg });
+        buffer.set(textStart + i, y, { char: text[i]!, fg, bg, bold: false, dim: false, italic: false, underline: false, strikethrough: false });
       }
     }
   }

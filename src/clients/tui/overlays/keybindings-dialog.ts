@@ -276,7 +276,7 @@ export class KeybindingsDialog extends SearchableDialog<KeybindingItem> {
   protected override getItemDisplay(item: KeybindingItem, isSelected: boolean): ItemDisplay {
     return {
       text: item.label,
-      secondary: item.key,
+      secondary: item.key || '(none)',
       icon: item.isModified ? '●' : ' ',
       isCurrent: false,
     };
@@ -424,9 +424,11 @@ export class KeybindingsDialog extends SearchableDialog<KeybindingItem> {
             : 'Press key...';
         buffer.writeString(x + 3, rowY, captureText, captureHighlight, rowBg);
       } else {
+        const keyText = item.key || '(none)';
         const displayKey =
-          item.key.length > keyWidth - 4 ? item.key.slice(0, keyWidth - 5) + '…' : item.key;
-        buffer.writeString(x + 3, rowY, displayKey, isSelected ? selectedFg : keyFg, rowBg);
+          keyText.length > keyWidth - 4 ? keyText.slice(0, keyWidth - 5) + '…' : keyText;
+        const keyColor = item.key ? (isSelected ? selectedFg : keyFg) : dimFg;
+        buffer.writeString(x + 3, rowY, displayKey, keyColor, rowBg);
       }
 
       // Label (middle)

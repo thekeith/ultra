@@ -385,33 +385,37 @@ describe('GitPanel', () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   describe('input handling', () => {
+    // Note: Most input keys are now handled via the keybinding system with
+    // "when": "gitPanelFocus" context. These tests verify the public methods
+    // work correctly, and that handleKey still handles non-keybinding keys.
     beforeEach(() => {
       panel.setGitState(createTestState());
     });
 
-    test('ArrowDown moves selection down', () => {
-      panel.handleKey({ key: 'ArrowDown', ctrl: false, alt: false, shift: false, meta: false });
+    test('moveDown moves selection down', () => {
+      panel.moveDown();
       const node = panel.getSelectedNode();
       expect(node?.type).toBe('file');
     });
 
-    test('ArrowUp moves selection up', () => {
-      panel.handleKey({ key: 'ArrowDown', ctrl: false, alt: false, shift: false, meta: false });
-      panel.handleKey({ key: 'ArrowUp', ctrl: false, alt: false, shift: false, meta: false });
+    test('moveUp moves selection up', () => {
+      panel.moveDown();
+      panel.moveUp();
       const node = panel.getSelectedNode();
       expect(node?.type).toBe('section');
     });
 
-    test('Enter on section toggles it', () => {
-      panel.handleKey({ key: 'Enter', ctrl: false, alt: false, shift: false, meta: false });
+    test('toggleSection toggles section collapse', () => {
+      // Start at staged section
+      panel.toggleSection();
 
       // Section should be collapsed, so next item is unstaged section
-      panel.handleKey({ key: 'ArrowDown', ctrl: false, alt: false, shift: false, meta: false });
+      panel.moveDown();
       const node = panel.getSelectedNode();
       expect(node?.section).toBe('unstaged');
     });
 
-    test('u key unstages file', () => {
+    test('stageOrUnstage calls unstage for staged file', () => {
       let unstagedPath: string | null = null;
       const panelWithCallback = new GitPanel('git2', 'Source Control', ctx, {
         onUnstage: (path) => {
@@ -421,42 +425,40 @@ describe('GitPanel', () => {
       panelWithCallback.setBounds({ x: 0, y: 0, width: 40, height: 20 });
       panelWithCallback.setGitState(createTestState());
 
-      panelWithCallback.moveDown();
-      panelWithCallback.handleKey({ key: 'u', ctrl: false, alt: false, shift: false, meta: false });
+      panelWithCallback.moveDown(); // Move to first staged file
+      panelWithCallback.stageOrUnstage();
 
       expect(unstagedPath).toBe('src/index.ts');
     });
 
-    test('vim keys work', () => {
-      panel.handleKey({ key: 'j', ctrl: false, alt: false, shift: false, meta: false });
-      expect(panel.getSelectedNode()?.type).toBe('file');
+    test('e key opens file (non-keybinding)', () => {
+      let openedPath: string | null = null;
+      const panelWithCallback = new GitPanel('git2', 'Source Control', ctx, {
+        onOpenFile: (path) => {
+          openedPath = path;
+        },
+      });
+      panelWithCallback.setBounds({ x: 0, y: 0, width: 40, height: 20 });
+      panelWithCallback.setGitState(createTestState());
 
-      panel.handleKey({ key: 'k', ctrl: false, alt: false, shift: false, meta: false });
+      panelWithCallback.moveDown(); // Move to first file
+      panelWithCallback.handleKey({ key: 'e', ctrl: false, alt: false, shift: false, meta: false });
+
+      expect(openedPath).toBe('src/index.ts');
+    });
+
+    test('Home jumps to first item', () => {
+      panel.moveDown();
+      panel.moveDown();
+      panel.handleKey({ key: 'Home', ctrl: false, alt: false, shift: false, meta: false });
       expect(panel.getSelectedNode()?.type).toBe('section');
     });
 
-    test('r refreshes', () => {
-      let refreshCalled = false;
-      const panelWithCallback = new GitPanel('git2', 'Source Control', ctx, {
-        onRefresh: () => {
-          refreshCalled = true;
-        },
-      });
-
-      panelWithCallback.handleKey({ key: 'r', ctrl: false, alt: false, shift: false, meta: false });
-      expect(refreshCalled).toBe(true);
-    });
-
-    test('c key commits', () => {
-      let commitCalled = false;
-      const panelWithCallback = new GitPanel('git2', 'Source Control', ctx, {
-        onCommit: () => {
-          commitCalled = true;
-        },
-      });
-
-      panelWithCallback.handleKey({ key: 'c', ctrl: false, alt: false, shift: false, meta: false });
-      expect(commitCalled).toBe(true);
+    test('End jumps to last item', () => {
+      panel.handleKey({ key: 'End', ctrl: false, alt: false, shift: false, meta: false });
+      // Last item should be untracked file
+      const node = panel.getSelectedNode();
+      expect(node?.section).toBe('untracked');
     });
   });
 

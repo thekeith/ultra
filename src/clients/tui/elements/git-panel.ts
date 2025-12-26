@@ -592,62 +592,17 @@ export class GitPanel extends BaseElement {
   // ─────────────────────────────────────────────────────────────────────────
 
   override handleKey(event: KeyEvent): boolean {
-    if (event.key === 'ArrowUp' || event.key === 'k') {
-      this.moveUp();
-      return true;
-    }
-    if (event.key === 'ArrowDown' || event.key === 'j') {
-      this.moveDown();
-      return true;
-    }
-    if (event.key === 'Enter') {
-      const node = this.getSelectedNode();
-      if (node?.type === 'section') {
-        this.toggleSection();
-      } else {
-        this.openDiff();
-      }
-      return true;
-    }
-    // s: stage file (unstaged/untracked only)
-    if (event.key === 's' && !event.shift && !event.ctrl) {
-      const node = this.getSelectedNode();
-      if (node?.type === 'file' && node.section !== 'staged') {
-        this.callbacks.onStage?.(node.change!.path);
-      }
-      return true;
-    }
-    // S: stage all
-    if (event.key === 'S' || (event.key === 's' && event.shift)) {
-      this.stageAll();
-      return true;
-    }
-    // u: unstage file (staged only)
-    if (event.key === 'u' && !event.ctrl) {
-      const node = this.getSelectedNode();
-      if (node?.type === 'file' && node.section === 'staged') {
-        this.callbacks.onUnstage?.(node.change!.path);
-      }
-      return true;
-    }
-    // d: discard changes
-    if (event.key === 'd' && !event.ctrl) {
-      this.discardChanges();
-      return true;
-    }
-    // c: commit
-    if (event.key === 'c' && !event.ctrl) {
-      this.callbacks.onCommit?.();
-      return true;
-    }
-    if (event.key === 'o' || event.key === 'e') {
+    // Note: Most keys are now handled via the keybinding system (gitPanel.* commands)
+    // with "when": "gitPanelFocus" context. See config/default-keybindings.jsonc
+    // This handleKey method only handles keys not in keybindings (Home, End, e alias)
+
+    // e: alias for open file (not in keybindings)
+    if (event.key === 'e') {
       this.openFile();
       return true;
     }
-    if (event.key === 'r' && !event.ctrl) {
-      this.callbacks.onRefresh?.();
-      return true;
-    }
+
+    // Home: jump to first item
     if (event.key === 'Home') {
       if (this.viewNodes.length > 0) {
         this.selectedIndex = 0;
@@ -656,6 +611,8 @@ export class GitPanel extends BaseElement {
       }
       return true;
     }
+
+    // End: jump to last item
     if (event.key === 'End') {
       if (this.viewNodes.length > 0) {
         this.selectedIndex = this.viewNodes.length - 1;

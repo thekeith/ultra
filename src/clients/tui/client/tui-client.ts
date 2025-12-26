@@ -249,6 +249,9 @@ export class TUIClient {
   /** Outline panel element reference */
   private outlinePanel: OutlinePanel | null = null;
 
+  /** Git panel element reference */
+  private gitPanel: GitPanel | null = null;
+
   /** Git timeline panel element reference */
   private gitTimelinePanel: GitTimelinePanel | null = null;
 
@@ -556,6 +559,7 @@ export class TUIClient {
     const gitPanelId = sidePane.addElement('GitPanel', 'Source Control');
     const gitPanel = sidePane.getElement(gitPanelId) as GitPanel | null;
     if (gitPanel) {
+      this.gitPanel = gitPanel;
       this.configureGitPanel(gitPanel);
     }
 
@@ -1960,53 +1964,55 @@ export class TUIClient {
    * Shows save confirmation if document has unsaved changes.
    */
   async closeCurrentDocument(): Promise<boolean> {
-    const editor = this.window.getFocusedElement();
-    if (!(editor instanceof DocumentEditor)) {
+    const element = this.window.getFocusedElement();
+    if (!element) {
       return false;
     }
 
-    // Check for unsaved changes
-    const isUntitled = editor.getUri() === null;
-    const hasChanges = editor.isModified() || isUntitled;
+    // For DocumentEditor, handle unsaved changes
+    if (element instanceof DocumentEditor) {
+      const isUntitled = element.getUri() === null;
+      const hasChanges = element.isModified() || isUntitled;
 
-    if (hasChanges) {
-      if (!this.dialogManager) {
-        return false;
-      }
-      const filename = editor.getTitle();
-      const result = await this.dialogManager.showSaveConfirm(filename);
-
-      if (result.cancelled) {
-        // User cancelled - don't close
-        return false;
-      }
-
-      if (result.confirmed && result.value === true) {
-        // User wants to save first
-        const saved = await this.saveCurrentDocument();
-        if (!saved) {
-          // Save failed or was cancelled - don't close
+      if (hasChanges) {
+        if (!this.dialogManager) {
           return false;
         }
+        const filename = element.getTitle();
+        const result = await this.dialogManager.showSaveConfirm(filename);
+
+        if (result.cancelled) {
+          // User cancelled - don't close
+          return false;
+        }
+
+        if (result.confirmed && result.value === true) {
+          // User wants to save first
+          const saved = await this.saveCurrentDocument();
+          if (!saved) {
+            // Save failed or was cancelled - don't close
+            return false;
+          }
+        }
+        // else: result.value === false means "Don't Save" - proceed with close
       }
-      // else: result.value === false means "Don't Save" - proceed with close
+
+      const uri = element.getUri();
+      if (uri) {
+        const doc = this.openDocuments.get(uri);
+        if (doc) {
+          await this.documentService.close(doc.documentId);
+          this.openDocuments.delete(uri);
+        }
+        // Notify LSP of document close
+        await this.lspDocumentClosed(uri);
+      }
     }
 
-    const uri = editor.getUri();
-    if (uri) {
-      const doc = this.openDocuments.get(uri);
-      if (doc) {
-        await this.documentService.close(doc.documentId);
-        this.openDocuments.delete(uri);
-      }
-      // Notify LSP of document close
-      await this.lspDocumentClosed(uri);
-    }
-
-    // Remove from pane
+    // Remove element from pane (works for any element type)
     const pane = this.window.getFocusedPane();
     if (pane) {
-      pane.removeElement(editor.id);
+      pane.removeElement(element.id);
     }
 
     // Mark session dirty
@@ -2883,6 +2889,86 @@ export class TUIClient {
       return true;
     });
 
+    // Git panel commands (context: gitPanelFocus)
+    this.commandHandlers.set('gitPanel.stage', () => {
+      if (this.gitPanel) {
+        const node = this.gitPanel.getSelectedNode();
+        if (node?.type === 'file' && node.section !== 'staged' && node.change) {
+          this.gitPanel.getCallbacks().onStage?.(node.change.path);
+        }
+      }
+      return true;
+    });
+
+    this.commandHandlers.set('gitPanel.stageAll', () => {
+      if (this.gitPanel) {
+        this.gitPanel.stageAll();
+      }
+      return true;
+    });
+
+    this.commandHandlers.set('gitPanel.unstage', () => {
+      if (this.gitPanel) {
+        const node = this.gitPanel.getSelectedNode();
+        if (node?.type === 'file' && node.section === 'staged' && node.change) {
+          this.gitPanel.getCallbacks().onUnstage?.(node.change.path);
+        }
+      }
+      return true;
+    });
+
+    this.commandHandlers.set('gitPanel.discard', () => {
+      if (this.gitPanel) {
+        this.gitPanel.discardChanges();
+      }
+      return true;
+    });
+
+    this.commandHandlers.set('gitPanel.openDiff', () => {
+      if (this.gitPanel) {
+        this.gitPanel.openDiff();
+      }
+      return true;
+    });
+
+    this.commandHandlers.set('gitPanel.openFile', () => {
+      if (this.gitPanel) {
+        this.gitPanel.openFile();
+      }
+      return true;
+    });
+
+    this.commandHandlers.set('gitPanel.refresh', () => {
+      this.gitPanel?.getCallbacks().onRefresh?.();
+      return true;
+    });
+
+    this.commandHandlers.set('gitPanel.commit', () => {
+      this.gitPanel?.getCallbacks().onCommit?.();
+      return true;
+    });
+
+    this.commandHandlers.set('gitPanel.toggleSection', () => {
+      if (this.gitPanel) {
+        this.gitPanel.toggleSection();
+      }
+      return true;
+    });
+
+    this.commandHandlers.set('gitPanel.moveUp', () => {
+      if (this.gitPanel) {
+        this.gitPanel.moveUp();
+      }
+      return true;
+    });
+
+    this.commandHandlers.set('gitPanel.moveDown', () => {
+      if (this.gitPanel) {
+        this.gitPanel.moveDown();
+      }
+      return true;
+    });
+
     // Session commands
     this.commandHandlers.set('session.save', async () => {
       await this.saveSession();
@@ -3127,6 +3213,18 @@ export class TUIClient {
       case 'fileTreeFocus': {
         const element = this.window.getFocusedElement();
         return element?.type === 'FileTree';
+      }
+      case 'gitPanelFocus': {
+        const element = this.window.getFocusedElement();
+        return element?.type === 'GitPanel';
+      }
+      case 'outlinePanelFocus': {
+        const element = this.window.getFocusedElement();
+        return element?.type === 'OutlinePanel';
+      }
+      case 'timelinePanelFocus': {
+        const element = this.window.getFocusedElement();
+        return element?.type === 'GitTimelinePanel';
       }
       default:
         // Unknown when clause - return false to be safe (don't activate binding)
@@ -4230,6 +4328,18 @@ export class TUIClient {
     'git.viewChanges': { label: 'Git: View Changes (Unstaged)', category: 'Git' },
     'git.viewStagedChanges': { label: 'Git: View Staged Changes', category: 'Git' },
     'git.openFileDiff': { label: 'Git: View File Changes', category: 'Git' },
+    // Git panel (context: gitPanelFocus)
+    'gitPanel.stage': { label: 'Git Panel: Stage File', category: 'Git Panel' },
+    'gitPanel.stageAll': { label: 'Git Panel: Stage All', category: 'Git Panel' },
+    'gitPanel.unstage': { label: 'Git Panel: Unstage File', category: 'Git Panel' },
+    'gitPanel.discard': { label: 'Git Panel: Discard Changes', category: 'Git Panel' },
+    'gitPanel.openDiff': { label: 'Git Panel: Open Diff', category: 'Git Panel' },
+    'gitPanel.openFile': { label: 'Git Panel: Open File', category: 'Git Panel' },
+    'gitPanel.refresh': { label: 'Git Panel: Refresh', category: 'Git Panel' },
+    'gitPanel.commit': { label: 'Git Panel: Commit', category: 'Git Panel' },
+    'gitPanel.toggleSection': { label: 'Git Panel: Toggle Section', category: 'Git Panel' },
+    'gitPanel.moveUp': { label: 'Git Panel: Move Up', category: 'Git Panel' },
+    'gitPanel.moveDown': { label: 'Git Panel: Move Down', category: 'Git Panel' },
     // Session
     'session.save': { label: 'Save Session', category: 'Session' },
     'session.saveAs': { label: 'Save Session As...', category: 'Session' },
@@ -4628,8 +4738,11 @@ export class TUIClient {
     // Build keybinding items from current keybindings
     const keybindings = this.configManager.getKeybindings();
     const keybindingItems: KeybindingItem[] = [];
+    const commandsWithBindings = new Set<string>();
 
     for (const binding of keybindings) {
+      commandsWithBindings.add(binding.command);
+
       // Find the default keybinding for this command
       const defaultBinding = defaultKeybindings.find((b) => b.command === binding.command);
       const defaultKey = defaultBinding?.key ?? binding.key;
@@ -4648,6 +4761,21 @@ export class TUIClient {
       });
     }
 
+    // Add commands from COMMAND_INFO that don't have keybindings yet
+    for (const [command, info] of Object.entries(TUIClient.COMMAND_INFO)) {
+      if (!commandsWithBindings.has(command)) {
+        keybindingItems.push({
+          command,
+          label: info.label,
+          key: '', // No keybinding
+          defaultKey: '', // No default
+          when: undefined,
+          category: info.category,
+          isModified: false,
+        });
+      }
+    }
+
     // Sort by label for consistent ordering
     keybindingItems.sort((a, b) => a.label.localeCompare(b.label));
 
@@ -4659,11 +4787,14 @@ export class TUIClient {
       height: 25,
       callbacks: {
         onKeybindingChange: async (command: string, newKey: string) => {
-          // Find and update the keybinding
+          // Find and update the keybinding, or add a new one
           const bindings = this.configManager.getKeybindings();
           const binding = bindings.find((b) => b.command === command);
           if (binding) {
             binding.key = newKey;
+          } else {
+            // Add new keybinding for previously unbound command
+            bindings.push({ key: newKey, command });
           }
           // Save to file
           await this.configManager.saveKeybindings();
@@ -4674,11 +4805,17 @@ export class TUIClient {
           const bindings = this.configManager.getKeybindings();
           const binding = bindings.find((b) => b.command === command);
           if (binding) {
-            binding.key = defaultKey;
+            if (defaultKey) {
+              binding.key = defaultKey;
+            } else {
+              // Remove the binding if there's no default
+              const index = bindings.indexOf(binding);
+              bindings.splice(index, 1);
+            }
           }
           // Save to file
           await this.configManager.saveKeybindings();
-          debugLog(`[TUIClient] Keybinding reset: ${command} = ${defaultKey}`);
+          debugLog(`[TUIClient] Keybinding reset: ${command} = ${defaultKey || '(removed)'}`);
         },
       },
     });

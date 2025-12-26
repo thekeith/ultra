@@ -300,17 +300,18 @@ export class Window {
       }
     }
 
-    // 3. Status bar click (expanded or collapsed)
-    if (isMouseEvent(event)) {
-      const statusBounds = this.statusBar.getBounds();
-      if (containsPoint(statusBounds, event.x, event.y)) {
-        if (event.type === 'press' && event.button === 'left') {
-          this.statusBar.toggle();
-          return true;
-        }
-        return false;
-      }
-    }
+    // 3. Status bar click - disabled for now (status log is empty)
+    // TODO: Re-enable when status log has useful content
+    // if (isMouseEvent(event)) {
+    //   const statusBounds = this.statusBar.getBounds();
+    //   if (containsPoint(statusBounds, event.x, event.y)) {
+    //     if (event.type === 'press' && event.button === 'left') {
+    //       this.statusBar.toggle();
+    //       return true;
+    //     }
+    //     return false;
+    //   }
+    // }
 
     // 4. Focused element gets keyboard input
     if (isKeyEvent(event)) {

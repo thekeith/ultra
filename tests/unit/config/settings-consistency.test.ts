@@ -419,6 +419,7 @@ describe('Settings Consistency', () => {
         'view.',
         'terminal.',
         'git.',
+        'gitPanel.', // Git panel context-specific commands
         'session.',
         'lsp.',
       ];

@@ -208,6 +208,71 @@ export const defaultKeybindings: KeyBinding[] = [
     "command": "git.focusPanel"
   },
   {
+    "key": "s",
+    "command": "gitPanel.stage",
+    "when": "gitPanelFocus"
+  },
+  {
+    "key": "shift+s",
+    "command": "gitPanel.stageAll",
+    "when": "gitPanelFocus"
+  },
+  {
+    "key": "u",
+    "command": "gitPanel.unstage",
+    "when": "gitPanelFocus"
+  },
+  {
+    "key": "d",
+    "command": "gitPanel.discard",
+    "when": "gitPanelFocus"
+  },
+  {
+    "key": "Enter",
+    "command": "gitPanel.openDiff",
+    "when": "gitPanelFocus"
+  },
+  {
+    "key": "o",
+    "command": "gitPanel.openFile",
+    "when": "gitPanelFocus"
+  },
+  {
+    "key": "r",
+    "command": "gitPanel.refresh",
+    "when": "gitPanelFocus"
+  },
+  {
+    "key": "c",
+    "command": "gitPanel.commit",
+    "when": "gitPanelFocus"
+  },
+  {
+    "key": " ",
+    "command": "gitPanel.toggleSection",
+    "when": "gitPanelFocus"
+  },
+  {
+    "key": "ArrowUp",
+    "command": "gitPanel.moveUp",
+    "when": "gitPanelFocus"
+  },
+  {
+    "key": "ArrowDown",
+    "command": "gitPanel.moveDown",
+    "when": "gitPanelFocus"
+  },
+  {
+    "key": "k",
+    "command": "gitPanel.moveUp",
+    "when": "gitPanelFocus"
+  },
+  {
+    "key": "j",
+    "command": "gitPanel.moveDown",
+    "when": "gitPanelFocus"
+  },
+  {
     "key": "ctrl+q",
     "command": "workbench.quit"
   },

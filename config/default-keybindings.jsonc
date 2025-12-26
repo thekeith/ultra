@@ -65,6 +65,21 @@
   // Git
   { "key": "ctrl+shift+g", "command": "git.focusPanel" }, // Focus git panel
 
+  // Git Panel (context: gitPanelFocus)
+  { "key": "s", "command": "gitPanel.stage", "when": "gitPanelFocus" }, // Stage file
+  { "key": "shift+s", "command": "gitPanel.stageAll", "when": "gitPanelFocus" }, // Stage all files
+  { "key": "u", "command": "gitPanel.unstage", "when": "gitPanelFocus" }, // Unstage file
+  { "key": "d", "command": "gitPanel.discard", "when": "gitPanelFocus" }, // Discard changes
+  { "key": "Enter", "command": "gitPanel.openDiff", "when": "gitPanelFocus" }, // Open diff
+  { "key": "o", "command": "gitPanel.openFile", "when": "gitPanelFocus" }, // Open file
+  { "key": "r", "command": "gitPanel.refresh", "when": "gitPanelFocus" }, // Refresh status
+  { "key": "c", "command": "gitPanel.commit", "when": "gitPanelFocus" }, // Commit
+  { "key": " ", "command": "gitPanel.toggleSection", "when": "gitPanelFocus" }, // Toggle section (space)
+  { "key": "ArrowUp", "command": "gitPanel.moveUp", "when": "gitPanelFocus" }, // Move up
+  { "key": "ArrowDown", "command": "gitPanel.moveDown", "when": "gitPanelFocus" }, // Move down
+  { "key": "k", "command": "gitPanel.moveUp", "when": "gitPanelFocus" }, // Move up (vim)
+  { "key": "j", "command": "gitPanel.moveDown", "when": "gitPanelFocus" }, // Move down (vim)
+
   // Application
   { "key": "ctrl+q", "command": "workbench.quit" }, // Quit application
   { "key": "ctrl+,", "command": "workbench.openSettings" }, // Open settings
