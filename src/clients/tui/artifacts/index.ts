@@ -4,7 +4,14 @@
  * Exports all artifact types and utilities for the content browser system.
  */
 
-// Base types
+// Viewer abstraction types (Sprint 6)
+export type {
+  ViewerItem,
+  ViewerCallbacks,
+  ViewerState,
+} from './types.ts';
+
+// Base artifact types
 export type {
   ArtifactType,
   Artifact,

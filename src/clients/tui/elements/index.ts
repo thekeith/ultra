@@ -11,6 +11,10 @@ export {
 } from './base.ts';
 
 export {
+  BaseViewer,
+} from './base-viewer.ts';
+
+export {
   type ElementCreator,
   registerElement,
   isElementRegistered,
@@ -90,6 +94,9 @@ export {
   GitDiffBrowser,
   createGitDiffBrowser,
   type GitDiffBrowserCallbacks,
+  type DiagnosticsProvider,
+  type EditCallbacks,
+  type EditSaveMode,
 } from './git-diff-browser.ts';
 
 export {

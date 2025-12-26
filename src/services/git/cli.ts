@@ -326,6 +326,59 @@ export class GitCliService implements GitService {
     }
   }
 
+  /**
+   * Get diff for a specific commit.
+   * Shows what changed in that commit (diff between commit^ and commit).
+   *
+   * @param uri Repository URI
+   * @param commitHash The commit hash to get diff for
+   * @param path Optional path to filter to a specific file
+   * @returns Array of GitDiffHunk for the commit
+   */
+  async diffCommit(uri: string, commitHash: string, path?: string): Promise<GitDiffHunk[]> {
+    const root = await this.getRoot(uri);
+    if (!root) {
+      throw GitError.notARepo(uri);
+    }
+
+    try {
+      // Use git show to get the diff for a specific commit
+      // --format="" suppresses commit message output, leaving just the diff
+      const pathArgs = path ? ['--', path] : [];
+      const result = await $`git -C ${root} show ${commitHash} --format="" ${pathArgs}`.quiet();
+      if (result.exitCode !== 0) {
+        return [];
+      }
+      return this.parseDiff(result.text());
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Get list of files changed in a specific commit.
+   *
+   * @param uri Repository URI
+   * @param commitHash The commit hash
+   * @returns Array of file paths that were changed
+   */
+  async getCommitFiles(uri: string, commitHash: string): Promise<string[]> {
+    const root = await this.getRoot(uri);
+    if (!root) {
+      throw GitError.notARepo(uri);
+    }
+
+    try {
+      const result = await $`git -C ${root} diff-tree --no-commit-id --name-only -r ${commitHash}`.quiet();
+      if (result.exitCode !== 0) {
+        return [];
+      }
+      return result.text().trim().split('\n').filter((f) => f.length > 0);
+    } catch {
+      return [];
+    }
+  }
+
   async diffLines(uri: string, path: string): Promise<GitLineChange[]> {
     const root = await this.getRoot(uri);
     if (!root) {

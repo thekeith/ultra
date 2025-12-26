@@ -5,6 +5,73 @@
  * such as git diffs, search results, diagnostics, etc.
  */
 
+// ============================================
+// Viewer Item Abstraction (Sprint 6)
+// ============================================
+
+/**
+ * Generic item interface for any viewer.
+ * This is the minimal interface that all viewer items must implement.
+ * More specialized viewers can extend this with additional properties.
+ *
+ * @example
+ * // Simple list viewer item
+ * interface FileItem extends ViewerItem {
+ *   path: string;
+ *   size: number;
+ * }
+ *
+ * // Tree viewer item (uses children)
+ * interface OutlineItem extends ViewerItem {
+ *   symbolKind: string;
+ *   range: Range;
+ * }
+ */
+export interface ViewerItem {
+  /** Unique identifier for this item */
+  readonly id: string;
+  /** Display label */
+  readonly label: string;
+  /** Optional secondary label (e.g., count, path) */
+  readonly secondaryLabel?: string;
+  /** Optional icon character */
+  readonly icon?: string;
+  /** Depth in hierarchy (0 = root, used for indentation) */
+  readonly depth: number;
+  /** Child items (empty for leaf nodes) */
+  readonly children: ViewerItem[];
+  /** Whether this node is expandable */
+  readonly expandable: boolean;
+}
+
+/**
+ * Callbacks for generic viewer interactions.
+ */
+export interface ViewerCallbacks<T extends ViewerItem = ViewerItem> {
+  /** Item was selected */
+  onSelect?: (item: T) => void;
+  /** Item was activated (Enter key or double-click) */
+  onActivate?: (item: T) => void;
+  /** Request to refresh content */
+  onRefresh?: () => void;
+}
+
+/**
+ * State for viewer serialization.
+ */
+export interface ViewerState {
+  /** Scroll position */
+  scrollTop: number;
+  /** Selected item index */
+  selectedIndex: number;
+  /** IDs of collapsed items */
+  collapsedIds: string[];
+}
+
+// ============================================
+// Artifact Types (Original)
+// ============================================
+
 /**
  * Supported artifact types.
  */
@@ -112,6 +179,22 @@ export interface ContentBrowserState {
   expandedNodeIds: string[];
   /** Current view mode */
   viewMode: ViewMode;
+  /** Whether summary is pinned */
+  summaryPinned?: boolean;
+}
+
+/**
+ * An item displayed in the summary section of a content browser.
+ */
+export interface SummaryItem {
+  /** Display label */
+  label: string;
+  /** Value to display (string or number) */
+  value: string | number;
+  /** Optional color for the value */
+  color?: string;
+  /** Optional action when clicked */
+  action?: () => void;
 }
 
 /**

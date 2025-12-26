@@ -16,6 +16,7 @@ import {
   GitPanel,
   OutlinePanel,
   GitTimelinePanel,
+  GitDiffBrowser,
   TerminalSession,
   TerminalPanel,
   AITerminalChat,
@@ -36,7 +37,11 @@ import {
   type AITerminalChatState,
   type AIProvider,
   type TerminalTabDropdownInfo,
+  type GitDiffBrowserCallbacks,
+  type DiagnosticsProvider,
+  type EditCallbacks,
 } from '../elements/index.ts';
+import { createGitDiffArtifact } from '../artifacts/git-diff-artifact.ts';
 import type { Pane } from '../layout/pane.ts';
 
 // Dialog system
@@ -235,6 +240,9 @@ export class TUIClient {
 
   /** Debounce timer for workspace refresh */
   private workspaceRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Unsubscribe function for git change events */
+  private gitChangeUnsubscribe: (() => void) | null = null;
 
   constructor(options: TUIClientOptions = {}) {
     this.workingDirectory = options.workingDirectory ?? process.cwd();
@@ -458,6 +466,9 @@ export class TUIClient {
     // Stop workspace watcher
     this.stopWorkspaceWatcher();
 
+    // Stop git change listener
+    this.stopGitChangeListener();
+
     // Stop input handler
     this.inputHandler.stop();
 
@@ -587,6 +598,9 @@ export class TUIClient {
     if (gitPanel) {
       await this.loadGitStatus(gitPanel);
     }
+
+    // Start listening for git changes to auto-refresh diff browsers
+    this.startGitChangeListener();
 
     // Set initial focus to the file tree in sidebar
     if (fileTree) {
@@ -847,9 +861,8 @@ export class TUIClient {
     timelinePanel.setRepoUri(`file://${this.workingDirectory}`);
 
     const callbacks: GitTimelinePanelCallbacks = {
-      onViewDiff: async (commit, _filePath) => {
-        // TODO: Show diff for commit
-        this.window.showNotification(`View diff: ${commit.shortHash} - ${commit.message}`, 'info');
+      onViewDiff: async (commit, filePath) => {
+        await this.openCommitDiff(commit.hash, commit.shortHash, commit.message, filePath);
       },
       onViewFileAtCommit: async (commit, filePath) => {
         await this.openFileAtCommit(commit.hash, filePath);
@@ -970,6 +983,93 @@ export class TUIClient {
       }
     } catch (error) {
       this.window.showNotification(`Failed to get file at commit: ${error}`, 'error');
+    }
+  }
+
+  /**
+   * Open a diff viewer showing changes from a specific commit.
+   *
+   * @param commitHash Full commit hash
+   * @param shortHash Short commit hash for display
+   * @param message Commit message for title
+   * @param filePath Optional file path to filter to a specific file
+   */
+  private async openCommitDiff(
+    commitHash: string,
+    shortHash: string,
+    message: string,
+    filePath?: string
+  ): Promise<void> {
+    try {
+      const repoUri = `file://${this.workingDirectory}`;
+
+      // Get list of files changed in this commit
+      const changedFiles = filePath
+        ? [filePath]
+        : await gitCliService.getCommitFiles(repoUri, commitHash);
+
+      if (changedFiles.length === 0) {
+        this.window.showNotification('No changes in this commit', 'info');
+        return;
+      }
+
+      // Get diffs for each file and create artifacts
+      const artifacts = [];
+      for (const file of changedFiles) {
+        const hunks = await gitCliService.diffCommit(repoUri, commitHash, file);
+        if (hunks.length > 0) {
+          const artifact = createGitDiffArtifact(file, hunks, {
+            staged: false, // Commit diffs are historical, not staged
+            changeType: 'modified', // TODO: Could detect add/delete from diff
+          });
+          artifacts.push(artifact);
+        }
+      }
+
+      if (artifacts.length === 0) {
+        this.window.showNotification('No diff data for this commit', 'info');
+        return;
+      }
+
+      // Find or create a pane for the diff viewer
+      const pane = this.editorPaneId
+        ? this.window.getPaneContainer().getPane(this.editorPaneId)
+        : this.window.getPaneContainer().ensureRoot();
+
+      if (!pane) return;
+
+      // Create the diff browser tab
+      const truncatedMessage = message.length > 30 ? message.substring(0, 30) + '…' : message;
+      const title = `${shortHash}: ${truncatedMessage}`;
+      const diffBrowserId = pane.addElement('GitDiffBrowser', title);
+      const diffBrowser = pane.getElement(diffBrowserId) as GitDiffBrowser | null;
+
+      if (diffBrowser) {
+        // Configure the diff browser
+        diffBrowser.setBrowserSubtitle(`Commit ${shortHash}`);
+        diffBrowser.setHistoricalDiff(true); // Commit diffs don't auto-refresh
+        diffBrowser.setArtifacts(artifacts);
+
+        // Set up diagnostics provider for LSP integration
+        const diagnosticsProvider = this.getDiagnosticsProvider();
+        if (diagnosticsProvider) {
+          diffBrowser.setDiagnosticsProvider(diagnosticsProvider);
+        }
+
+        // Set up callbacks for opening files
+        const callbacks: GitDiffBrowserCallbacks = {
+          onOpenFile: (path, line) => {
+            this.openFile(`file://${this.workingDirectory}/${path}`, { line });
+          },
+        };
+        diffBrowser.setGitCallbacks(callbacks);
+
+        // Focus the new tab
+        this.window.focusElement(diffBrowser);
+      }
+    } catch (error) {
+      debugLog(`[TUIClient] Failed to open commit diff: ${error}`);
+      this.window.showNotification(`Failed to open diff: ${error}`, 'error');
     }
   }
 
@@ -1842,6 +1942,46 @@ export class TUIClient {
         await this.fileTree.refresh();
       }
     }, 300); // 300ms debounce
+  }
+
+  /**
+   * Start listening for git change events to auto-refresh diff browsers.
+   */
+  private startGitChangeListener(): void {
+    this.stopGitChangeListener();
+
+    this.gitChangeUnsubscribe = gitCliService.onChange((event) => {
+      this.log(`Git change event: ${event.type}`);
+      this.notifyDiffBrowsersGitChange(event.type);
+    });
+
+    this.log('Started git change listener');
+  }
+
+  /**
+   * Stop listening for git change events.
+   */
+  private stopGitChangeListener(): void {
+    if (this.gitChangeUnsubscribe) {
+      this.gitChangeUnsubscribe();
+      this.gitChangeUnsubscribe = null;
+    }
+  }
+
+  /**
+   * Notify all active GitDiffBrowsers about a git change.
+   */
+  private notifyDiffBrowsersGitChange(changeType: import('../../../services/git/types.ts').GitChangeType): void {
+    const container = this.window.getPaneContainer();
+    const panes = container.getPanes();
+
+    for (const pane of panes) {
+      for (const element of pane.getElements()) {
+        if (element instanceof GitDiffBrowser) {
+          element.notifyGitChange(changeType);
+        }
+      }
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -5435,6 +5575,76 @@ export class TUIClient {
   getLSPDiagnostics(uri: string): import('../../../services/lsp/types.ts').LSPDiagnostic[] {
     if (!this.lspIntegration) return [];
     return this.lspIntegration.getDiagnostics(uri);
+  }
+
+  /**
+   * Get a DiagnosticsProvider for use with GitDiffBrowser.
+   * Returns null if LSP is not available.
+   */
+  private getDiagnosticsProvider(): DiagnosticsProvider | null {
+    if (!this.lspIntegration) return null;
+    const lsp = this.lspIntegration;
+    return {
+      getDiagnostics: (uri: string) => lsp.getDiagnostics(uri),
+    };
+  }
+
+  /**
+   * Get EditCallbacks for use with GitDiffBrowser inline editing.
+   * These callbacks handle saving edited hunk content.
+   */
+  private getEditCallbacks(): EditCallbacks {
+    return {
+      onSaveEdit: async (filePath, hunkIndex, newLines) => {
+        // Stage-modified mode: apply the modified hunk as a patch
+        // This is complex because we need to reconstruct a valid git patch
+        // For now, show a notification that this feature is coming
+        debugLog(`[TUIClient] Save edit: ${filePath} hunk ${hunkIndex}, ${newLines.length} lines`);
+        this.window.showNotification(
+          'Edit saved - staging modified hunks coming soon',
+          'info'
+        );
+        // TODO: Implement patch generation and staging
+        // 1. Read original file content
+        // 2. Generate unified diff between original hunk and modified content
+        // 3. Apply patch via git apply --cached
+      },
+      onDirectWrite: async (filePath, startLine, newLines) => {
+        // Direct-write mode: modify the file directly
+        try {
+          const fullPath = `${this.workingDirectory}/${filePath}`;
+          const uri = `file://${fullPath}`;
+
+          // Read current file content
+          const fileContent = await Bun.file(fullPath).text();
+          const lines = fileContent.split('\n');
+
+          // Calculate the range to replace
+          // startLine is 1-based from git, convert to 0-based
+          const startIdx = startLine - 1;
+          const endIdx = startIdx + newLines.length;
+
+          // Replace the lines
+          lines.splice(startIdx, newLines.length, ...newLines);
+
+          // Write back
+          await Bun.write(fullPath, lines.join('\n'));
+
+          this.window.showNotification(
+            `Saved changes to ${filePath}`,
+            'info'
+          );
+
+          debugLog(`[TUIClient] Direct write: ${filePath} lines ${startLine}-${startLine + newLines.length - 1}`);
+        } catch (error) {
+          debugLog(`[TUIClient] Direct write failed: ${error}`);
+          this.window.showNotification(
+            `Failed to save: ${error}`,
+            'error'
+          );
+        }
+      },
+    };
   }
 
   /**
