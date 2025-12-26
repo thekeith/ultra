@@ -80,6 +80,60 @@
   { "key": "k", "command": "gitPanel.moveUp", "when": "gitPanelFocus" }, // Move up (vim)
   { "key": "j", "command": "gitPanel.moveDown", "when": "gitPanelFocus" }, // Move down (vim)
 
+  // File Tree (context: fileTreeFocus)
+  { "key": "ArrowUp", "command": "fileTree.moveUp", "when": "fileTreeFocus" }, // Move up
+  { "key": "ArrowDown", "command": "fileTree.moveDown", "when": "fileTreeFocus" }, // Move down
+  { "key": "ArrowRight", "command": "fileTree.expand", "when": "fileTreeFocus" }, // Expand folder
+  { "key": "ArrowLeft", "command": "fileTree.collapse", "when": "fileTreeFocus" }, // Collapse folder
+  { "key": "Enter", "command": "fileTree.open", "when": "fileTreeFocus" }, // Open file/toggle folder
+  { "key": " ", "command": "fileTree.open", "when": "fileTreeFocus" }, // Open file/toggle folder (space)
+  { "key": "n", "command": "fileTree.newFile", "when": "fileTreeFocus" }, // New file
+  { "key": "shift+n", "command": "fileTree.newFolder", "when": "fileTreeFocus" }, // New folder
+  { "key": "r", "command": "fileTree.rename", "when": "fileTreeFocus" }, // Rename
+  { "key": "F2", "command": "fileTree.rename", "when": "fileTreeFocus" }, // Rename (F2)
+  { "key": "d", "command": "fileTree.delete", "when": "fileTreeFocus" }, // Delete
+  { "key": "Delete", "command": "fileTree.delete", "when": "fileTreeFocus" }, // Delete
+  { "key": "k", "command": "fileTree.moveUp", "when": "fileTreeFocus" }, // Move up (vim)
+  { "key": "j", "command": "fileTree.moveDown", "when": "fileTreeFocus" }, // Move down (vim)
+  { "key": "l", "command": "fileTree.expand", "when": "fileTreeFocus" }, // Expand (vim)
+  { "key": "h", "command": "fileTree.collapse", "when": "fileTreeFocus" }, // Collapse (vim)
+  { "key": "Home", "command": "fileTree.goToFirst", "when": "fileTreeFocus" }, // First
+  { "key": "End", "command": "fileTree.goToLast", "when": "fileTreeFocus" }, // Last
+  { "key": "PageUp", "command": "fileTree.pageUp", "when": "fileTreeFocus" }, // Page up
+  { "key": "PageDown", "command": "fileTree.pageDown", "when": "fileTreeFocus" }, // Page down
+
+  // Outline Panel (context: outlinePanelFocus)
+  { "key": "ArrowUp", "command": "outlinePanel.moveUp", "when": "outlinePanelFocus" }, // Move up
+  { "key": "ArrowDown", "command": "outlinePanel.moveDown", "when": "outlinePanelFocus" }, // Move down
+  { "key": "ArrowRight", "command": "outlinePanel.expand", "when": "outlinePanelFocus" }, // Expand
+  { "key": "ArrowLeft", "command": "outlinePanel.collapse", "when": "outlinePanelFocus" }, // Collapse
+  { "key": " ", "command": "outlinePanel.toggleExpand", "when": "outlinePanelFocus" }, // Toggle expand (space)
+  { "key": "Enter", "command": "outlinePanel.select", "when": "outlinePanelFocus" }, // Go to symbol
+  { "key": "PageUp", "command": "outlinePanel.pageUp", "when": "outlinePanelFocus" }, // Page up
+  { "key": "PageDown", "command": "outlinePanel.pageDown", "when": "outlinePanelFocus" }, // Page down
+  { "key": "Home", "command": "outlinePanel.goToFirst", "when": "outlinePanelFocus" }, // First
+  { "key": "End", "command": "outlinePanel.goToLast", "when": "outlinePanelFocus" }, // Last
+  { "key": "k", "command": "outlinePanel.moveUp", "when": "outlinePanelFocus" }, // Move up (vim)
+  { "key": "j", "command": "outlinePanel.moveDown", "when": "outlinePanelFocus" }, // Move down (vim)
+  { "key": "l", "command": "outlinePanel.expand", "when": "outlinePanelFocus" }, // Expand (vim)
+  { "key": "h", "command": "outlinePanel.collapse", "when": "outlinePanelFocus" }, // Collapse (vim)
+
+  // Timeline Panel (context: timelinePanelFocus)
+  { "key": "ArrowUp", "command": "timelinePanel.moveUp", "when": "timelinePanelFocus" }, // Move up
+  { "key": "ArrowDown", "command": "timelinePanel.moveDown", "when": "timelinePanelFocus" }, // Move down
+  { "key": "PageUp", "command": "timelinePanel.pageUp", "when": "timelinePanelFocus" }, // Page up
+  { "key": "PageDown", "command": "timelinePanel.pageDown", "when": "timelinePanelFocus" }, // Page down
+  { "key": "Home", "command": "timelinePanel.goToFirst", "when": "timelinePanelFocus" }, // First
+  { "key": "End", "command": "timelinePanel.goToLast", "when": "timelinePanelFocus" }, // Last
+  { "key": "g", "command": "timelinePanel.goToFirst", "when": "timelinePanelFocus" }, // First (vim)
+  { "key": "shift+g", "command": "timelinePanel.goToLast", "when": "timelinePanelFocus" }, // Last (vim)
+  { "key": "Enter", "command": "timelinePanel.viewDiff", "when": "timelinePanelFocus" }, // View diff
+  { "key": "o", "command": "timelinePanel.openFileAtCommit", "when": "timelinePanelFocus" }, // Open file at commit
+  { "key": "Tab", "command": "timelinePanel.toggleMode", "when": "timelinePanelFocus" }, // Toggle file/repo mode
+  { "key": "k", "command": "timelinePanel.moveUp", "when": "timelinePanelFocus" }, // Move up (vim)
+  { "key": "j", "command": "timelinePanel.moveDown", "when": "timelinePanelFocus" }, // Move down (vim)
+  { "key": "y", "command": "timelinePanel.copyHash", "when": "timelinePanelFocus" }, // Copy commit hash
+
   // Application
   { "key": "ctrl+q", "command": "workbench.quit" }, // Quit application
   { "key": "ctrl+,", "command": "workbench.openSettings" }, // Open settings

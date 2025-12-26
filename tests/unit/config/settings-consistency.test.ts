@@ -420,6 +420,9 @@ describe('Settings Consistency', () => {
         'terminal.',
         'git.',
         'gitPanel.', // Git panel context-specific commands
+        'fileTree.', // File tree context-specific commands
+        'outlinePanel.', // Outline panel context-specific commands
+        'timelinePanel.', // Timeline panel context-specific commands
         'session.',
         'lsp.',
       ];

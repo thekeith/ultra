@@ -339,18 +339,24 @@ export class TUIConfigManager {
     // Load user keybindings
     const userKeybindings = await this.loadJsonFile<KeyBinding[]>(this.paths.userKeybindings);
     if (userKeybindings && Array.isArray(userKeybindings)) {
-      // Merge: user bindings override defaults for same command
-      const commandMap = new Map<string, KeyBinding>();
+      // Merge: user bindings override defaults for same KEY (not command)
+      // This allows multiple bindings for the same command (e.g., j and ArrowDown for moveDown)
+      const keyMap = new Map<string, KeyBinding>();
 
+      // Add defaults first
       for (const binding of this.keybindings) {
-        commandMap.set(binding.command, binding);
+        // Key includes the when clause to allow same key with different contexts
+        const keyWithContext = binding.when ? `${binding.key}|${binding.when}` : binding.key;
+        keyMap.set(keyWithContext, binding);
       }
 
+      // User bindings override defaults for same key+context
       for (const binding of userKeybindings) {
-        commandMap.set(binding.command, binding);
+        const keyWithContext = binding.when ? `${binding.key}|${binding.when}` : binding.key;
+        keyMap.set(keyWithContext, binding);
       }
 
-      this.keybindings = Array.from(commandMap.values());
+      this.keybindings = Array.from(keyMap.values());
     }
   }
 

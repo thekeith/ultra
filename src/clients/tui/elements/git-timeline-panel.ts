@@ -726,12 +726,34 @@ export class GitTimelinePanel extends BaseElement {
   // ─────────────────────────────────────────────────────────────────────────
 
   override handleKey(event: KeyEvent): boolean {
-    // Handle search input first
+    // Handle search input first - search intercepts all keys
     if (this.searchInputActive) {
       return this.handleSearchInput(event);
     }
 
-    return this.handleNavigationKey(event);
+    // Start search with /
+    if (event.key === '/') {
+      this.searchInputActive = true;
+      this.searchCursorPos = this.searchQuery.length;
+      this.ctx.markDirty();
+      return true;
+    }
+
+    // Clear search with Escape
+    if (event.key === 'Escape') {
+      if (this.searchQuery) {
+        this.searchQuery = '';
+        this.rebuildView();
+        this.ctx.markDirty();
+        return true;
+      }
+      return false;
+    }
+
+    // Note: Most navigation keys are now handled via the keybinding system (timelinePanel.* commands)
+    // with "when": "timelinePanelFocus" context. See config/default-keybindings.jsonc
+
+    return false;
   }
 
   /**

@@ -258,60 +258,65 @@ describe('FileTree', () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   describe('input handling', () => {
-    test('ArrowDown moves selection down', () => {
-      tree.handleKey({ key: 'ArrowDown', ctrl: false, alt: false, shift: false, meta: false });
+    // Note: Navigation keys (arrows, j/k, Enter, etc.) are now handled via the keybinding system
+    // These tests verify the public methods work correctly
+
+    test('moveDown() moves selection down', () => {
+      tree.moveDown();
       expect(tree.getSelectedPath()).toBe('/project/tests');
     });
 
-    test('ArrowUp moves selection up', () => {
-      tree.handleKey({ key: 'ArrowDown', ctrl: false, alt: false, shift: false, meta: false });
-      tree.handleKey({ key: 'ArrowUp', ctrl: false, alt: false, shift: false, meta: false });
+    test('moveUp() moves selection up', () => {
+      tree.moveDown();
+      tree.moveUp();
       expect(tree.getSelectedPath()).toBe('/project/src');
     });
 
-    test('Enter opens selected', () => {
+    test('openSelected() opens selected directory', () => {
       tree.selectPath('/project/src');
-      tree.handleKey({ key: 'Enter', ctrl: false, alt: false, shift: false, meta: false });
+      tree.openSelected();
 
       const srcNode = tree.findNode('/project/src');
       expect(srcNode?.expanded).toBe(true);
     });
 
-    test('ArrowRight expands directory', () => {
+    test('expand() expands directory', () => {
       tree.selectPath('/project/src');
-      tree.handleKey({ key: 'ArrowRight', ctrl: false, alt: false, shift: false, meta: false });
+      tree.expand();
 
       const srcNode = tree.findNode('/project/src');
       expect(srcNode?.expanded).toBe(true);
     });
 
-    test('ArrowLeft collapses directory', () => {
+    test('collapse() collapses directory', () => {
       tree.selectPath('/project/src');
       tree.toggle(); // expand
-      tree.handleKey({ key: 'ArrowLeft', ctrl: false, alt: false, shift: false, meta: false });
+      tree.collapse();
 
       const srcNode = tree.findNode('/project/src');
       expect(srcNode?.expanded).toBe(false);
     });
 
-    test('Home goes to first item', () => {
+    test('goToFirst() goes to first item', () => {
       tree.moveDown();
       tree.moveDown();
-      tree.handleKey({ key: 'Home', ctrl: false, alt: false, shift: false, meta: false });
+      tree.goToFirst();
       expect(tree.getSelectedPath()).toBe('/project/src');
     });
 
-    test('End goes to last item', () => {
-      tree.handleKey({ key: 'End', ctrl: false, alt: false, shift: false, meta: false });
+    test('goToLast() goes to last item', () => {
+      tree.goToLast();
       // Last item should be README.md (files sorted after directories)
       expect(tree.getSelectedPath()).toBe('/project/README.md');
     });
 
-    test('vim keys work', () => {
-      tree.handleKey({ key: 'j', ctrl: false, alt: false, shift: false, meta: false });
+    test('navigation methods work', () => {
+      // Note: Navigation keys (j/k/arrows) are now handled via keybindings
+      // Test the public methods directly
+      tree.moveDown();
       expect(tree.getSelectedPath()).toBe('/project/tests');
 
-      tree.handleKey({ key: 'k', ctrl: false, alt: false, shift: false, meta: false });
+      tree.moveUp();
       expect(tree.getSelectedPath()).toBe('/project/src');
     });
   });

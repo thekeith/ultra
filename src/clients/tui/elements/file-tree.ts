@@ -472,6 +472,52 @@ export class FileTree extends BaseElement {
   }
 
   /**
+   * Go to first item.
+   */
+  goToFirst(): void {
+    if (this.viewNodes.length > 0) {
+      this.selectedIndex = 0;
+      this.ensureVisible();
+      this.callbacks.onSelectionChange?.(this.getSelectedPath());
+      this.ctx.markDirty();
+    }
+  }
+
+  /**
+   * Go to last item.
+   */
+  goToLast(): void {
+    if (this.viewNodes.length > 0) {
+      this.selectedIndex = this.viewNodes.length - 1;
+      this.ensureVisible();
+      this.callbacks.onSelectionChange?.(this.getSelectedPath());
+      this.ctx.markDirty();
+    }
+  }
+
+  /**
+   * Page up.
+   */
+  pageUp(): void {
+    const jump = Math.max(1, this.bounds.height - 1);
+    this.selectedIndex = Math.max(0, this.selectedIndex - jump);
+    this.ensureVisible();
+    this.callbacks.onSelectionChange?.(this.getSelectedPath());
+    this.ctx.markDirty();
+  }
+
+  /**
+   * Page down.
+   */
+  pageDown(): void {
+    const jump = Math.max(1, this.bounds.height - 1);
+    this.selectedIndex = Math.min(this.viewNodes.length - 1, this.selectedIndex + jump);
+    this.ensureVisible();
+    this.callbacks.onSelectionChange?.(this.getSelectedPath());
+    this.ctx.markDirty();
+  }
+
+  /**
    * Ensure selected item is visible.
    */
   private ensureVisible(): void {
@@ -709,84 +755,14 @@ export class FileTree extends BaseElement {
   // ─────────────────────────────────────────────────────────────────────────
 
   override handleKey(event: KeyEvent): boolean {
-    // Handle dialog input first
+    // Handle dialog input first - dialogs intercept all keys
     if (this.dialogMode !== 'none') {
       return this.handleDialogKey(event);
     }
 
-    // Navigation keys
-    if (event.key === 'ArrowUp' || event.key === 'k') {
-      this.moveUp();
-      return true;
-    }
-    if (event.key === 'ArrowDown' || event.key === 'j') {
-      this.moveDown();
-      return true;
-    }
-    if (event.key === 'ArrowLeft' || event.key === 'h') {
-      this.collapse();
-      return true;
-    }
-    if (event.key === 'ArrowRight' || event.key === 'l') {
-      this.expand();
-      return true;
-    }
-    if (event.key === 'Enter' || event.key === ' ') {
-      this.openSelected();
-      return true;
-    }
-    if (event.key === 'Home') {
-      if (this.viewNodes.length > 0) {
-        this.selectedIndex = 0;
-        this.ensureVisible();
-        this.callbacks.onSelectionChange?.(this.getSelectedPath());
-        this.ctx.markDirty();
-      }
-      return true;
-    }
-    if (event.key === 'End') {
-      if (this.viewNodes.length > 0) {
-        this.selectedIndex = this.viewNodes.length - 1;
-        this.ensureVisible();
-        this.callbacks.onSelectionChange?.(this.getSelectedPath());
-        this.ctx.markDirty();
-      }
-      return true;
-    }
-    if (event.key === 'PageUp') {
-      const jump = Math.max(1, this.bounds.height - 1);
-      this.selectedIndex = Math.max(0, this.selectedIndex - jump);
-      this.ensureVisible();
-      this.callbacks.onSelectionChange?.(this.getSelectedPath());
-      this.ctx.markDirty();
-      return true;
-    }
-    if (event.key === 'PageDown') {
-      const jump = Math.max(1, this.bounds.height - 1);
-      this.selectedIndex = Math.min(this.viewNodes.length - 1, this.selectedIndex + jump);
-      this.ensureVisible();
-      this.callbacks.onSelectionChange?.(this.getSelectedPath());
-      this.ctx.markDirty();
-      return true;
-    }
-
-    // File operation shortcuts
-    if (event.key === 'n' && !event.shift && !event.ctrl && !event.alt) {
-      this.startNewFile();
-      return true;
-    }
-    if (event.key === 'N' && event.shift && !event.ctrl && !event.alt) {
-      this.startNewFolder();
-      return true;
-    }
-    if ((event.key === 'r' || event.key === 'F2') && !event.shift && !event.ctrl && !event.alt) {
-      this.startRename();
-      return true;
-    }
-    if ((event.key === 'd' || event.key === 'Delete') && !event.shift && !event.ctrl && !event.alt) {
-      this.startDelete();
-      return true;
-    }
+    // Note: Most keys are now handled via the keybinding system (fileTree.* commands)
+    // with "when": "fileTreeFocus" context. See config/default-keybindings.jsonc
+    // This includes navigation (arrows, j/k/h/l), open (Enter/Space), and file ops (n/N/r/d/F2/Delete)
 
     return false;
   }
@@ -888,7 +864,7 @@ export class FileTree extends BaseElement {
   /**
    * Start new file dialog.
    */
-  private startNewFile(): void {
+  startNewFile(): void {
     const selected = this.viewNodes[this.selectedIndex]?.node;
     this.dialogTarget = selected ?? null;
     this.dialogMode = 'new-file';
@@ -900,7 +876,7 @@ export class FileTree extends BaseElement {
   /**
    * Start new folder dialog.
    */
-  private startNewFolder(): void {
+  startNewFolder(): void {
     const selected = this.viewNodes[this.selectedIndex]?.node;
     this.dialogTarget = selected ?? null;
     this.dialogMode = 'new-folder';
@@ -912,7 +888,7 @@ export class FileTree extends BaseElement {
   /**
    * Start rename dialog.
    */
-  private startRename(): void {
+  startRename(): void {
     const selected = this.viewNodes[this.selectedIndex]?.node;
     if (selected) {
       this.dialogTarget = selected;
@@ -928,7 +904,7 @@ export class FileTree extends BaseElement {
   /**
    * Start delete confirmation.
    */
-  private startDelete(): void {
+  startDelete(): void {
     const selected = this.viewNodes[this.selectedIndex]?.node;
     if (selected) {
       this.dialogTarget = selected;

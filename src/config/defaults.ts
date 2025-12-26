@@ -273,6 +273,246 @@ export const defaultKeybindings: KeyBinding[] = [
     "when": "gitPanelFocus"
   },
   {
+    "key": "ArrowUp",
+    "command": "fileTree.moveUp",
+    "when": "fileTreeFocus"
+  },
+  {
+    "key": "ArrowDown",
+    "command": "fileTree.moveDown",
+    "when": "fileTreeFocus"
+  },
+  {
+    "key": "ArrowRight",
+    "command": "fileTree.expand",
+    "when": "fileTreeFocus"
+  },
+  {
+    "key": "ArrowLeft",
+    "command": "fileTree.collapse",
+    "when": "fileTreeFocus"
+  },
+  {
+    "key": "Enter",
+    "command": "fileTree.open",
+    "when": "fileTreeFocus"
+  },
+  {
+    "key": " ",
+    "command": "fileTree.open",
+    "when": "fileTreeFocus"
+  },
+  {
+    "key": "n",
+    "command": "fileTree.newFile",
+    "when": "fileTreeFocus"
+  },
+  {
+    "key": "shift+n",
+    "command": "fileTree.newFolder",
+    "when": "fileTreeFocus"
+  },
+  {
+    "key": "r",
+    "command": "fileTree.rename",
+    "when": "fileTreeFocus"
+  },
+  {
+    "key": "F2",
+    "command": "fileTree.rename",
+    "when": "fileTreeFocus"
+  },
+  {
+    "key": "d",
+    "command": "fileTree.delete",
+    "when": "fileTreeFocus"
+  },
+  {
+    "key": "Delete",
+    "command": "fileTree.delete",
+    "when": "fileTreeFocus"
+  },
+  {
+    "key": "k",
+    "command": "fileTree.moveUp",
+    "when": "fileTreeFocus"
+  },
+  {
+    "key": "j",
+    "command": "fileTree.moveDown",
+    "when": "fileTreeFocus"
+  },
+  {
+    "key": "l",
+    "command": "fileTree.expand",
+    "when": "fileTreeFocus"
+  },
+  {
+    "key": "h",
+    "command": "fileTree.collapse",
+    "when": "fileTreeFocus"
+  },
+  {
+    "key": "Home",
+    "command": "fileTree.goToFirst",
+    "when": "fileTreeFocus"
+  },
+  {
+    "key": "End",
+    "command": "fileTree.goToLast",
+    "when": "fileTreeFocus"
+  },
+  {
+    "key": "PageUp",
+    "command": "fileTree.pageUp",
+    "when": "fileTreeFocus"
+  },
+  {
+    "key": "PageDown",
+    "command": "fileTree.pageDown",
+    "when": "fileTreeFocus"
+  },
+  {
+    "key": "ArrowUp",
+    "command": "outlinePanel.moveUp",
+    "when": "outlinePanelFocus"
+  },
+  {
+    "key": "ArrowDown",
+    "command": "outlinePanel.moveDown",
+    "when": "outlinePanelFocus"
+  },
+  {
+    "key": "ArrowRight",
+    "command": "outlinePanel.expand",
+    "when": "outlinePanelFocus"
+  },
+  {
+    "key": "ArrowLeft",
+    "command": "outlinePanel.collapse",
+    "when": "outlinePanelFocus"
+  },
+  {
+    "key": " ",
+    "command": "outlinePanel.toggleExpand",
+    "when": "outlinePanelFocus"
+  },
+  {
+    "key": "Enter",
+    "command": "outlinePanel.select",
+    "when": "outlinePanelFocus"
+  },
+  {
+    "key": "PageUp",
+    "command": "outlinePanel.pageUp",
+    "when": "outlinePanelFocus"
+  },
+  {
+    "key": "PageDown",
+    "command": "outlinePanel.pageDown",
+    "when": "outlinePanelFocus"
+  },
+  {
+    "key": "Home",
+    "command": "outlinePanel.goToFirst",
+    "when": "outlinePanelFocus"
+  },
+  {
+    "key": "End",
+    "command": "outlinePanel.goToLast",
+    "when": "outlinePanelFocus"
+  },
+  {
+    "key": "k",
+    "command": "outlinePanel.moveUp",
+    "when": "outlinePanelFocus"
+  },
+  {
+    "key": "j",
+    "command": "outlinePanel.moveDown",
+    "when": "outlinePanelFocus"
+  },
+  {
+    "key": "l",
+    "command": "outlinePanel.expand",
+    "when": "outlinePanelFocus"
+  },
+  {
+    "key": "h",
+    "command": "outlinePanel.collapse",
+    "when": "outlinePanelFocus"
+  },
+  {
+    "key": "ArrowUp",
+    "command": "timelinePanel.moveUp",
+    "when": "timelinePanelFocus"
+  },
+  {
+    "key": "ArrowDown",
+    "command": "timelinePanel.moveDown",
+    "when": "timelinePanelFocus"
+  },
+  {
+    "key": "PageUp",
+    "command": "timelinePanel.pageUp",
+    "when": "timelinePanelFocus"
+  },
+  {
+    "key": "PageDown",
+    "command": "timelinePanel.pageDown",
+    "when": "timelinePanelFocus"
+  },
+  {
+    "key": "Home",
+    "command": "timelinePanel.goToFirst",
+    "when": "timelinePanelFocus"
+  },
+  {
+    "key": "End",
+    "command": "timelinePanel.goToLast",
+    "when": "timelinePanelFocus"
+  },
+  {
+    "key": "g",
+    "command": "timelinePanel.goToFirst",
+    "when": "timelinePanelFocus"
+  },
+  {
+    "key": "shift+g",
+    "command": "timelinePanel.goToLast",
+    "when": "timelinePanelFocus"
+  },
+  {
+    "key": "Enter",
+    "command": "timelinePanel.viewDiff",
+    "when": "timelinePanelFocus"
+  },
+  {
+    "key": "o",
+    "command": "timelinePanel.openFileAtCommit",
+    "when": "timelinePanelFocus"
+  },
+  {
+    "key": "Tab",
+    "command": "timelinePanel.toggleMode",
+    "when": "timelinePanelFocus"
+  },
+  {
+    "key": "k",
+    "command": "timelinePanel.moveUp",
+    "when": "timelinePanelFocus"
+  },
+  {
+    "key": "j",
+    "command": "timelinePanel.moveDown",
+    "when": "timelinePanelFocus"
+  },
+  {
+    "key": "y",
+    "command": "timelinePanel.copyHash",
+    "when": "timelinePanelFocus"
+  },
+  {
     "key": "ctrl+q",
     "command": "workbench.quit"
   },

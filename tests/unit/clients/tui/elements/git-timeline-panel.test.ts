@@ -106,14 +106,16 @@ describe('GitTimelinePanel', () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   describe('mode switching', () => {
+    // Note: Tab key for mode toggle is now handled via keybindings
+    // These tests verify the public methods work correctly
+
     test('toggleMode switches between file and repo', () => {
       expect(panel.getMode()).toBe('file');
 
-      // Toggle mode via Tab key
-      panel.handleKey({ key: 'Tab', ctrl: false, alt: false, shift: false, meta: false });
+      panel.toggleMode();
       expect(panel.getMode()).toBe('repo');
 
-      panel.handleKey({ key: 'Tab', ctrl: false, alt: false, shift: false, meta: false });
+      panel.toggleMode();
       expect(panel.getMode()).toBe('file');
     });
 
@@ -126,7 +128,7 @@ describe('GitTimelinePanel', () => {
       };
 
       panel.setCallbacks(callbacks);
-      panel.handleKey({ key: 'Tab', ctrl: false, alt: false, shift: false, meta: false });
+      panel.toggleMode();
 
       expect(capturedMode).toBe('repo');
     });
@@ -137,48 +139,43 @@ describe('GitTimelinePanel', () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   describe('navigation', () => {
+    // Note: Navigation keys (arrows, j/k) are now handled via keybindings
+    // These tests verify the public methods work correctly
+
     beforeEach(() => {
       panel.setCommits(createTestCommits());
     });
 
-    test('arrow keys navigate commits', () => {
+    test('moveDown/moveUp navigate commits', () => {
       // Initial state at first commit
       const initialState = panel.getState();
       expect(initialState.selectedIndex).toBe(0);
 
       // Move down
-      panel.handleKey({ key: 'ArrowDown', ctrl: false, alt: false, shift: false, meta: false });
+      panel.moveDown();
       expect(panel.getState().selectedIndex).toBe(1);
 
       // Move down again
-      panel.handleKey({ key: 'ArrowDown', ctrl: false, alt: false, shift: false, meta: false });
+      panel.moveDown();
       expect(panel.getState().selectedIndex).toBe(2);
 
       // Move up
-      panel.handleKey({ key: 'ArrowUp', ctrl: false, alt: false, shift: false, meta: false });
+      panel.moveUp();
       expect(panel.getState().selectedIndex).toBe(1);
-    });
-
-    test('j/k keys navigate commits', () => {
-      panel.handleKey({ key: 'j', ctrl: false, alt: false, shift: false, meta: false });
-      expect(panel.getState().selectedIndex).toBe(1);
-
-      panel.handleKey({ key: 'k', ctrl: false, alt: false, shift: false, meta: false });
-      expect(panel.getState().selectedIndex).toBe(0);
     });
 
     test('navigation stays within bounds', () => {
       // At start, moving up should stay at 0
-      panel.handleKey({ key: 'ArrowUp', ctrl: false, alt: false, shift: false, meta: false });
+      panel.moveUp();
       expect(panel.getState().selectedIndex).toBe(0);
 
       // Move to end
-      panel.handleKey({ key: 'ArrowDown', ctrl: false, alt: false, shift: false, meta: false });
-      panel.handleKey({ key: 'ArrowDown', ctrl: false, alt: false, shift: false, meta: false });
+      panel.moveDown();
+      panel.moveDown();
       expect(panel.getState().selectedIndex).toBe(2);
 
       // At end, moving down should stay at 2
-      panel.handleKey({ key: 'ArrowDown', ctrl: false, alt: false, shift: false, meta: false });
+      panel.moveDown();
       expect(panel.getState().selectedIndex).toBe(2);
     });
   });
@@ -188,11 +185,14 @@ describe('GitTimelinePanel', () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   describe('callbacks', () => {
+    // Note: Action keys (Enter, y, o) are now handled via keybindings
+    // These tests verify the public methods and callbacks work correctly
+
     beforeEach(() => {
       panel.setCommits(createTestCommits());
     });
 
-    test('onViewDiff called on Enter key', () => {
+    test('onViewDiff called via viewDiff method', () => {
       let viewedCommit: GitCommit | null = null;
       const callbacks: GitTimelinePanelCallbacks = {
         onViewDiff: (commit) => {
@@ -201,7 +201,7 @@ describe('GitTimelinePanel', () => {
       };
 
       panel.setCallbacks(callbacks);
-      panel.handleKey({ key: 'Enter', ctrl: false, alt: false, shift: false, meta: false });
+      panel.viewDiff();
 
       expect(viewedCommit).not.toBeNull();
       expect(viewedCommit?.shortHash).toBe('abc123d');
@@ -218,14 +218,14 @@ describe('GitTimelinePanel', () => {
       panel.setCallbacks(callbacks);
 
       // Navigate to second commit
-      panel.handleKey({ key: 'ArrowDown', ctrl: false, alt: false, shift: false, meta: false });
-      panel.handleKey({ key: 'Enter', ctrl: false, alt: false, shift: false, meta: false });
+      panel.moveDown();
+      panel.viewDiff();
 
       expect(viewedCommit?.shortHash).toBe('def456a');
       expect(viewedCommit?.message).toBe('Fix bug in login form');
     });
 
-    test('onCopyHash called on y key', () => {
+    test('onCopyHash called via copyHash method', () => {
       let copiedHash: string | null = null;
       const callbacks: GitTimelinePanelCallbacks = {
         onCopyHash: (hash) => {
@@ -234,7 +234,7 @@ describe('GitTimelinePanel', () => {
       };
 
       panel.setCallbacks(callbacks);
-      panel.handleKey({ key: 'y', ctrl: false, alt: false, shift: false, meta: false });
+      panel.copyHash();
 
       expect(copiedHash).toBe('abc123def456789012345678901234567890abcd');
     });
@@ -265,7 +265,7 @@ describe('GitTimelinePanel', () => {
     test('getState returns current state', () => {
       panel.setMode('repo');
       panel.setCommits(createTestCommits());
-      panel.handleKey({ key: 'ArrowDown', ctrl: false, alt: false, shift: false, meta: false });
+      panel.moveDown();
 
       const state = panel.getState();
       expect(state.mode).toBe('repo');

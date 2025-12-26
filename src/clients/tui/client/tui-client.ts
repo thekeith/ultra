@@ -2969,6 +2969,174 @@ export class TUIClient {
       return true;
     });
 
+    // File tree commands (context: fileTreeFocus)
+    this.commandHandlers.set('fileTree.moveUp', () => {
+      this.fileTree?.moveUp();
+      return true;
+    });
+
+    this.commandHandlers.set('fileTree.moveDown', () => {
+      this.fileTree?.moveDown();
+      return true;
+    });
+
+    this.commandHandlers.set('fileTree.expand', () => {
+      this.fileTree?.expand();
+      return true;
+    });
+
+    this.commandHandlers.set('fileTree.collapse', () => {
+      this.fileTree?.collapse();
+      return true;
+    });
+
+    this.commandHandlers.set('fileTree.open', () => {
+      this.fileTree?.openSelected();
+      return true;
+    });
+
+    this.commandHandlers.set('fileTree.newFile', () => {
+      this.fileTree?.startNewFile();
+      return true;
+    });
+
+    this.commandHandlers.set('fileTree.newFolder', () => {
+      this.fileTree?.startNewFolder();
+      return true;
+    });
+
+    this.commandHandlers.set('fileTree.rename', () => {
+      this.fileTree?.startRename();
+      return true;
+    });
+
+    this.commandHandlers.set('fileTree.delete', () => {
+      this.fileTree?.startDelete();
+      return true;
+    });
+
+    this.commandHandlers.set('fileTree.goToFirst', () => {
+      this.fileTree?.goToFirst();
+      return true;
+    });
+
+    this.commandHandlers.set('fileTree.goToLast', () => {
+      this.fileTree?.goToLast();
+      return true;
+    });
+
+    this.commandHandlers.set('fileTree.pageUp', () => {
+      this.fileTree?.pageUp();
+      return true;
+    });
+
+    this.commandHandlers.set('fileTree.pageDown', () => {
+      this.fileTree?.pageDown();
+      return true;
+    });
+
+    // Outline panel commands (context: outlinePanelFocus)
+    this.commandHandlers.set('outlinePanel.moveUp', () => {
+      this.outlinePanel?.moveUp();
+      return true;
+    });
+
+    this.commandHandlers.set('outlinePanel.moveDown', () => {
+      this.outlinePanel?.moveDown();
+      return true;
+    });
+
+    this.commandHandlers.set('outlinePanel.expand', () => {
+      this.outlinePanel?.expand();
+      return true;
+    });
+
+    this.commandHandlers.set('outlinePanel.collapse', () => {
+      this.outlinePanel?.collapse();
+      return true;
+    });
+
+    this.commandHandlers.set('outlinePanel.toggleExpand', () => {
+      this.outlinePanel?.toggleExpand();
+      return true;
+    });
+
+    this.commandHandlers.set('outlinePanel.select', () => {
+      this.outlinePanel?.selectSymbol();
+      return true;
+    });
+
+    this.commandHandlers.set('outlinePanel.pageUp', () => {
+      this.outlinePanel?.pageUp();
+      return true;
+    });
+
+    this.commandHandlers.set('outlinePanel.pageDown', () => {
+      this.outlinePanel?.pageDown();
+      return true;
+    });
+
+    this.commandHandlers.set('outlinePanel.goToFirst', () => {
+      this.outlinePanel?.goToFirst();
+      return true;
+    });
+
+    this.commandHandlers.set('outlinePanel.goToLast', () => {
+      this.outlinePanel?.goToLast();
+      return true;
+    });
+
+    // Timeline panel commands (context: timelinePanelFocus)
+    this.commandHandlers.set('timelinePanel.moveUp', () => {
+      this.gitTimelinePanel?.moveUp();
+      return true;
+    });
+
+    this.commandHandlers.set('timelinePanel.moveDown', () => {
+      this.gitTimelinePanel?.moveDown();
+      return true;
+    });
+
+    this.commandHandlers.set('timelinePanel.pageUp', () => {
+      this.gitTimelinePanel?.pageUp();
+      return true;
+    });
+
+    this.commandHandlers.set('timelinePanel.pageDown', () => {
+      this.gitTimelinePanel?.pageDown();
+      return true;
+    });
+
+    this.commandHandlers.set('timelinePanel.goToFirst', () => {
+      this.gitTimelinePanel?.goToFirst();
+      return true;
+    });
+
+    this.commandHandlers.set('timelinePanel.goToLast', () => {
+      this.gitTimelinePanel?.goToLast();
+      return true;
+    });
+
+    this.commandHandlers.set('timelinePanel.viewDiff', () => {
+      this.gitTimelinePanel?.viewDiff();
+      return true;
+    });
+
+    this.commandHandlers.set('timelinePanel.openFileAtCommit', () => {
+      this.gitTimelinePanel?.openFileAtCommit();
+      return true;
+    });
+
+    this.commandHandlers.set('timelinePanel.toggleMode', () => {
+      this.gitTimelinePanel?.toggleMode();
+      return true;
+    });
+
+    this.commandHandlers.set('timelinePanel.copyHash', () => {
+      this.gitTimelinePanel?.copyHash();
+      return true;
+    });
+
     // Session commands
     this.commandHandlers.set('session.save', async () => {
       await this.saveSession();
@@ -4340,6 +4508,42 @@ export class TUIClient {
     'gitPanel.toggleSection': { label: 'Git Panel: Toggle Section', category: 'Git Panel' },
     'gitPanel.moveUp': { label: 'Git Panel: Move Up', category: 'Git Panel' },
     'gitPanel.moveDown': { label: 'Git Panel: Move Down', category: 'Git Panel' },
+    // File tree (context: fileTreeFocus)
+    'fileTree.moveUp': { label: 'File Tree: Move Up', category: 'File Tree' },
+    'fileTree.moveDown': { label: 'File Tree: Move Down', category: 'File Tree' },
+    'fileTree.expand': { label: 'File Tree: Expand', category: 'File Tree' },
+    'fileTree.collapse': { label: 'File Tree: Collapse', category: 'File Tree' },
+    'fileTree.open': { label: 'File Tree: Open', category: 'File Tree' },
+    'fileTree.newFile': { label: 'File Tree: New File', category: 'File Tree' },
+    'fileTree.newFolder': { label: 'File Tree: New Folder', category: 'File Tree' },
+    'fileTree.rename': { label: 'File Tree: Rename', category: 'File Tree' },
+    'fileTree.delete': { label: 'File Tree: Delete', category: 'File Tree' },
+    'fileTree.goToFirst': { label: 'File Tree: Go to First', category: 'File Tree' },
+    'fileTree.goToLast': { label: 'File Tree: Go to Last', category: 'File Tree' },
+    'fileTree.pageUp': { label: 'File Tree: Page Up', category: 'File Tree' },
+    'fileTree.pageDown': { label: 'File Tree: Page Down', category: 'File Tree' },
+    // Outline panel (context: outlinePanelFocus)
+    'outlinePanel.moveUp': { label: 'Outline: Move Up', category: 'Outline' },
+    'outlinePanel.moveDown': { label: 'Outline: Move Down', category: 'Outline' },
+    'outlinePanel.expand': { label: 'Outline: Expand', category: 'Outline' },
+    'outlinePanel.collapse': { label: 'Outline: Collapse', category: 'Outline' },
+    'outlinePanel.toggleExpand': { label: 'Outline: Toggle Expand', category: 'Outline' },
+    'outlinePanel.select': { label: 'Outline: Go to Symbol', category: 'Outline' },
+    'outlinePanel.pageUp': { label: 'Outline: Page Up', category: 'Outline' },
+    'outlinePanel.pageDown': { label: 'Outline: Page Down', category: 'Outline' },
+    'outlinePanel.goToFirst': { label: 'Outline: Go to First', category: 'Outline' },
+    'outlinePanel.goToLast': { label: 'Outline: Go to Last', category: 'Outline' },
+    // Timeline panel (context: timelinePanelFocus)
+    'timelinePanel.moveUp': { label: 'Timeline: Move Up', category: 'Timeline' },
+    'timelinePanel.moveDown': { label: 'Timeline: Move Down', category: 'Timeline' },
+    'timelinePanel.pageUp': { label: 'Timeline: Page Up', category: 'Timeline' },
+    'timelinePanel.pageDown': { label: 'Timeline: Page Down', category: 'Timeline' },
+    'timelinePanel.goToFirst': { label: 'Timeline: Go to First', category: 'Timeline' },
+    'timelinePanel.goToLast': { label: 'Timeline: Go to Last', category: 'Timeline' },
+    'timelinePanel.viewDiff': { label: 'Timeline: View Diff', category: 'Timeline' },
+    'timelinePanel.openFileAtCommit': { label: 'Timeline: Open File at Commit', category: 'Timeline' },
+    'timelinePanel.toggleMode': { label: 'Timeline: Toggle Mode', category: 'Timeline' },
+    'timelinePanel.copyHash': { label: 'Timeline: Copy Commit Hash', category: 'Timeline' },
     // Session
     'session.save': { label: 'Save Session', category: 'Session' },
     'session.saveAs': { label: 'Save Session As...', category: 'Session' },

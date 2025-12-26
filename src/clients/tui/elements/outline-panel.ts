@@ -819,7 +819,7 @@ export class OutlinePanel extends BaseElement {
   // ─────────────────────────────────────────────────────────────────────────
 
   override handleKey(event: KeyEvent): boolean {
-    // Handle search input mode
+    // Handle search input mode - search intercepts all keys
     if (this.searchInputActive) {
       return this.handleSearchInput(event);
     }
@@ -832,8 +832,20 @@ export class OutlinePanel extends BaseElement {
       return true;
     }
 
-    // Navigation keys
-    return this.handleNavigationKey(event);
+    // Clear search with Escape
+    if (event.key === 'Escape') {
+      if (this.searchQuery) {
+        this.searchQuery = '';
+        this.rebuildView();
+        this.ctx.markDirty();
+        return true;
+      }
+    }
+
+    // Note: Most navigation keys are now handled via the keybinding system (outlinePanel.* commands)
+    // with "when": "outlinePanelFocus" context. See config/default-keybindings.jsonc
+
+    return false;
   }
 
   /**
