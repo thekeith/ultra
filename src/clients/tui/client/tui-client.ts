@@ -111,6 +111,10 @@ export interface OpenFileOptions {
   focus?: boolean;
   /** Pane to open in (default: focused pane) */
   pane?: Pane;
+  /** Line number to navigate to (1-indexed) */
+  line?: number;
+  /** Column number to navigate to (0-indexed) */
+  column?: number;
 }
 
 // ============================================
@@ -1312,6 +1316,14 @@ export class TUIClient {
       // Focus if requested
       if (options.focus !== false) {
         this.window.focusElement(editor);
+      }
+
+      // Navigate to line/column if specified
+      if (options.line !== undefined) {
+        editor.goToLine(options.line);
+        if (options.column !== undefined) {
+          editor.setCursor({ line: options.line - 1, column: options.column });
+        }
       }
 
       // Update status bar with file info
@@ -3570,6 +3582,21 @@ export class TUIClient {
     return null;
   }
 
+  /**
+   * Find the currently focused GitDiffBrowser, if any.
+   */
+  private findGitDiffBrowser(): GitDiffBrowser | null {
+    const container = this.window.getPaneContainer();
+    for (const pane of container.getPanes()) {
+      for (const element of pane.getElements()) {
+        if (element instanceof GitDiffBrowser) {
+          return element;
+        }
+      }
+    }
+    return null;
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Syntax Highlighting
   // ─────────────────────────────────────────────────────────────────────────
@@ -5596,24 +5623,70 @@ export class TUIClient {
   private getEditCallbacks(): EditCallbacks {
     return {
       onSaveEdit: async (filePath, hunkIndex, newLines) => {
-        // Stage-modified mode: apply the modified hunk as a patch
-        // This is complex because we need to reconstruct a valid git patch
-        // For now, show a notification that this feature is coming
-        debugLog(`[TUIClient] Save edit: ${filePath} hunk ${hunkIndex}, ${newLines.length} lines`);
-        this.window.showNotification(
-          'Edit saved - staging modified hunks coming soon',
-          'info'
-        );
-        // TODO: Implement patch generation and staging
-        // 1. Read original file content
-        // 2. Generate unified diff between original hunk and modified content
-        // 3. Apply patch via git apply --cached
+        // Stage-modified mode: apply the edit and stage the result
+        // For hunk-level staging, we apply the changes and stage the file
+        try {
+          debugLog(`[TUIClient] Save edit: ${filePath} hunk ${hunkIndex}, ${newLines.length} lines`);
+
+          // Get the diff browser to access the hunk details
+          const diffBrowser = this.findGitDiffBrowser();
+          if (!diffBrowser) {
+            throw new Error('Diff browser not found');
+          }
+
+          const artifacts = diffBrowser.getArtifacts();
+          const artifact = artifacts.find(a => a.filePath === filePath);
+          if (!artifact || !artifact.hunks[hunkIndex]) {
+            throw new Error('Hunk not found');
+          }
+
+          const hunk = artifact.hunks[hunkIndex];
+          const fullPath = `${this.workingDirectory}/${filePath}`;
+
+          // Read current file content
+          const fileContent = await Bun.file(fullPath).text();
+          const lines = fileContent.split('\n');
+
+          // Calculate the line range for this hunk
+          // newStart is 1-based, convert to 0-based
+          const startIdx = hunk.newStart - 1;
+
+          // Count original lines (context + added lines from the hunk)
+          let originalLineCount = 0;
+          for (const line of hunk.lines) {
+            if (line.type === 'added' || line.type === 'context') {
+              originalLineCount++;
+            }
+          }
+
+          // Replace the lines
+          lines.splice(startIdx, originalLineCount, ...newLines);
+
+          // Write back
+          await Bun.write(fullPath, lines.join('\n'));
+
+          // Stage the modified file
+          await gitCliService.stage(this.workingDirectory, [filePath]);
+
+          this.window.showNotification(
+            `Saved and staged changes to ${filePath}`,
+            'info'
+          );
+
+          // Trigger refresh of the diff view
+          this.refreshGitStatus();
+        } catch (error) {
+          debugLog(`[TUIClient] Save edit failed: ${error}`);
+          this.window.showNotification(
+            `Failed to save: ${error}`,
+            'error'
+          );
+        }
       },
-      onDirectWrite: async (filePath, startLine, newLines) => {
+      onDirectWrite: async (filePath, startLine, newLines, originalLineCount) => {
         // Direct-write mode: modify the file directly
         try {
           const fullPath = `${this.workingDirectory}/${filePath}`;
-          const uri = `file://${fullPath}`;
 
           // Read current file content
           const fileContent = await Bun.file(fullPath).text();
@@ -5622,10 +5695,10 @@ export class TUIClient {
           // Calculate the range to replace
           // startLine is 1-based from git, convert to 0-based
           const startIdx = startLine - 1;
-          const endIdx = startIdx + newLines.length;
 
-          // Replace the lines
-          lines.splice(startIdx, newLines.length, ...newLines);
+          // Replace the original lines with the new lines
+          // originalLineCount tells us how many lines were there before editing
+          lines.splice(startIdx, originalLineCount, ...newLines);
 
           // Write back
           await Bun.write(fullPath, lines.join('\n'));
@@ -5635,7 +5708,7 @@ export class TUIClient {
             'info'
           );
 
-          debugLog(`[TUIClient] Direct write: ${filePath} lines ${startLine}-${startLine + newLines.length - 1}`);
+          debugLog(`[TUIClient] Direct write: ${filePath} replaced ${originalLineCount} lines at ${startLine} with ${newLines.length} lines`);
         } catch (error) {
           debugLog(`[TUIClient] Direct write failed: ${error}`);
           this.window.showNotification(

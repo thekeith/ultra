@@ -122,6 +122,12 @@ export abstract class BaseElement implements ElementLifecycle {
   onUnmount(): void {}
 
   /**
+   * Dispose of resources.
+   * Override to clean up timers, subscriptions, etc.
+   */
+  dispose(): void {}
+
+  /**
    * Called when element receives focus.
    */
   onFocus(): void {

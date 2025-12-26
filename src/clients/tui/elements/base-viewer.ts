@@ -146,7 +146,7 @@ export abstract class BaseViewer<T extends ViewerItem = ViewerItem> extends Base
   /**
    * Get current state for serialization.
    */
-  getState(): ViewerState {
+  override getState(): ViewerState {
     return {
       scrollTop: this.scrollTop,
       selectedIndex: this.selectedIndex,
@@ -157,7 +157,7 @@ export abstract class BaseViewer<T extends ViewerItem = ViewerItem> extends Base
   /**
    * Restore state from serialized data.
    */
-  setState(state: Partial<ViewerState>): void {
+  override setState(state: Partial<ViewerState>): void {
     if (state.scrollTop !== undefined) {
       this.scrollTop = state.scrollTop;
     }
@@ -430,21 +430,23 @@ export abstract class BaseViewer<T extends ViewerItem = ViewerItem> extends Base
     return false;
   }
 
-  override handleMouseEvent(event: MouseEvent): boolean {
-    if (event.type !== 'mousedown' && event.type !== 'wheel') {
+  override handleMouse(event: MouseEvent): boolean {
+    if (event.type !== 'press' && event.type !== 'scroll') {
       return false;
     }
 
-    const { x, y, width, height } = this.bounds;
+    const { y } = this.bounds;
     const headerHeight = this.showHeader ? 1 : 0;
     const contentStartY = y + headerHeight;
     const contentHeight = this.getContentHeight();
 
-    // Handle wheel scrolling
-    if (event.type === 'wheel') {
-      if (event.direction === 'up') {
+    // Handle scroll
+    if (event.type === 'scroll') {
+      if (event.scrollDirection === -1) {
+        // Scroll up
         this.scrollTop = Math.max(0, this.scrollTop - 3);
       } else {
+        // Scroll down
         this.scrollTop = Math.min(
           Math.max(0, this.flatItems.length - contentHeight),
           this.scrollTop + 3
@@ -455,7 +457,7 @@ export abstract class BaseViewer<T extends ViewerItem = ViewerItem> extends Base
     }
 
     // Handle click selection
-    if (event.type === 'mousedown') {
+    if (event.type === 'press') {
       const clickY = event.y;
       if (clickY >= contentStartY && clickY < contentStartY + contentHeight) {
         const clickedIndex = this.scrollTop + (clickY - contentStartY);

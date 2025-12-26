@@ -41,6 +41,7 @@ export type ElementType =
   | 'SearchResults'
   | 'SearchResultBrowser'
   | 'ContentBrowser'
+  | 'BaseViewer'
   | 'ProjectSearch'
   | 'DiagnosticsView'
   | 'OutlinePanel'

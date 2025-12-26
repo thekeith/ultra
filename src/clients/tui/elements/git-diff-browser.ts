@@ -96,8 +96,14 @@ interface EditCursor {
 export interface EditCallbacks {
   /** Called when edit is saved with modified content */
   onSaveEdit?: (filePath: string, hunkIndex: number, newLines: string[]) => Promise<void>;
-  /** Called when edit is saved in direct-write mode */
-  onDirectWrite?: (filePath: string, startLine: number, newLines: string[]) => Promise<void>;
+  /**
+   * Called when edit is saved in direct-write mode.
+   * @param filePath File path relative to repo root
+   * @param startLine Starting line number (1-based)
+   * @param newLines New content lines
+   * @param originalLineCount Number of lines being replaced
+   */
+  onDirectWrite?: (filePath: string, startLine: number, newLines: string[], originalLineCount: number) => Promise<void>;
 }
 
 // ============================================
@@ -514,7 +520,8 @@ export class GitDiffBrowser extends ContentBrowser<GitDiffArtifact> {
       if (this.editSaveMode === 'direct-write') {
         // Direct write mode: modify the file directly
         const startLine = this.editingNode.hunk.newStart;
-        await this.editCallbacks.onDirectWrite?.(filePath, startLine, newLines);
+        const originalLineCount = this.originalEditLines.length;
+        await this.editCallbacks.onDirectWrite?.(filePath, startLine, newLines, originalLineCount);
       } else {
         // Stage-modified mode: create modified hunk for staging
         await this.editCallbacks.onSaveEdit?.(filePath, hunkIndex, newLines);

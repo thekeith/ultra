@@ -1151,6 +1151,7 @@ export class Pane {
       SearchResults: 'Search',
       SearchResultBrowser: 'Search',
       ContentBrowser: 'Browser',
+      BaseViewer: 'Viewer',
       ProjectSearch: 'Find',
       DiagnosticsView: 'Problems',
       OutlinePanel: 'Outline',

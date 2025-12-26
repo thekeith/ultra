@@ -314,4 +314,78 @@ describe('GitCliService', () => {
       unsubscribe();
     });
   });
+
+  describe('diffCommit', () => {
+    test('returns hunks for a commit', async () => {
+      // Get the most recent commit hash
+      const commits = await service.log(testDir, 1);
+      expect(commits.length).toBeGreaterThan(0);
+
+      const commitHash = commits[0]!.hash;
+      const hunks = await service.diffCommit(testDir, commitHash);
+
+      // The commit should have some changes
+      expect(hunks).toBeDefined();
+      expect(Array.isArray(hunks)).toBe(true);
+    });
+
+    test('returns hunks for specific file in commit', async () => {
+      // Create a new commit with a specific file
+      await writeFile(join(testDir, 'difftest.txt'), 'line 1\nline 2\n');
+      await $`git -C ${testDir} add difftest.txt`.quiet();
+      await $`git -C ${testDir} commit -m "Add difftest.txt"`.quiet();
+
+      const commits = await service.log(testDir, 1);
+      const commitHash = commits[0]!.hash;
+
+      const hunks = await service.diffCommit(testDir, commitHash, 'difftest.txt');
+
+      expect(hunks.length).toBeGreaterThan(0);
+      expect(hunks[0]?.lines.length).toBeGreaterThan(0);
+    });
+
+    test('returns empty array for invalid commit', async () => {
+      const hunks = await service.diffCommit(testDir, 'invalid-commit-hash');
+
+      expect(hunks).toEqual([]);
+    });
+  });
+
+  describe('getCommitFiles', () => {
+    test('returns files changed in a commit', async () => {
+      // Create a commit with multiple files
+      await writeFile(join(testDir, 'file1.txt'), 'content1');
+      await writeFile(join(testDir, 'file2.txt'), 'content2');
+      await $`git -C ${testDir} add file1.txt file2.txt`.quiet();
+      await $`git -C ${testDir} commit -m "Add two files"`.quiet();
+
+      const commits = await service.log(testDir, 1);
+      const commitHash = commits[0]!.hash;
+
+      const files = await service.getCommitFiles(testDir, commitHash);
+
+      expect(files).toContain('file1.txt');
+      expect(files).toContain('file2.txt');
+    });
+
+    test('returns single file for single-file commit', async () => {
+      await writeFile(join(testDir, 'single.txt'), 'single file');
+      await $`git -C ${testDir} add single.txt`.quiet();
+      await $`git -C ${testDir} commit -m "Add single file"`.quiet();
+
+      const commits = await service.log(testDir, 1);
+      const commitHash = commits[0]!.hash;
+
+      const files = await service.getCommitFiles(testDir, commitHash);
+
+      expect(files).toHaveLength(1);
+      expect(files[0]).toBe('single.txt');
+    });
+
+    test('returns empty array for invalid commit', async () => {
+      const files = await service.getCommitFiles(testDir, 'invalid-hash');
+
+      expect(files).toEqual([]);
+    });
+  });
 });
