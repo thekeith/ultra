@@ -281,6 +281,27 @@ describe('GitDiffBrowser', () => {
       // Should have called getDiagnostics for each file
       expect(callCount).toBe(2);
     });
+
+    test('diagnostics are refreshed on focus', () => {
+      let callCount = 0;
+      const provider: DiagnosticsProvider = {
+        getDiagnostics: () => {
+          callCount++;
+          return [];
+        },
+      };
+
+      browser.setArtifacts(createTestArtifacts());
+      browser.setDiagnosticsProvider(provider);
+
+      const initialCount = callCount;
+
+      // Simulate focus
+      browser.onFocus();
+
+      // Should have refreshed diagnostics
+      expect(callCount).toBeGreaterThan(initialCount);
+    });
   });
 
   // ─────────────────────────────────────────────────────────────────────────

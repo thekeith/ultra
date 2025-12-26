@@ -178,6 +178,22 @@ export class GitDiffBrowser extends ContentBrowser<GitDiffArtifact> {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Lifecycle
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Refresh diagnostics cache when gaining focus.
+   * LSP diagnostics may have changed since last focus.
+   */
+  override onFocus(): void {
+    super.onFocus();
+    // Refresh diagnostics cache to pick up any LSP changes
+    if (this.diagnosticsProvider && this.showDiagnostics) {
+      this.refreshDiagnosticsCache();
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Configuration
   // ─────────────────────────────────────────────────────────────────────────
 
