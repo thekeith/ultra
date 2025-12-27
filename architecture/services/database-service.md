@@ -978,10 +978,140 @@ describe('DatabaseService', () => {
 
 ---
 
-## Open Questions
+## Design Decisions
 
-1. **Query result streaming**: For large result sets, should we stream rows or paginate?
-2. **Prepared statements**: Should we expose prepared statement APIs?
-3. **Connection pooling**: Multiple tabs using same connection - pool or separate?
-4. **Offline schema cache**: Cache schema for completions when disconnected?
-5. **Migration tools**: Should we integrate with migration frameworks (Prisma, Drizzle)?
+| Question | Decision | Notes |
+|----------|----------|-------|
+| Query result streaming | **Paginate** (stream later) | Reusable pagination for other document types. Streaming added to BACKLOG.md |
+| Connection pooling | **Shared pool** | Multiple tabs using same connection share a pool |
+| Offline schema cache | **Yes, in config folder** | Cache in `~/.ultra/database/` for offline completions |
+| Migration tools | **Drizzle (Phase 4)** | SQL-first, TypeScript-native, good Supabase support |
+
+---
+
+## Config Folder Structure
+
+Database-related configuration and caches are stored in `~/.ultra/database/`:
+
+```
+~/.ultra/
+├── settings.jsonc              # Global settings (includes database.* keys)
+├── connections.json            # Global database connections
+├── secrets.enc                 # Encrypted secrets (fallback if no keychain)
+│
+├── database/
+│   ├── schema-cache/           # Cached schemas for offline LSP completions
+│   │   ├── conn-abc123.json    # Schema cache per connection
+│   │   └── conn-def456.json
+│   │
+│   └── query-history/          # Git-backed query history
+│       ├── .git/
+│       ├── history.jsonl       # Append-only query log
+│       └── favorites.json      # Saved/starred queries
+│
+└── new-tui/
+    └── sessions/               # Session files (existing)
+```
+
+### Project-Scoped Storage
+
+```
+<project>/
+└── .ultra/
+    ├── connections.json        # Project-specific connections (gitignored)
+    └── database/
+        └── schema-cache/       # Project-specific schema cache
+```
+
+---
+
+## Pagination Component (Reusable)
+
+The pagination system will be designed as a reusable component for any large data display:
+
+```typescript
+// src/clients/tui/components/paginator.ts
+interface PaginatorConfig<T> {
+  pageSize: number;
+  totalItems: number;
+  fetchPage: (offset: number, limit: number) => Promise<T[]>;
+}
+
+interface PaginatorState {
+  currentPage: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
+class Paginator<T> {
+  // Navigation
+  nextPage(): Promise<T[]>;
+  prevPage(): Promise<T[]>;
+  goToPage(page: number): Promise<T[]>;
+
+  // State
+  getState(): PaginatorState;
+
+  // Events
+  onPageChange(callback: (state: PaginatorState) => void): Unsubscribe;
+}
+```
+
+**Usage in Query Results:**
+```typescript
+const paginator = new Paginator<Record<string, unknown>>({
+  pageSize: settings.get('database.results.pageSize') ?? 100,
+  totalItems: result.totalRows,
+  fetchPage: (offset, limit) => databaseService.fetchRows(queryId, offset, limit)
+});
+```
+
+**Reusable for:**
+- Query results
+- Log viewers
+- Large file previews
+- Search results
+- Git history
+
+---
+
+## Phase 4: Migrations (Future)
+
+Integration with **Drizzle ORM** for schema migrations.
+
+### Why Drizzle over Prisma
+
+| Factor | Drizzle | Prisma |
+|--------|---------|--------|
+| SQL-first | Yes - SQL syntax in TypeScript | No - custom DSL |
+| Type inference | From schema, no generation step | Requires `prisma generate` |
+| Bundle size | ~50KB | ~2MB+ |
+| Supabase | First-class support | Supported but heavier |
+| Learning curve | Low (just SQL) | Medium (Prisma schema) |
+
+### Drizzle Integration Scope
+
+```typescript
+// ECP Methods (Phase 4)
+"database/migrations/list": { connectionId: string } => { migrations: MigrationInfo[] }
+"database/migrations/status": { connectionId: string } => { pending: string[], applied: string[] }
+"database/migrations/run": { connectionId: string, target?: string } => { applied: string[] }
+"database/migrations/rollback": { connectionId: string, steps?: number } => { reverted: string[] }
+"database/migrations/generate": { connectionId: string, name: string } => { path: string }
+
+// TUI Component
+// Migration Manager overlay showing:
+// - List of migrations (applied/pending status)
+// - Run/rollback buttons
+// - Generate new migration
+// - View migration SQL
+```
+
+---
+
+## Open Questions (Remaining)
+
+1. **Prepared statements**: Should we expose prepared statement APIs for performance?
+2. **Query result caching**: Cache recent query results for quick re-display?
+3. **Explain/analyze**: Built-in EXPLAIN ANALYZE visualization?
