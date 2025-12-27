@@ -138,6 +138,9 @@ export class TUIClient {
   /** Working directory */
   private workingDirectory: string;
 
+  /** Initial file to open on startup */
+  private initialFile: string | undefined;
+
   /** Theme colors */
   private theme: Record<string, string>;
 
@@ -266,6 +269,7 @@ export class TUIClient {
 
   constructor(options: TUIClientOptions = {}) {
     this.workingDirectory = options.workingDirectory ?? process.cwd();
+    this.initialFile = options.initialFile;
     this.debug = options.debug ?? false;
     this.theme = options.theme ?? this.getDefaultTheme();
     this.onExitCallback = options.onExit;
@@ -440,10 +444,16 @@ export class TUIClient {
     // Setup initial layout
     await this.setupInitialLayout();
 
-    // Try to restore the last session
-    const restored = await this.tryRestoreSession();
-    if (restored) {
-      this.log('Restored previous session');
+    // If an initial file was specified, open it instead of restoring session
+    if (this.initialFile) {
+      this.log(`Opening initial file: ${this.initialFile}`);
+      await this.openFile(`file://${this.initialFile}`);
+    } else {
+      // Try to restore the last session
+      const restored = await this.tryRestoreSession();
+      if (restored) {
+        this.log('Restored previous session');
+      }
     }
 
     // Start git status polling
@@ -1577,8 +1587,15 @@ export class TUIClient {
     }
 
     try {
-      // Read file content
-      const fileContent = await this.fileService.read(uri);
+      // Read file content (or create empty content for new files)
+      let fileContent: { content: string; modTime?: number };
+      try {
+        fileContent = await this.fileService.read(uri);
+      } catch {
+        // File doesn't exist - create it with empty content
+        this.log(`File not found, creating new file: ${uri}`);
+        fileContent = { content: '' };
+      }
 
       // Open document in service
       const result = await this.documentService.open({
