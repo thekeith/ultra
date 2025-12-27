@@ -172,6 +172,9 @@ export class DocumentEditor extends BaseElement {
   /** Whether document is modified */
   private modified = false;
 
+  /** Whether document is read-only (e.g., viewing historical content) */
+  private readOnly = false;
+
   /** Callbacks */
   private callbacks: DocumentEditorCallbacks;
 
@@ -1159,6 +1162,27 @@ export class DocumentEditor extends BaseElement {
   }
 
   /**
+   * Set read-only mode.
+   */
+  setReadOnly(readOnly: boolean): void {
+    this.readOnly = readOnly;
+    if (readOnly) {
+      // Append indicator to title
+      const currentTitle = this.getTitle();
+      if (!currentTitle.endsWith(' (read-only)')) {
+        this.setTitle(`${currentTitle} (read-only)`);
+      }
+    }
+  }
+
+  /**
+   * Check if document is read-only.
+   */
+  isReadOnly(): boolean {
+    return this.readOnly;
+  }
+
+  /**
    * Check if document is modified.
    */
   isModified(): boolean {
@@ -1893,6 +1917,8 @@ export class DocumentEditor extends BaseElement {
    * For multi-cursor, processes from bottom to top to avoid index shifting.
    */
   insertText(text: string): void {
+    if (this.readOnly) return;
+
     const cursorsBefore = this.createCursorSnapshot();
     const operations: EditOperation[] = [];
 
@@ -2058,6 +2084,7 @@ export class DocumentEditor extends BaseElement {
    * Delete character before all cursors (backspace).
    */
   deleteBackward(): void {
+    if (this.readOnly) return;
     const cursorsBefore = this.createCursorSnapshot();
     const operations: EditOperation[] = [];
 
@@ -2141,6 +2168,7 @@ export class DocumentEditor extends BaseElement {
    * Delete character at all cursors (delete key).
    */
   deleteForward(): void {
+    if (this.readOnly) return;
     const cursorsBefore = this.createCursorSnapshot();
     const operations: EditOperation[] = [];
 
@@ -3415,7 +3443,12 @@ export class DocumentEditor extends BaseElement {
       return true;
     }
 
-    // Editing
+    // Editing (blocked in read-only mode)
+    if (this.readOnly) {
+      // Allow navigation but block editing
+      return false;
+    }
+
     if (event.key === 'Backspace') {
       this.deleteBackward();
       return true;

@@ -79,6 +79,17 @@ export class ECPServer {
     this.fileService = new FileServiceImpl();
     this.gitService = new GitCliService();
     this.sessionService = new LocalSessionService();
+
+    // Configure session paths for persistence
+    const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+    const sessionsDir = options.sessionsDir || `${homeDir}/.ultra/sessions`;
+    this.sessionService.setSessionPaths({
+      sessionsDir,
+      workspaceSessionsDir: `${sessionsDir}/workspaces`,
+      namedSessionsDir: `${sessionsDir}/named`,
+      lastSessionFile: `${sessionsDir}/last-session.json`,
+    });
+
     this.lspService = new LocalLSPService();
     this.lspService.setWorkspaceRoot(this.workspaceRoot);
     this.syntaxService = new LocalSyntaxService();

@@ -1074,14 +1074,32 @@ export class TUIClient {
       return;
     }
 
-    // Get relative path from workspace root
-    const filePath = uri.replace(/^file:\/\//, '').replace(this.workingDirectory + '/', '');
+    const absolutePath = uri.replace(/^file:\/\//, '');
     const count = this.configManager.getWithDefault('tui.timeline.commitCount', 50);
 
     this.gitTimelinePanel.setLoading(true);
 
     try {
-      const commits = await gitCliService.fileLog(this.workingDirectory, filePath, count);
+      // Get the actual git repo root (handles monorepos/nested workspaces)
+      const repoRoot = await gitCliService.getRoot(this.workingDirectory);
+      if (!repoRoot) {
+        this.gitTimelinePanel.clearCommits();
+        return;
+      }
+
+      // Calculate path relative to repo root, not workspace root
+      let filePath: string;
+      if (absolutePath.startsWith(repoRoot + '/')) {
+        filePath = absolutePath.slice(repoRoot.length + 1);
+      } else if (absolutePath.startsWith(repoRoot)) {
+        filePath = absolutePath.slice(repoRoot.length);
+      } else {
+        // File is outside the repo
+        this.gitTimelinePanel.clearCommits();
+        return;
+      }
+
+      const commits = await gitCliService.fileLog(repoRoot, filePath, count);
       this.gitTimelinePanel.setCommits(commits, uri, filePath);
     } catch {
       this.gitTimelinePanel.clearCommits();
@@ -1111,7 +1129,14 @@ export class TUIClient {
    */
   private async openFileAtCommit(commitHash: string, filePath: string): Promise<void> {
     try {
-      const content = await gitCliService.show(this.workingDirectory, filePath, commitHash);
+      // Get the actual git repo root
+      const repoRoot = await gitCliService.getRoot(this.workingDirectory);
+      if (!repoRoot) {
+        this.window.showNotification('Not in a git repository', 'error');
+        return;
+      }
+
+      const content = await gitCliService.show(repoRoot, filePath, commitHash);
       const fileName = filePath.split('/').pop() || filePath;
       const shortHash = commitHash.substring(0, 7);
 
@@ -1122,13 +1147,16 @@ export class TUIClient {
 
       if (!pane) return;
 
-      // Add editor element
+      // Add editor element with a virtual URI to indicate it's read-only historical content
       const title = `${fileName} @ ${shortHash}`;
+      const virtualUri = `git://${commitHash}/${filePath}`;
       const editorId = pane.addElement('DocumentEditor', title);
       const editor = pane.getElement(editorId) as DocumentEditor | null;
 
       if (editor) {
         editor.setContent(content);
+        editor.setUri(virtualUri);
+        editor.setReadOnly(true);
         this.window.focusElement(editor);
       }
     } catch (error) {

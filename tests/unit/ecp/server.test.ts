@@ -326,4 +326,25 @@ describe('createECPServer', () => {
     expect(server.state).toBe('running');
     await server.shutdown();
   });
+
+  test('creates server with custom sessions directory', async () => {
+    const server = createECPServer({ sessionsDir: '/tmp/ultra-test-sessions' });
+    expect(server.state).toBe('running');
+    await server.shutdown();
+  });
+
+  test('session service is configured with session paths', async () => {
+    const server = createECPServer();
+
+    // Session service should be available and configured
+    const sessionService = server.getService('session');
+    expect(sessionService).toBeDefined();
+
+    // The service should be able to handle session operations
+    // (paths are set in constructor, this verifies it doesn't throw)
+    const sessions = await sessionService.listSessions();
+    expect(Array.isArray(sessions)).toBe(true);
+
+    await server.shutdown();
+  });
 });

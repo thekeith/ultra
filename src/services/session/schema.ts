@@ -204,7 +204,7 @@ export const settingsSchema: SettingsSchema = {
       maximum: 50,
       description: 'Height of the terminal panel in rows',
     },
-    'tabBar.scrollAmount': {
+    'tui.tabBar.scrollAmount': {
       type: 'number',
       default: 1,
       minimum: 1,
@@ -215,17 +215,17 @@ export const settingsSchema: SettingsSchema = {
     // ─────────────────────────────────────────────────────────────────────────
     // Outline Panel Settings
     // ─────────────────────────────────────────────────────────────────────────
-    'outline.autoFollow': {
+    'tui.outline.autoFollow': {
       type: 'boolean',
       default: true,
       description: 'Automatically highlight symbol at cursor position',
     },
-    'outline.collapsedOnStartup': {
+    'tui.outline.collapsedOnStartup': {
       type: 'boolean',
       default: true,
       description: 'Start with outline panel collapsed in sidebar',
     },
-    'outline.showIcons': {
+    'tui.outline.showIcons': {
       type: 'boolean',
       default: true,
       description: 'Show icons for symbol kinds',
@@ -234,17 +234,17 @@ export const settingsSchema: SettingsSchema = {
     // ─────────────────────────────────────────────────────────────────────────
     // Git Timeline Panel Settings
     // ─────────────────────────────────────────────────────────────────────────
-    'timeline.mode': {
+    'tui.timeline.mode': {
       type: 'string',
       default: 'file',
       description: 'Timeline mode: file-specific or repository-wide',
     },
-    'timeline.commitCount': {
+    'tui.timeline.commitCount': {
       type: 'number',
       default: 50,
       description: 'Number of commits to display in timeline',
     },
-    'timeline.collapsedOnStartup': {
+    'tui.timeline.collapsedOnStartup': {
       type: 'boolean',
       default: true,
       description: 'Start with timeline panel collapsed in sidebar',

@@ -427,6 +427,88 @@ describe('DocumentEditor', () => {
   });
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Read-Only Mode
+  // ─────────────────────────────────────────────────────────────────────────
+
+  describe('read-only mode', () => {
+    test('starts not read-only', () => {
+      expect(editor.isReadOnly()).toBe(false);
+    });
+
+    test('setReadOnly enables read-only mode', () => {
+      editor.setReadOnly(true);
+      expect(editor.isReadOnly()).toBe(true);
+    });
+
+    test('setReadOnly can disable read-only mode', () => {
+      editor.setReadOnly(true);
+      editor.setReadOnly(false);
+      expect(editor.isReadOnly()).toBe(false);
+    });
+
+    test('read-only mode appends indicator to title', () => {
+      editor.setUri('/path/to/file.ts');
+      editor.setReadOnly(true);
+      expect(editor.getTitle()).toBe('file.ts (read-only)');
+    });
+
+    test('read-only mode does not double-append indicator', () => {
+      editor.setUri('/path/to/file.ts');
+      editor.setReadOnly(true);
+      editor.setReadOnly(true);
+      expect(editor.getTitle()).toBe('file.ts (read-only)');
+    });
+
+    test('insertText is blocked in read-only mode', () => {
+      editor.setContent('Hello');
+      editor.setCursor({ line: 0, column: 5 });
+      editor.setReadOnly(true);
+
+      editor.insertText(' World');
+      expect(editor.getContent()).toBe('Hello');
+    });
+
+    test('deleteBackward is blocked in read-only mode', () => {
+      editor.setContent('Hello');
+      editor.setCursor({ line: 0, column: 5 });
+      editor.setReadOnly(true);
+
+      editor.deleteBackward();
+      expect(editor.getContent()).toBe('Hello');
+    });
+
+    test('deleteForward is blocked in read-only mode', () => {
+      editor.setContent('Hello');
+      editor.setCursor({ line: 0, column: 0 });
+      editor.setReadOnly(true);
+
+      editor.deleteForward();
+      expect(editor.getContent()).toBe('Hello');
+    });
+
+    test('character input is blocked in read-only mode', () => {
+      editor.setContent('Hello');
+      editor.setCursor({ line: 0, column: 5 });
+      editor.setReadOnly(true);
+
+      editor.handleKey({ key: '!', ctrl: false, alt: false, shift: false, meta: false });
+      expect(editor.getContent()).toBe('Hello');
+    });
+
+    test('navigation still works in read-only mode', () => {
+      editor.setContent('Hello\nWorld');
+      editor.setCursor({ line: 0, column: 0 });
+      editor.setReadOnly(true);
+
+      editor.handleKey({ key: 'ArrowRight', ctrl: false, alt: false, shift: false, meta: false });
+      expect(editor.getCursor().column).toBe(1);
+
+      editor.handleKey({ key: 'ArrowDown', ctrl: false, alt: false, shift: false, meta: false });
+      expect(editor.getCursor().line).toBe(1);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
   // State Serialization
   // ─────────────────────────────────────────────────────────────────────────
 

@@ -118,6 +118,8 @@ export type NotificationListener = (method: string, params: unknown) => void;
 export interface ECPServerOptions {
   /** Workspace root for file operations */
   workspaceRoot?: string;
+  /** Sessions directory (defaults to ~/.ultra/sessions) */
+  sessionsDir?: string;
 }
 
 /**

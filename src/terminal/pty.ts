@@ -25,6 +25,8 @@ export interface PTYSize {
 
 export interface PTYOptions {
   shell?: string;
+  /** Arguments to pass to the shell (defaults to ['-il'] for bash/zsh/sh) */
+  args?: string[];
   cwd?: string;
   env?: Record<string, string>;
   cols?: number;
@@ -44,6 +46,7 @@ export class PTY {
   private _cols: number;
   private _rows: number;
   private shell: string;
+  private args: string[] | undefined;
   private cwd: string;
   private env: Record<string, string>;
   
@@ -57,6 +60,7 @@ export class PTY {
     this._cols = options.cols || 80;
     this._rows = options.rows || 24;
     this.shell = options.shell || process.env.SHELL || '/bin/zsh';
+    this.args = options.args;
     this.cwd = options.cwd || process.cwd();
     this.env = {
       ...process.env as Record<string, string>,
@@ -91,10 +95,13 @@ export class PTY {
 
     try {
       // Spawn PTY process using bun-pty
-      // Use -il flags to start as interactive login shell (like Terminal.app, iTerm2)
-      // -i: interactive (sources .zshrc)
-      // -l: login (sources .zprofile/.zlogin)
-      this.ptyProcess = spawn(this.shell, ['-il'], {
+      // Only use -il for POSIX shells (bash, zsh, sh) that support it
+      // Other shells (fish, nu, etc.) get no args by default
+      const shellName = this.shell.split('/').pop() || '';
+      const defaultArgs = ['bash', 'zsh', 'sh'].includes(shellName) ? ['-il'] : [];
+      const shellArgs = this.args ?? defaultArgs;
+
+      this.ptyProcess = spawn(this.shell, shellArgs, {
         name: 'xterm-256color',
         cols: this._cols,
         rows: this._rows,

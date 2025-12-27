@@ -54,10 +54,11 @@ export class NodePtyBackend implements PTYBackend {
     this._rows = options.rows ?? 24;
     this._cwd = options.cwd ?? process.cwd();
     this.shell = options.shell ?? process.env.SHELL ?? '/bin/zsh';
-    // Start as interactive login shell by default (like Terminal.app, iTerm2)
-    // -i: interactive (sources .zshrc)
-    // -l: login (sources .zprofile/.zlogin)
-    this.args = options.args ?? ['-il'];
+    // Only use -il for POSIX shells (bash, zsh, sh) that support it
+    // Other shells (fish, nu, etc.) get no args by default
+    const shellName = this.shell.split('/').pop() || '';
+    const defaultArgs = ['bash', 'zsh', 'sh'].includes(shellName) ? ['-il'] : [];
+    this.args = options.args ?? defaultArgs;
     this.env = options.env ?? {};
 
     const scrollback = options.scrollback ?? 1000;
