@@ -4,107 +4,491 @@ _v0.5.0_
 
 A terminal-native code editor with Sublime Text ergonomics, VS Code configuration compatibility, and integrated AI capabilities. Built with Bun for maximum performance.
 
-## Features
-
-### Core Editor
-- **Piece Table Buffer** - Efficient text editing with O(log n) insert/delete operations
-- **Multi-Cursor Support** - Edit multiple locations simultaneously with full selection support
-- **Word Wrap** - Intelligent line wrapping with word-boundary awareness
-- **Code Folding** - Collapse/expand code blocks with visual indicators
-- **Undo/Redo** - Operation-based history with intelligent action merging
-
-### IDE Features
-- **Syntax Highlighting** - Shiki-powered highlighting with TextMate grammar support
-- **LSP Integration** - Language Server Protocol support for completions, hover, go-to-definition
-- **Git Integration** - Inline diff view, staging, gutter indicators, branch management, timeline view
-- **File Tree** - Sidebar navigation with git status indicators
-- **Outline Panel** - Symbol navigation with LSP-powered document outline
-- **Integrated Terminal** - Built-in terminal with full PTY support
-- **Minimap** - Code overview with scroll position indicator
-- **Search** - Project-wide search with regex support
-
-### AI Integration
-- **Claude Code** - Integrated Claude AI chat with session persistence
-- **Codex** - OpenAI Codex integration for code assistance
-- **AI Terminal** - Dedicated AI chat panel with context awareness
-
-### User Experience
-- **VS Code Keybindings** - Familiar keyboard shortcuts out of the box
-- **VS Code Themes** - Full compatibility with VS Code color themes (Catppuccin, One Dark, etc.)
-- **Mouse Support** - Click positioning, drag selection, scroll wheel
-- **Command Palette** - Fuzzy-searchable command palette (`Ctrl+Shift+P`)
-- **Split Panes** - Horizontal and vertical editor splits
-- **Tab Management** - Multiple document tabs with dirty indicators
-- **Session Persistence** - Automatic session save/restore
-
-### Configuration
-- **Hot-Reloadable Settings** - JSONC-based configuration that updates live
-- **Custom Keybindings** - Full keybinding customization with context-aware "when" clauses
-- **Per-Language Settings** - Language-specific editor configurations
-
-## Requirements
-
-- [Bun](https://bun.sh) v1.0 or later
-- macOS, Linux, or Windows with WSL
-
-## Installation
+## Quick Start
 
 ```bash
-# Clone the repository
-git clone https://github.com/AgeOfLearning/ultra-editor.git
-cd ultra-editor
-
 # Install dependencies
 bun install
-```
 
-## Usage
-
-### Development Mode
-
-```bash
-# Open with no file (scratch buffer)
+# Run in development mode
 bun run dev
 
-# Open a specific file
-bun run dev path/to/file.ts
+# Open a file or directory
+bun run dev ~/projects/my-app
+
+# Build native executable
+bun run build
+./ultra ~/projects/my-app
+```
+
+## Features at a Glance
+
+| Feature | Access | Description |
+|---------|--------|-------------|
+| Quick Open | `Ctrl+P` | Fuzzy-find and open files |
+| Command Palette | `Ctrl+Shift+P` | Search and run any command |
+| Go to Symbol | `Ctrl+R` | Jump to symbol in current file |
+| Workspace Symbols | `Ctrl+Shift+R` | Find symbol across all files |
+| Go to Line | `Ctrl+G` | Jump to line number |
+| Find | `Ctrl+F` | Search in current file |
+| Find & Replace | `Ctrl+H` | Search and replace |
+| Toggle Sidebar | `Ctrl+Shift+B` | Show/hide file tree |
+| Toggle Terminal | `` Ctrl+` `` | Show/hide integrated terminal |
+| Git Panel | `Ctrl+Shift+G` | Focus git staging panel |
+| Split Editor | `Ctrl+\` | Split editor vertically |
+
+---
+
+## Editor Features
+
+### Multi-Cursor Editing
+
+Edit multiple locations simultaneously with full selection support.
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+D` | Select word, then add cursor at next occurrence |
+| `Ctrl+Shift+L` | Add cursor at all occurrences of selection |
+| `Ctrl+Alt+Up` | Add cursor on line above |
+| `Ctrl+Alt+Down` | Add cursor on line below |
+| `Escape` | Clear secondary cursors |
+
+All cursors move and edit together. Selections, typing, and deletions apply to every cursor position.
+
+### Code Folding
+
+Collapse and expand code blocks to focus on relevant sections.
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+Shift+[` | Fold current region |
+| `Ctrl+Shift+]` | Unfold current region |
+| `Ctrl+K Ctrl+0` | Fold all regions |
+| `Ctrl+K Ctrl+J` | Unfold all regions |
+
+Click the fold indicators in the gutter to toggle individual regions. Folded regions show a `...` indicator.
+
+### Comments
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+/` | Toggle line comment |
+| `Ctrl+K Ctrl+C` | Add line comment |
+| `Ctrl+K Ctrl+U` | Remove line comment |
+
+### Word Wrap & Line Numbers
+
+Configure in settings (`Ctrl+,`):
+
+```jsonc
+{
+  "editor.wordWrap": "on",        // "off", "on", "wordWrapColumn", "bounded"
+  "editor.lineNumbers": "on",     // "on", "off", "relative"
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true
+}
+```
+
+---
+
+## Navigation
+
+### Quick Open (`Ctrl+P`)
+
+Fuzzy-find any file in your project. Start typing to filter results. The picker shows up to 10,000 files (configurable via `tui.filePicker.maxFiles`).
+
+- Type partial file names: `tuicl` matches `tui-client.ts`
+- Use path segments: `src/lsp` shows files in that directory
+- Recently opened files appear first
+
+### Go to Symbol (`Ctrl+R`)
+
+Jump to any symbol (function, class, variable) in the current file. Requires LSP support for the file type.
+
+- Symbols are categorized by type with icons
+- Type to filter by symbol name
+- Shows container name for nested symbols
+
+### Workspace Symbols (`Ctrl+Shift+R`)
+
+Search for symbols across all files in your project. Each result shows the file name for disambiguation.
+
+- Queries all running language servers
+- Opens the file and navigates to the symbol
+- Great for finding class definitions, functions, etc.
+
+### Go to Line (`Ctrl+G`)
+
+Jump to a specific line number. Enter `line:column` for precise positioning (e.g., `42:10`).
+
+### Go to Definition (`Ctrl+Shift+K`)
+
+Jump to the definition of the symbol under the cursor. Works with LSP-supported languages.
+
+### Find References
+
+Right-click or use command palette to find all references to the current symbol.
+
+---
+
+## Sidebar Panels
+
+Toggle the sidebar with `Ctrl+Shift+B`. The sidebar contains:
+
+### File Tree
+
+Navigate your project structure with keyboard or mouse.
+
+| Key | Action |
+|-----|--------|
+| `j` / `↓` | Move down |
+| `k` / `↑` | Move up |
+| `l` / `→` | Expand folder |
+| `h` / `←` | Collapse folder |
+| `Enter` | Open file / Toggle folder |
+| `n` | New file |
+| `Shift+N` | New folder |
+| `r` / `F2` | Rename |
+| `d` / `Delete` | Delete |
+
+Files show git status colors when `tui.fileTree.showGitStatus` is enabled:
+- **Yellow**: Modified
+- **Green**: Added/Untracked
+- **Red**: Deleted
+
+### Outline Panel
+
+View the document outline for the current file. Shows functions, classes, variables, and other symbols from LSP.
+
+| Key | Action |
+|-----|--------|
+| `j` / `↓` | Move down |
+| `k` / `↑` | Move up |
+| `Enter` | Go to symbol |
+| `Space` | Toggle expand/collapse |
+
+Enable auto-follow to track cursor position: `tui.outline.autoFollow: true`
+
+### Timeline Panel
+
+View git history for the current file or entire repository.
+
+| Key | Action |
+|-----|--------|
+| `j` / `↓` | Move down |
+| `k` / `↑` | Move up |
+| `Enter` | View diff |
+| `o` | Open file at commit |
+| `Tab` | Toggle file/repo mode |
+| `y` | Copy commit hash |
+
+---
+
+## Git Integration
+
+### Git Panel (`Ctrl+Shift+G`)
+
+Stage, unstage, and commit changes without leaving the editor.
+
+| Key | Action |
+|-----|--------|
+| `s` | Stage file |
+| `Shift+S` | Stage all files |
+| `u` | Unstage file |
+| `d` | Discard changes |
+| `Enter` | Open diff viewer |
+| `o` | Open file |
+| `c` | Commit |
+| `r` | Refresh status |
+
+The panel shows:
+- **Staged Changes**: Files ready to commit
+- **Changes**: Modified files not yet staged
+- **Untracked Files**: New files not in git
+
+### Inline Diff
+
+When viewing a modified file, inline diff markers appear in the gutter:
+- **Green bar**: Added lines
+- **Red bar**: Deleted lines
+- **Yellow bar**: Modified lines
+
+Click the gutter indicator to expand an inline diff view showing the changes.
+
+### Diff Viewer
+
+Open a side-by-side or unified diff view for any changed file. Navigate between hunks and stage individual changes.
+
+---
+
+## Integrated Terminal
+
+Toggle the terminal panel with `` Ctrl+` ``.
+
+| Shortcut | Action |
+|----------|--------|
+| `` Ctrl+` `` | Toggle terminal panel |
+| `Ctrl+Shift+`` ` | New terminal in panel |
+| `Ctrl+Shift+T` | New terminal in pane |
+
+The terminal supports:
+- Full PTY emulation with colors and cursor positioning
+- Scrollback buffer (configurable via `tui.terminal.scrollback`)
+- Mouse support for text selection
+- Copy/paste with `Ctrl+C` / `Ctrl+V`
+
+---
+
+## AI Integration
+
+Ultra integrates AI assistants directly into the editor.
+
+### Claude Code
+
+Open Claude Code chat with `Ctrl+Shift+A` or via command palette.
+
+Features:
+- Context-aware code assistance
+- Session persistence (conversations resume where you left off)
+- Code suggestions and explanations
+
+### Codex
+
+Alternative AI provider using OpenAI Codex.
+
+Configure the default provider in settings:
+```jsonc
+{
+  "ai.defaultProvider": "claude-code"  // or "codex"
+}
+```
+
+---
+
+## LSP (Language Server Protocol)
+
+Ultra provides IDE features through LSP integration:
+
+| Feature | Shortcut | Description |
+|---------|----------|-------------|
+| Autocomplete | `Ctrl+Space` | Trigger completion suggestions |
+| Hover Info | `Ctrl+I` | Show type info and documentation |
+| Signature Help | `Ctrl+Shift+Space` | Show function signature |
+| Go to Definition | `Ctrl+Shift+K` | Jump to symbol definition |
+| Find References | Command palette | Find all references |
+
+LSP servers are auto-detected based on file type. Supported languages include TypeScript, JavaScript, Python, Go, Rust, and more.
+
+Configure LSP behavior:
+```jsonc
+{
+  "lsp.enabled": true,
+  "lsp.completionDebounceMs": 250,
+  "lsp.triggerCharacters": ".:/<@(",
+  "lsp.hover.enabled": true,
+  "lsp.signatureHelp.enabled": true,
+  "lsp.diagnostics.enabled": true
+}
+```
+
+---
+
+## Panes and Splits
+
+### Splitting the Editor
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+\` | Split vertically |
+| `Ctrl+Shift+\` | Split horizontally |
+| `Ctrl+Tab` | Focus next pane |
+| `Ctrl+Shift+Tab` | Focus previous pane |
+| `Ctrl+1/2/3` | Focus specific pane |
+
+### Tab Management
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+W` | Close current tab |
+| `Ctrl+]` | Next tab |
+| `Ctrl+[` | Previous tab |
+
+Tabs show:
+- File name with icon
+- Dirty indicator (dot) for unsaved changes
+- Read-only indicator for non-editable files
+
+---
+
+## Search
+
+### Find in File (`Ctrl+F`)
+
+Search the current file with optional regex support.
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+F` | Open find dialog |
+| `F3` | Find next |
+| `Shift+F3` | Find previous |
+| `Escape` | Close find dialog |
+
+Options:
+- **Case Sensitive**: Match exact case
+- **Whole Word**: Match complete words only
+- **Regex**: Use regular expressions
+
+### Find and Replace (`Ctrl+H`)
+
+Replace occurrences in the current file.
+
+- Replace one at a time or all at once
+- Preview replacements before applying
+- Regex capture groups supported
+
+### Find in Files (`Ctrl+Shift+F`)
+
+Search across all files in your project. Results show file paths and matching lines.
+
+---
+
+## Configuration
+
+Ultra stores configuration in `~/.ultra/`:
+
+### Settings (`~/.ultra/settings.jsonc`)
+
+Open settings with `Ctrl+,` or via command palette.
+
+```jsonc
+{
+  // Editor
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.wordWrap": "on",
+  "editor.lineNumbers": "on",
+  "editor.folding": true,
+  "editor.minimap.enabled": true,
+  "editor.minimap.width": 10,
+
+  // Theme
+  "workbench.colorTheme": "catppuccin-frappe",
+
+  // Sidebar
+  "tui.sidebar.width": 36,
+  "tui.sidebar.visible": true,
+  "tui.sidebar.location": "left",
+
+  // File Tree
+  "tui.fileTree.showGitStatus": true,
+
+  // File Picker
+  "tui.filePicker.maxFiles": 10000,
+
+  // Terminal
+  "tui.terminal.height": 24,
+  "tui.terminal.scrollback": 1000,
+
+  // Git
+  "git.statusInterval": 500,
+  "git.diffContextLines": 3,
+
+  // AI
+  "ai.defaultProvider": "claude-code",
+
+  // Session
+  "session.restoreOnStartup": true,
+  "session.autoSave": true
+}
+```
+
+### Keybindings (`~/.ultra/keybindings.jsonc`)
+
+Open keybindings editor with `Ctrl+Shift+,`.
+
+```jsonc
+[
+  // Override defaults
+  { "key": "ctrl+s", "command": "file.save" },
+
+  // Context-aware bindings
+  { "key": "s", "command": "gitPanel.stage", "when": "gitPanelFocus" },
+  { "key": "Enter", "command": "fileTree.open", "when": "fileTreeFocus" }
+]
+```
+
+Available contexts for `when` clauses:
+- `editorFocus` - Editor has focus
+- `editorHasMultipleCursors` - Multiple cursors active
+- `fileTreeFocus` - File tree panel focused
+- `gitPanelFocus` - Git panel focused
+- `outlinePanelFocus` - Outline panel focused
+- `timelinePanelFocus` - Timeline panel focused
+
+### Themes
+
+Built-in themes:
+- **Catppuccin Frappé** (default) - Warm pastel theme
+- **Catppuccin Mocha** - Dark pastel theme
+- **Catppuccin Macchiato** - Medium dark pastel theme
+- **Catppuccin Latte** - Light pastel theme
+- **One Dark** - Atom-inspired dark theme
+
+Change theme in settings or via command palette: "Preferences: Color Theme"
+
+---
+
+## Session Management
+
+Ultra automatically saves and restores your session:
+
+- Open files and their cursor positions
+- Scroll positions and fold state
+- Pane layout
+- Terminal sessions
+- AI chat history
+
+### Session Commands
+
+| Command | Description |
+|---------|-------------|
+| `Ctrl+K Ctrl+S` | Save session as... |
+| `Ctrl+K Ctrl+O` | Open session... |
+
+Sessions are stored in `~/.ultra/sessions/`.
+
+---
+
+## Command Line Usage
+
+```bash
+# Open current directory
+ultra .
+
+# Open a file
+ultra path/to/file.ts
 
 # Open a directory
-bun run dev /path/to/project
+ultra ~/projects/my-app
 
-# Enable debug logging (writes to debug.log)
-bun run dev --debug
+# Open file at specific line
+ultra file.ts:42
+
+# Enable debug logging
+ultra --debug
+
+# Show version
+ultra --version
 ```
 
-### Build Executable
+---
 
-```bash
-# Build native binary
-bun run build
-
-# Run the built executable
-./ultra file.ts
-```
-
-### Other Commands
-
-```bash
-# Type checking
-bun run typecheck
-
-# Run tests
-bun test
-
-# Generate API documentation
-bun run docs
-```
-
-## Keyboard Shortcuts
+## Keyboard Shortcuts Reference
 
 ### File Operations
 | Shortcut | Action |
 |----------|--------|
-| `Ctrl+S` | Save file |
+| `Ctrl+S` | Save |
 | `Ctrl+Shift+S` | Save As |
 | `Ctrl+O` | Open file |
 | `Ctrl+N` | New file |
@@ -115,31 +499,25 @@ bun run docs
 | Shortcut | Action |
 |----------|--------|
 | `Ctrl+Z` | Undo |
-| `Ctrl+Shift+Z` | Redo |
+| `Ctrl+Shift+Z` / `Ctrl+Y` | Redo |
 | `Ctrl+C` | Copy |
 | `Ctrl+X` | Cut |
 | `Ctrl+V` | Paste |
 | `Ctrl+A` | Select all |
-| `Ctrl+D` | Select word / Add cursor at next occurrence |
-| `Ctrl+/` | Toggle line comment |
+| `Ctrl+D` | Select word / next occurrence |
+| `Ctrl+Shift+L` | Select all occurrences |
+| `Ctrl+/` | Toggle comment |
 
 ### Navigation
 | Shortcut | Action |
 |----------|--------|
-| `Ctrl+G` | Go to line |
 | `Ctrl+P` | Quick open file |
 | `Ctrl+Shift+P` | Command palette |
-| `Ctrl+Shift+O` | Go to symbol |
-| `Ctrl+K` | Show hover info |
+| `Ctrl+G` | Go to line |
+| `Ctrl+R` | Go to symbol in file |
+| `Ctrl+Shift+R` | Go to symbol in workspace |
+| `Ctrl+I` | Show hover info |
 | `Ctrl+Shift+K` | Go to definition |
-
-### Multi-Cursor
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+Alt+Up` | Add cursor above |
-| `Ctrl+Alt+Down` | Add cursor below |
-| `Ctrl+Shift+L` | Add cursor to all occurrences |
-| `Escape` | Clear secondary cursors |
 
 ### View
 | Shortcut | Action |
@@ -147,147 +525,55 @@ bun run docs
 | `Ctrl+Shift+B` | Toggle sidebar |
 | `` Ctrl+` `` | Toggle terminal |
 | `Ctrl+Shift+G` | Focus git panel |
+| `Ctrl+\` | Split vertically |
+| `Ctrl+Shift+\` | Split horizontally |
 | `Ctrl+Tab` | Next pane |
-| `Ctrl+Shift+Tab` | Previous pane |
-| `Ctrl+\` | Split editor vertically |
+| `Ctrl+1/2/3` | Focus pane |
 
 ### Search
 | Shortcut | Action |
 |----------|--------|
-| `Ctrl+F` | Find in file |
+| `Ctrl+F` | Find |
 | `Ctrl+H` | Find and replace |
-| `Ctrl+Shift+F` | Find in all files |
+| `Ctrl+Shift+F` | Find in files |
 | `F3` | Find next |
 | `Shift+F3` | Find previous |
 
-### Sidebar Panels (when focused)
-| Shortcut | Action |
-|----------|--------|
-| `j` / `Arrow Down` | Move down |
-| `k` / `Arrow Up` | Move up |
-| `Enter` / `Space` | Open/Select |
-| `h` / `Arrow Left` | Collapse |
-| `l` / `Arrow Right` | Expand |
+---
 
-## Project Structure
+## Requirements
 
-```
-ultra/
-├── src/
-│   ├── index.ts                 # Entry point
-│   ├── constants.ts             # Centralized configuration constants
-│   ├── debug.ts                 # Debug logging utility
-│   ├── core/                    # Core editing primitives
-│   │   ├── buffer.ts            # Piece table text buffer
-│   │   ├── cursor.ts            # Multi-cursor management
-│   │   ├── undo.ts              # Undo/redo system
-│   │   ├── fold.ts              # Code folding manager
-│   │   └── ...
-│   ├── services/                # ECP Services (modular backends)
-│   │   ├── document/            # Buffer, cursor, undo operations
-│   │   ├── file/                # File system abstraction
-│   │   ├── git/                 # Version control
-│   │   ├── lsp/                 # Language server integration
-│   │   ├── session/             # Settings, keybindings, state
-│   │   ├── syntax/              # Syntax highlighting
-│   │   ├── search/              # Project-wide search
-│   │   └── terminal/            # PTY management
-│   ├── clients/
-│   │   └── tui/                 # Terminal UI client
-│   │       ├── client/          # Main TUI orchestrator
-│   │       ├── elements/        # UI elements (editor, terminal, panels)
-│   │       ├── overlays/        # Modal dialogs and popups
-│   │       ├── layout/          # Pane and split management
-│   │       ├── config/          # TUI configuration
-│   │       └── rendering/       # Screen buffer and renderer
-│   ├── terminal/                # PTY backends
-│   └── config/                  # Global configuration
-├── config/
-│   ├── default-settings.jsonc   # Default settings
-│   ├── default-keybindings.jsonc # Default keybindings
-│   └── themes/                  # Color themes
-├── tests/
-│   ├── unit/                    # Unit tests
-│   └── integration/             # Integration tests
-└── docs/                        # Documentation
-```
+- [Bun](https://bun.sh) v1.0 or later
+- macOS, Linux, or Windows with WSL
+- A modern terminal with 256-color support
 
-## Configuration
-
-Ultra stores configuration in `~/.ultra/`:
-
-### Settings (`~/.ultra/settings.jsonc`)
-
-```jsonc
-{
-  // Editor
-  "editor.tabSize": 2,
-  "editor.insertSpaces": true,
-  "editor.wordWrap": "on",
-  "editor.lineNumbers": "on",
-  "editor.minimap.enabled": true,
-  "editor.folding": true,
-
-  // Theme
-  "workbench.colorTheme": "catppuccin-frappe",
-
-  // Sidebar
-  "tui.sidebar.width": 36,
-  "tui.sidebar.visible": true,
-  "tui.sidebar.location": "left",
-
-  // Terminal
-  "tui.terminal.height": 24,
-
-  // AI
-  "ai.defaultProvider": "claude-code"
-}
-```
-
-### Keybindings (`~/.ultra/keybindings.jsonc`)
-
-```jsonc
-[
-  // Override default keybindings
-  { "key": "ctrl+s", "command": "file.save" },
-  { "key": "ctrl+shift+p", "command": "workbench.commandPalette" },
-
-  // Context-aware keybindings
-  { "key": "s", "command": "gitPanel.stage", "when": "gitPanelFocus" },
-  { "key": "Enter", "command": "fileTree.open", "when": "fileTreeFocus" }
-]
-```
-
-### Themes
-
-Built-in themes:
-- Catppuccin Frappé (default)
-- Catppuccin Mocha
-- Catppuccin Macchiato
-- Catppuccin Latte
-- One Dark
-
-## Architecture
-
-Ultra uses an **Editor Command Protocol (ECP)** architecture:
-
-- **Services**: Modular backends (Document, File, Git, LSP, Session, Syntax, Terminal)
-- **Clients**: UI implementations (TUI client, future GUI/remote clients)
-- **Abstracted I/O**: File system, git, etc. are pluggable backends
-
-Key patterns:
-- **Piece Table Buffer**: Efficient text storage
-- **Event-Driven UI**: Components communicate via typed event emitters
-- **Priority Rendering**: RenderScheduler batches updates by priority
-- **Dirty Tracking**: Screen buffer tracks changed cells for efficient rendering
+---
 
 ## Development
 
-See [CLAUDE.md](./CLAUDE.md) for development guidelines including:
-- Code patterns and conventions
-- Service architecture
-- Testing requirements
-- Debugging tips
+```bash
+# Install dependencies
+bun install
+
+# Development mode
+bun run dev
+
+# Build executable
+bun run build
+
+# Run tests
+bun test
+
+# Type checking
+bun run typecheck
+
+# Generate docs
+bun run docs
+```
+
+See [CLAUDE.md](./CLAUDE.md) for detailed development guidelines.
+
+---
 
 ## License
 
