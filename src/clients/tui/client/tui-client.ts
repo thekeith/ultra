@@ -6219,9 +6219,10 @@ export class TUIClient {
       });
       proc.stdin.write(text);
       proc.stdin.end();
-      await proc.exited;
-    } catch {
-      // Silently fail - internal clipboard still works
+      const exitCode = await proc.exited;
+      this.log(`copyToSystemClipboard: pbcopy exited with code ${exitCode}`);
+    } catch (err) {
+      this.log(`copyToSystemClipboard failed: ${err}`);
     }
   }
 
@@ -6234,9 +6235,11 @@ export class TUIClient {
         stdout: 'pipe',
       });
       const output = await new Response(proc.stdout).text();
-      await proc.exited;
+      const exitCode = await proc.exited;
+      this.log(`pasteFromSystemClipboard: pbpaste exited with code ${exitCode}, got ${output.length} chars`);
       return output;
-    } catch {
+    } catch (err) {
+      this.log(`pasteFromSystemClipboard failed: ${err}`);
       return null;
     }
   }
@@ -6246,18 +6249,31 @@ export class TUIClient {
    */
   private async editCut(): Promise<void> {
     const element = this.window.getFocusedElement();
-    if (!(element instanceof DocumentEditor)) return;
+    this.log(`editCut called, focused element: ${element?.constructor.name}`);
 
-    const text = element.getSelectedText();
-    if (!text) return;
+    let text: string | undefined;
 
-    // Copy to clipboard
-    this.clipboard = text;
-    await this.copyToSystemClipboard(text);
+    if (element instanceof DocumentEditor) {
+      text = element.getSelectedText();
+      if (text) {
+        this.clipboard = text;
+        await this.copyToSystemClipboard(text);
+        element.deleteBackward();
+      }
+    } else if (element instanceof SQLEditor) {
+      text = element.getSelectedText();
+      if (text) {
+        this.clipboard = text;
+        await this.copyToSystemClipboard(text);
+        element.deleteBackward();
+      }
+    }
+    // Note: Cut doesn't apply to terminals
 
-    // Delete the selection - deleteBackward handles this when there's a selection
-    element.deleteBackward();
-    this.scheduleRender();
+    if (text) {
+      this.log(`editCut: cut ${text.length} chars`);
+      this.scheduleRender();
+    }
   }
 
   /**
@@ -6265,14 +6281,24 @@ export class TUIClient {
    */
   private async editCopy(): Promise<void> {
     const element = this.window.getFocusedElement();
-    if (!(element instanceof DocumentEditor)) return;
+    this.log(`editCopy called, focused element: ${element?.constructor.name}`);
 
-    const text = element.getSelectedText();
+    let text: string | undefined;
+
+    if (element instanceof DocumentEditor) {
+      text = element.getSelectedText();
+    } else if (element instanceof SQLEditor) {
+      text = element.getSelectedText();
+    }
+    // Note: Terminal copy requires text selection support which isn't implemented yet
+
+    this.log(`editCopy: selected text length = ${text?.length ?? 0}`);
     if (!text) return;
 
     // Copy to clipboard
     this.clipboard = text;
     await this.copyToSystemClipboard(text);
+    this.log(`editCopy: copied ${text.length} chars to clipboard`);
   }
 
   /**
@@ -6280,13 +6306,33 @@ export class TUIClient {
    */
   private async editPaste(): Promise<void> {
     const element = this.window.getFocusedElement();
-    if (!(element instanceof DocumentEditor)) return;
+    this.log(`editPaste called, focused element: ${element?.constructor.name}`);
 
     // Try system clipboard first, fall back to internal
-    const text = await this.pasteFromSystemClipboard() || this.clipboard;
+    const systemText = await this.pasteFromSystemClipboard();
+    const text = systemText || this.clipboard;
+    this.log(`editPaste: system=${systemText?.length ?? 0}, internal=${this.clipboard?.length ?? 0}`);
     if (!text) return;
 
-    element.insertText(text);
+    if (element instanceof DocumentEditor) {
+      element.insertText(text);
+      this.log(`editPaste: inserted ${text.length} chars into DocumentEditor`);
+    } else if (element instanceof SQLEditor) {
+      element.insertText(text);
+      this.log(`editPaste: inserted ${text.length} chars into SQLEditor`);
+    } else if (element instanceof AITerminalChat) {
+      // Write text directly to the terminal PTY
+      element.writeInput(text);
+      this.log(`editPaste: wrote ${text.length} chars to AITerminalChat`);
+    } else if (element instanceof TerminalPanel) {
+      // Write text to the active terminal session
+      element.write(text);
+      this.log(`editPaste: wrote ${text.length} chars to TerminalPanel`);
+    } else {
+      this.log('editPaste: unsupported element type');
+      return;
+    }
+
     this.scheduleRender();
   }
 
