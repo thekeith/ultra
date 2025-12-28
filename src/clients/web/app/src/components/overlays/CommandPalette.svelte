@@ -7,6 +7,7 @@
 
   export let onclose: () => void;
   export let onOpenThemeSelector: (() => void) | undefined = undefined;
+  export let initialMode: 'commands' | 'files' = 'files';
 
   interface CommandItem {
     id: string;
@@ -202,12 +203,14 @@
   onMount(() => {
     inputElement?.focus();
 
-    // Determine initial mode based on query
-    if (query.startsWith('>')) {
-      mode = 'commands';
+    // Use the initialMode prop
+    mode = initialMode;
+    if (mode === 'commands') {
+      query = '>';
+      filterCommands('');
     } else {
-      mode = 'files';
-      searchFiles('');
+      query = '';
+      // Don't search for empty string - wait for user input
     }
   });
 
@@ -240,16 +243,45 @@
 
     isLoading = true;
     try {
-      const result = await ecpClient.request<{ files: Array<{ path: string; name: string }> }>(
-        'file/search',
-        { pattern: `**/*${search}*`, limit: 20 }
+      // Use file/glob for simple pattern matching
+      const result = await ecpClient.request<{ uris: string[] }>(
+        'file/glob',
+        { pattern: `**/*${search}*`, maxResults: 50 }
       );
 
-      items = result.files.map((f) => ({
-        path: f.path,
-        name: f.name,
-        uri: `file://${f.path}`,
-      }));
+      // file/glob returns an array of file URIs
+      const uris = result.uris || [];
+      const searchLower = search.toLowerCase();
+
+      // Map and score results for better sorting
+      const scored = uris.map((uri: string) => {
+        const filePath = uri.startsWith('file://') ? uri.slice(7) : uri;
+        const name = filePath.split('/').pop() || filePath;
+        const nameLower = name.toLowerCase();
+
+        // Score: lower is better
+        let score = 100;
+        if (nameLower === searchLower) {
+          score = 0; // Exact match
+        } else if (nameLower.startsWith(searchLower)) {
+          score = 10; // Starts with
+        } else if (nameLower.includes(searchLower)) {
+          score = 20; // Contains in name
+        } else {
+          score = 50; // Match in path only
+        }
+
+        return { path: filePath, name, uri, score };
+      });
+
+      // Sort by score, then by name length (prefer shorter names)
+      scored.sort((a, b) => {
+        if (a.score !== b.score) return a.score - b.score;
+        return a.name.length - b.name.length;
+      });
+
+      // Take top 20 results
+      items = scored.slice(0, 20).map(({ path, name, uri }) => ({ path, name, uri }));
     } catch (error) {
       console.error('File search failed:', error);
       items = [];

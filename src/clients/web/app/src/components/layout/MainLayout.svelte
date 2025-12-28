@@ -10,6 +10,7 @@
   import ThemeSelector from '../overlays/ThemeSelector.svelte';
 
   let showCommandPalette = false;
+  let commandPaletteMode: 'commands' | 'files' = 'files';
   let showThemeSelector = false;
   let sidebarResizing = false;
   let panelResizing = false;
@@ -17,11 +18,14 @@
   onMount(() => {
     // Register command handlers for keybindings
     const unsubscribe = keybindingsStore.registerCommands({
-      // Command palette
+      // Command palette (Ctrl+Shift+P) - opens in command mode
       'workbench.commandPalette': () => {
+        commandPaletteMode = 'commands';
         showCommandPalette = true;
       },
+      // Quick open (Ctrl+P) - opens in file search mode
       'workbench.quickOpen': () => {
+        commandPaletteMode = 'files';
         showCommandPalette = true;
       },
 
@@ -139,6 +143,7 @@
 <!-- Overlays -->
 {#if showCommandPalette}
   <CommandPalette
+    initialMode={commandPaletteMode}
     onclose={() => (showCommandPalette = false)}
     onOpenThemeSelector={() => {
       showCommandPalette = false;

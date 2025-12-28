@@ -1005,6 +1005,15 @@ export class LocalSessionService implements SessionService {
     // Don't create an empty session here - let tryLoadLastSession() load from disk first
     // If no session is found, setCurrentSession() will be called later
     this.currentSession = null;
+
+    // Load default keybindings if none are set
+    if (this.keybindings.length === 0) {
+      // Import default keybindings from config
+      const { defaultKeybindings } = await import('../../config/defaults.ts');
+      this.keybindings = [...defaultKeybindings];
+      this.debugLog(`Loaded ${this.keybindings.length} default keybindings`);
+    }
+
     this.initialized = true;
     this.debugLog(`Initialized with workspace: ${workspaceRoot}`);
   }

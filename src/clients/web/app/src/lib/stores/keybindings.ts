@@ -51,12 +51,13 @@ function createKeybindingsStore() {
     async init(): Promise<void> {
       try {
         const result = await ecpClient.request<{ bindings: KeyBinding[] }>('keybindings/get', {});
-        if (result.bindings && Array.isArray(result.bindings)) {
+        if (result.bindings && Array.isArray(result.bindings) && result.bindings.length > 0) {
           set(result.bindings);
+        } else {
+          set(DEFAULT_KEYBINDINGS);
         }
       } catch (error) {
-        console.error('Failed to load keybindings:', error);
-        // Load default keybindings as fallback
+        console.error('[Keybindings] Failed to load from server:', error);
         set(DEFAULT_KEYBINDINGS);
       }
     },
@@ -84,6 +85,42 @@ function createKeybindingsStore() {
           unsub();
         }
       };
+    },
+
+    /**
+     * Execute a command by ID directly.
+     */
+    executeCommand(commandId: string): boolean {
+      const handler = commandHandlers.get(commandId);
+      if (handler) {
+        console.log('[Keybindings] Executing command:', commandId);
+        try {
+          const result = handler();
+          if (result instanceof Promise) {
+            result.catch((err) => console.error(`Error executing command ${commandId}:`, err));
+          }
+          return true;
+        } catch (err) {
+          console.error(`Error executing command ${commandId}:`, err);
+        }
+      } else {
+        console.warn('[Keybindings] No handler for command:', commandId);
+      }
+      return false;
+    },
+
+    /**
+     * Debug: list all registered commands.
+     */
+    listCommands(): string[] {
+      return Array.from(commandHandlers.keys());
+    },
+
+    /**
+     * Debug: list all keybindings.
+     */
+    listBindings(): KeyBinding[] {
+      return get({ subscribe });
     },
 
     /**
@@ -151,7 +188,8 @@ function createKeybindingsStore() {
         // Skip chord bindings for single key matching
         if (binding.key.includes(' ')) continue;
 
-        if (parseKeyString(binding.key) === keyString) {
+        const parsedBinding = parseKeyString(binding.key);
+        if (parsedBinding === keyString) {
           const handler = commandHandlers.get(binding.command);
           if (handler) {
             event.preventDefault();
@@ -377,3 +415,8 @@ const DEFAULT_KEYBINDINGS: KeyBinding[] = [
 
 export const keybindingsStore = createKeybindingsStore();
 export default keybindingsStore;
+
+// Expose to window for debugging
+if (typeof window !== 'undefined') {
+  (window as unknown as { keybindingsStore: typeof keybindingsStore }).keybindingsStore = keybindingsStore;
+}
