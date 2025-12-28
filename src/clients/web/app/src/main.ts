@@ -2,6 +2,9 @@
  * Ultra Web GUI - Application Entry Point
  */
 
+// IMPORTANT: Monaco environment must be configured before any Monaco imports
+import './lib/monaco-env';
+
 import { mount } from 'svelte';
 import App from './App.svelte';
 import { ecpClient } from './lib/ecp/client';

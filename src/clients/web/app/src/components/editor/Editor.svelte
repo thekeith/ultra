@@ -1,11 +1,14 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { get } from 'svelte/store';
+  // IMPORTANT: Monaco environment must be configured before monaco import
+  import '../../lib/monaco-env';
   import * as monaco from 'monaco-editor';
-  import { documentsStore, activeDocument } from '../../lib/stores/documents';
+  import { documentsStore } from '../../lib/stores/documents';
   import { themeStore } from '../../lib/stores/theme';
   import { toMonacoTheme } from '../../lib/theme/loader';
   import { ecpClient } from '../../lib/ecp/client';
+  import { lspIntegration } from '../../lib/lsp/integration';
 
   export let documentId: string;
 
@@ -13,6 +16,8 @@
   let editor: monaco.editor.IStandaloneCodeEditor | null = null;
   let model: monaco.editor.ITextModel | null = null;
   let isUpdating = false;
+  let changeVersion = 1;
+  let lspChangeTimeout: ReturnType<typeof setTimeout> | null = null;
 
   // Initialize editor
   onMount(async () => {
@@ -47,6 +52,9 @@
       monaco.Uri.parse(doc.uri)
     );
 
+    // Notify LSP that document was opened
+    lspIntegration.documentOpened(doc.uri, doc.language || 'plaintext', doc.content);
+
     // Create editor
     console.log('Creating Monaco editor...');
     editor = monaco.editor.create(editorContainer, {
@@ -74,6 +82,8 @@
     model.onDidChangeContent((event) => {
       if (isUpdating) return;
 
+      const currentDoc = documentsStore.get(documentId);
+
       // Send changes to server
       for (const change of event.changes) {
         const startPos = model!.getPositionAt(change.rangeOffset);
@@ -95,6 +105,17 @@
           );
         }
       }
+
+      // Debounced LSP notification
+      if (lspChangeTimeout) {
+        clearTimeout(lspChangeTimeout);
+      }
+      lspChangeTimeout = setTimeout(() => {
+        if (currentDoc && model) {
+          changeVersion++;
+          lspIntegration.documentChanged(currentDoc.uri, model.getValue(), changeVersion);
+        }
+      }, 150);
     });
 
     // Handle save command
@@ -104,6 +125,10 @@
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
       run: async () => {
         await documentsStore.save(documentId);
+        const currentDoc = documentsStore.get(documentId);
+        if (currentDoc) {
+          lspIntegration.documentSaved(currentDoc.uri);
+        }
       },
     });
 
@@ -140,6 +165,13 @@
 
   // Cleanup
   onDestroy(() => {
+    if (lspChangeTimeout) {
+      clearTimeout(lspChangeTimeout);
+    }
+    const doc = documentsStore.get(documentId);
+    if (doc) {
+      lspIntegration.documentClosed(doc.uri);
+    }
     editor?.dispose();
     model?.dispose();
   });

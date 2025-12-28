@@ -4,6 +4,7 @@
   import { filesStore } from './lib/stores/files';
   import { gitStore } from './lib/stores/git';
   import { ecpClient } from './lib/ecp/client';
+  import { lspIntegration } from './lib/lsp/integration';
 
   let isConnected = true;
   let workspaceRoot = '';
@@ -40,6 +41,9 @@
 
       // Initialize git
       await gitStore.init(workspaceRoot);
+
+      // Initialize LSP
+      await lspIntegration.init(workspaceRoot);
     } catch (error) {
       console.error('Failed to initialize workspace:', error);
       // Use a sensible default
