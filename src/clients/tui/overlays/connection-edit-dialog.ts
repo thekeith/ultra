@@ -307,7 +307,10 @@ export class ConnectionEditDialog extends PromiseDialog<ConnectionEditResult> {
   private buildResult(): ConnectionEditResult {
     const port = parseInt(this.formData.port, 10) || 5432;
     const hasPassword = this.formData.password.trim().length > 0;
-    const passwordSecretKey = hasPassword ? `database.${this.connectionId || 'new'}.password` : undefined;
+
+    // Generate ID for new connections to ensure password secret key matches
+    const connectionId = this.connectionId || crypto.randomUUID();
+    const passwordSecretKey = hasPassword ? `database.${connectionId}.password` : undefined;
 
     // Build SSL config
     // - If SSL is disabled: false

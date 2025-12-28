@@ -1789,6 +1789,13 @@ export class TUIClient {
    */
   async saveCurrentDocument(): Promise<boolean> {
     const editor = this.window.getFocusedElement();
+
+    // Handle SQLEditor
+    if (editor instanceof SQLEditor) {
+      await editor.save();
+      return true;
+    }
+
     if (!(editor instanceof DocumentEditor)) {
       this.window.showNotification('No document to save', 'warning');
       return false;
@@ -7223,7 +7230,7 @@ export class TUIClient {
       onExecuteQuery: async (sql: string, connectionId: string): Promise<QueryResult> => {
         const result = await this.executeSqlQuery(sql, connectionId);
         // Show results in a QueryResults element
-        this.showQueryResults(result, editor.id);
+        this.showQueryResults(result);
         return result;
       },
       onPickConnection: async (): Promise<ConnectionInfo | null> => {
@@ -7234,30 +7241,88 @@ export class TUIClient {
       getConnection: (connectionId: string): ConnectionInfo | null => {
         return localDatabaseService.getConnection(connectionId);
       },
+      onSave: async (content: string, filePath: string | null): Promise<string | null> => {
+        return this.saveSqlFile(content, filePath);
+      },
     });
   }
 
   /**
-   * Show query results in a QueryResults element.
-   * Creates or reuses a results element associated with the SQL editor.
+   * Save SQL content to a file.
+   * If filePath is null, prompts for a location.
+   * Returns the saved file path or null if cancelled.
    */
-  private showQueryResults(result: QueryResult, editorId: string): void {
+  private async saveSqlFile(content: string, filePath: string | null): Promise<string | null> {
+    let targetPath = filePath;
+
+    // If no path, prompt for save location
+    if (!targetPath) {
+      // Use file picker in save mode
+      const result = await this.showSaveFileDialog('.sql');
+      if (!result) {
+        return null;
+      }
+      targetPath = result;
+    }
+
+    try {
+      await Bun.write(targetPath, content);
+      this.window.showNotification(`Saved: ${targetPath}`, 'info');
+      return targetPath;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      this.window.showNotification(`Save failed: ${message}`, 'error');
+      return null;
+    }
+  }
+
+  /**
+   * Show a save file dialog.
+   */
+  private async showSaveFileDialog(defaultExtension: string): Promise<string | null> {
+    if (!this.saveAsDialog) {
+      // Fallback: generate a default path
+      return `${this.workingDirectory || '.'}/query${defaultExtension}`;
+    }
+
+    const defaultPath = this.workingDirectory || '.';
+    const defaultName = `query${defaultExtension}`;
+
+    const result = await this.saveAsDialog.showSaveAs({
+      startPath: defaultPath,
+      suggestedFilename: defaultName,
+    });
+    if (result.confirmed && result.value) {
+      return result.value;
+    }
+    return null;
+  }
+
+  /**
+   * Show query results in a QueryResults element.
+   * Reuses existing QueryResults in the pane, or creates a new one.
+   */
+  private showQueryResults(result: QueryResult): void {
     const activePane = this.window.getFocusedPane();
     if (!activePane) return;
 
-    // Look for existing results element for this editor
-    const resultsId = `results-${editorId}`;
-    let resultsElement = activePane.getElement(resultsId);
+    // Look for existing QueryResults element in this pane
+    let resultsElement = activePane.getElements().find(
+      (el): el is QueryResults => el instanceof QueryResults
+    );
 
     if (!resultsElement) {
       // Create new QueryResults element
       const newId = activePane.addElement('QueryResults', 'Query Results');
       if (newId) {
-        resultsElement = activePane.getElement(newId);
+        const el = activePane.getElement(newId);
+        if (el instanceof QueryResults) {
+          resultsElement = el;
+        }
       }
     }
 
-    if (resultsElement && resultsElement instanceof QueryResults) {
+    if (resultsElement) {
       resultsElement.setResult(result);
       // Focus the results element
       activePane.setActiveElement(resultsElement.id);

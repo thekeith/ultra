@@ -26,6 +26,7 @@ import type { ConnectionInfo, QueryResult } from '../../../services/database/typ
 export interface SQLEditorState {
   content: string;
   connectionId: string | null;
+  filePath: string | null;
   cursorLine: number;
   cursorColumn: number;
   scrollTop: number;
@@ -43,6 +44,8 @@ export interface SQLEditorCallbacks {
   onContentChange?: (content: string) => void;
   /** Called to get current connection info */
   getConnection?: (connectionId: string) => ConnectionInfo | null;
+  /** Called when save is requested (Ctrl+S) */
+  onSave?: (content: string, filePath: string | null) => Promise<string | null>;
 }
 
 /**
@@ -66,6 +69,10 @@ export class SQLEditor extends BaseElement {
   private cursor: CursorPos = { line: 0, column: 0 };
   private scrollTop: number = 0;
   private scrollLeft: number = 0;
+
+  // File
+  private filePath: string | null = null;
+  private isDirty: boolean = false;
 
   // Connection
   private connectionId: string | null = null;
@@ -135,6 +142,43 @@ export class SQLEditor extends BaseElement {
    */
   getConnectionId(): string | null {
     return this.connectionId;
+  }
+
+  /**
+   * Set the file path for this SQL editor.
+   */
+  setFilePath(path: string | null): void {
+    this.filePath = path;
+    this.updateTitle();
+  }
+
+  /**
+   * Get the file path.
+   */
+  getFilePath(): string | null {
+    return this.filePath;
+  }
+
+  /**
+   * Check if the document has unsaved changes.
+   */
+  getIsDirty(): boolean {
+    return this.isDirty;
+  }
+
+  /**
+   * Save the SQL file.
+   */
+  async save(): Promise<void> {
+    if (this.callbacks.onSave) {
+      const savedPath = await this.callbacks.onSave(this.getContent(), this.filePath);
+      if (savedPath) {
+        this.filePath = savedPath;
+        this.isDirty = false;
+        this.updateTitle();
+        this.ctx.markDirty();
+      }
+    }
   }
 
   /**
@@ -416,6 +460,12 @@ export class SQLEditor extends BaseElement {
       return true;
     }
 
+    // Save: Ctrl+S
+    if (event.ctrl && event.key === 's') {
+      this.save();
+      return true;
+    }
+
     // Pick connection: Ctrl+Shift+C
     if (event.ctrl && event.shift && (event.key === 'c' || event.key === 'C')) {
       this.pickConnection();
@@ -558,7 +608,7 @@ export class SQLEditor extends BaseElement {
     this.cursor.column += text.length;
     this.ensureCursorVisible();
     this.ctx.markDirty();
-    this.callbacks.onContentChange?.(this.getContent());
+    this.markContentDirty();
   }
 
   private handleBackspace(): void {
@@ -577,7 +627,7 @@ export class SQLEditor extends BaseElement {
     }
     this.ensureCursorVisible();
     this.ctx.markDirty();
-    this.callbacks.onContentChange?.(this.getContent());
+    this.markContentDirty();
   }
 
   private handleDelete(): void {
@@ -591,7 +641,7 @@ export class SQLEditor extends BaseElement {
       this.lines.splice(this.cursor.line + 1, 1);
     }
     this.ctx.markDirty();
-    this.callbacks.onContentChange?.(this.getContent());
+    this.markContentDirty();
   }
 
   private handleEnter(): void {
@@ -608,7 +658,7 @@ export class SQLEditor extends BaseElement {
     this.cursor.column = indent.length;
     this.ensureCursorVisible();
     this.ctx.markDirty();
-    this.callbacks.onContentChange?.(this.getContent());
+    this.markContentDirty();
   }
 
   private async pickConnection(): Promise<boolean> {
@@ -623,8 +673,20 @@ export class SQLEditor extends BaseElement {
   }
 
   private updateTitle(): void {
+    const dirtyMarker = this.isDirty ? '* ' : '';
+    const fileName = this.filePath
+      ? this.filePath.split('/').pop() || 'query.sql'
+      : 'New Query';
     const connLabel = this.connectionId ? ` [${this.connectionName}]` : '';
-    this.setTitle(`SQL Query${connLabel}`);
+    this.setTitle(`${dirtyMarker}${fileName}${connLabel}`);
+  }
+
+  private markContentDirty(): void {
+    if (!this.isDirty) {
+      this.isDirty = true;
+      this.updateTitle();
+    }
+    this.callbacks.onContentChange?.(this.getContent());
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -635,6 +697,7 @@ export class SQLEditor extends BaseElement {
     return {
       content: this.getContent(),
       connectionId: this.connectionId,
+      filePath: this.filePath,
       cursorLine: this.cursor.line,
       cursorColumn: this.cursor.column,
       scrollTop: this.scrollTop,
@@ -646,6 +709,9 @@ export class SQLEditor extends BaseElement {
     if (s.content !== undefined) {
       this.setContent(s.content);
     }
+    if (s.filePath !== undefined) {
+      this.filePath = s.filePath;
+    }
     if (s.connectionId !== undefined) {
       this.connectionId = s.connectionId;
       // Try to get connection name
@@ -655,7 +721,6 @@ export class SQLEditor extends BaseElement {
           this.connectionName = conn.name;
         }
       }
-      this.updateTitle();
     }
     if (s.cursorLine !== undefined) {
       this.cursor.line = s.cursorLine;
@@ -666,6 +731,8 @@ export class SQLEditor extends BaseElement {
     if (s.scrollTop !== undefined) {
       this.scrollTop = s.scrollTop;
     }
+    // Update title after all state is set
+    this.updateTitle();
   }
 }
 
