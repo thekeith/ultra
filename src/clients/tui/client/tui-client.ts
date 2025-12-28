@@ -3460,6 +3460,27 @@ export class TUIClient {
       await this.showDatabaseSchemaBrowser();
       return true;
     });
+
+    // Sidebar panel commands
+    this.commandHandlers.set('sidebar.addFileTree', () => {
+      this.addSidebarPanel('FileTree', 'Explorer');
+      return true;
+    });
+
+    this.commandHandlers.set('sidebar.addGitPanel', () => {
+      this.addSidebarPanel('GitPanel', 'Source Control');
+      return true;
+    });
+
+    this.commandHandlers.set('sidebar.addOutline', () => {
+      this.addSidebarPanel('OutlinePanel', 'Outline');
+      return true;
+    });
+
+    this.commandHandlers.set('sidebar.addTimeline', () => {
+      this.addSidebarPanel('GitTimelinePanel', 'Timeline');
+      return true;
+    });
   }
 
   /**
@@ -7182,6 +7203,74 @@ export class TUIClient {
   private async showDatabaseSchemaBrowser(): Promise<void> {
     // TODO: Implement schema browser
     this.window.showNotification('Schema browser coming soon', 'info');
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Sidebar Panel Management
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Add a panel to the sidebar.
+   * If the panel type already exists, shows a notification.
+   * New panels are added at the top of the sidebar.
+   */
+  private addSidebarPanel(
+    type: 'FileTree' | 'GitPanel' | 'OutlinePanel' | 'GitTimelinePanel',
+    title: string
+  ): void {
+    if (!this.sidebarPaneId) {
+      this.window.showNotification('No sidebar available', 'error');
+      return;
+    }
+
+    const container = this.window.getPaneContainer();
+    const sidePane = container.getPane(this.sidebarPaneId);
+    if (!sidePane) {
+      this.window.showNotification('Sidebar pane not found', 'error');
+      return;
+    }
+
+    // Check if this panel type already exists
+    const existingElements = sidePane.getElements();
+    for (const element of existingElements) {
+      if (element.type === type) {
+        this.window.showNotification(`${title} already exists in sidebar`, 'info');
+        return;
+      }
+    }
+
+    // Add element to sidebar
+    const elementId = sidePane.addElement(type, title);
+    if (!elementId) {
+      this.window.showNotification(`Failed to add ${title}`, 'error');
+      return;
+    }
+
+    // Get the element and configure it
+    const element = sidePane.getElement(elementId);
+    if (element) {
+      switch (type) {
+        case 'FileTree':
+          this.fileTree = element as FileTree;
+          this.configureFileTree(this.fileTree);
+          break;
+        case 'GitPanel':
+          this.gitPanel = element as GitPanel;
+          this.configureGitPanel(this.gitPanel);
+          break;
+        case 'OutlinePanel':
+          this.outlinePanel = element as OutlinePanel;
+          this.configureOutlinePanel(this.outlinePanel);
+          break;
+        case 'GitTimelinePanel':
+          this.gitTimelinePanel = element as GitTimelinePanel;
+          this.configureGitTimelinePanel(this.gitTimelinePanel);
+          break;
+      }
+    }
+
+    this.window.showNotification(`Added ${title} to sidebar`, 'info');
+    this.scheduleRender();
   }
 }
 
