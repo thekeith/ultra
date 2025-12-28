@@ -44,8 +44,8 @@ export interface ConnectionConfig {
   // Credentials (references to SecretService keys)
   /** Database username */
   username: string;
-  /** Secret key for password in SecretService */
-  passwordSecret: string;
+  /** Secret key for password in SecretService (optional for passwordless connections) */
+  passwordSecret?: string;
 
   // Supabase-specific
   /** Supabase project URL */

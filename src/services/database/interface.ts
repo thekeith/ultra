@@ -63,6 +63,12 @@ export interface DatabaseService {
   getConnection(connectionId: string): ConnectionInfo | null;
 
   /**
+   * Get full connection configuration (for editing).
+   * Returns null if connection not found.
+   */
+  getConnectionConfig(connectionId: string): ConnectionConfig | null;
+
+  /**
    * List all configured connections.
    * @param scope Optional filter by scope ('global' or 'project')
    */

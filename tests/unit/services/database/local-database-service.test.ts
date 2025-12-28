@@ -5,7 +5,7 @@
  * Note: These tests require the postgres package to be installed.
  */
 
-import { describe, test, expect, beforeEach, afterEach, beforeAll, afterAll } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach, beforeAll, spyOn } from 'bun:test';
 import { DatabaseError } from '../../../../src/services/database/errors.ts';
 import type { ConnectionConfig, DatabaseBackend } from '../../../../src/services/database/types.ts';
 
@@ -19,60 +19,46 @@ try {
   postgresAvailable = false;
 }
 
-// Mock the secret service before importing LocalDatabaseService
-const mockSecretService = {
-  initialized: true,
-  async init() {},
-  async get(key: string) {
-    if (key === 'test-password-secret') return 'test-password';
-    if (key === 'missing-secret') return null;
-    return 'default-password';
-  },
-  async set() {},
-  async delete() { return true; },
-  async list() { return []; },
-  async has() { return true; },
-  async getInfo() { return null; },
-  addProvider() {},
-  removeProvider() { return true; },
-  getProviders() { return []; },
-  getProvider() { return null; },
-  onChange() { return () => {}; },
-  async shutdown() {},
-};
-
 // Only run tests if postgres is available
 const describeWithPostgres = postgresAvailable ? describe : describe.skip;
 
 describeWithPostgres('LocalDatabaseService', () => {
   // Dynamic imports - only loaded when postgres is available
   let LocalDatabaseService: typeof import('../../../../src/services/database/local.ts').LocalDatabaseService;
-  let secretModule: typeof import('../../../../src/services/secret/local.ts');
+  let localSecretService: typeof import('../../../../src/services/secret/local.ts').localSecretService;
   let service: InstanceType<typeof LocalDatabaseService>;
-  let originalSecretService: any;
+  let secretGetSpy: ReturnType<typeof spyOn>;
 
   beforeAll(async () => {
-    // Import modules after postgres check
+    // Import modules
     const dbModule = await import('../../../../src/services/database/local.ts');
     LocalDatabaseService = dbModule.LocalDatabaseService;
-    secretModule = await import('../../../../src/services/secret/local.ts');
+    const secretModule = await import('../../../../src/services/secret/local.ts');
+    localSecretService = secretModule.localSecretService;
   });
 
   beforeEach(() => {
-    // Mock the secret service
-    originalSecretService = (secretModule as any).localSecretService;
-    (secretModule as any).localSecretService = mockSecretService;
-
     // Create fresh service
     service = new LocalDatabaseService();
 
     // Bypass actual initialization
     (service as any).initialized = true;
+
+    // Spy on the secret service get method to return test passwords
+    secretGetSpy = spyOn(localSecretService, 'get').mockImplementation(async (key: string) => {
+      if (key === 'test-password-secret') return 'test-password';
+      if (key === 'missing-secret') return null;
+      return 'default-password';
+    });
   });
 
   afterEach(async () => {
-    await service.shutdown();
-    (secretModule as any).localSecretService = originalSecretService;
+    if (service) {
+      await service.shutdown();
+    }
+    if (secretGetSpy) {
+      secretGetSpy.mockRestore();
+    }
   });
 
   describe('connection management', () => {

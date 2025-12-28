@@ -227,7 +227,7 @@ export class QueryResults extends BaseElement {
     const msgY = y + Math.floor(height / 2);
 
     for (let i = 0; i < message.length; i++) {
-      buffer.set(msgX + i, msgY, { char: message[i], fg, bg });
+      buffer.set(msgX + i, msgY, { char: message[i] ?? ' ', fg, bg });
     }
   }
 
@@ -252,6 +252,7 @@ export class QueryResults extends BaseElement {
     let colX = x - this.scrollLeft;
     for (let colIdx = 0; colIdx < this.columns.length; colIdx++) {
       const col = this.columns[colIdx];
+      if (!col) continue;
       if (colX >= x + width) break;
       if (colX + col.width > x) {
         const startX = Math.max(x, colX);
@@ -262,7 +263,7 @@ export class QueryResults extends BaseElement {
           const charIdx = cx - colX;
           let char = ' ';
           if (charIdx < col.field.name.length) {
-            char = col.field.name[charIdx];
+            char = col.field.name[charIdx] ?? ' ';
           } else if (charIdx === col.width - 1) {
             // Sort indicator
             if (this.sortColumn === colIdx) {
@@ -282,6 +283,7 @@ export class QueryResults extends BaseElement {
     for (let rowIdx = 0; rowIdx < visibleRows; rowIdx++) {
       const dataRowIdx = this.scrollTop + rowIdx;
       const row = this.displayRows[dataRowIdx];
+      if (!row) continue;
       const screenY = y + this.HEADER_HEIGHT + rowIdx;
       const isSelected = dataRowIdx === this.selectedRow && this.focused;
 
@@ -291,6 +293,7 @@ export class QueryResults extends BaseElement {
       colX = x - this.scrollLeft;
       for (let colIdx = 0; colIdx < this.columns.length; colIdx++) {
         const col = this.columns[colIdx];
+        if (!col) continue;
         if (colX >= x + width) break;
         if (colX + col.width > x) {
           const startX = Math.max(x, colX);
@@ -302,7 +305,7 @@ export class QueryResults extends BaseElement {
             const charIdx = cx - colX;
             let char = ' ';
             if (charIdx < value.length) {
-              char = value[charIdx];
+              char = value[charIdx] ?? ' ';
             } else if (charIdx === col.width - 1) {
               char = '│';
             }
@@ -430,7 +433,7 @@ export class QueryResults extends BaseElement {
     // View mode indicator
     const modeText = `[${this.viewMode.toUpperCase()}]`;
     for (let i = 0; i < modeText.length && i < width; i++) {
-      buffer.set(x + i, y, { char: modeText[i], fg, bg });
+      buffer.set(x + i, y, { char: modeText[i] ?? ' ', fg, bg });
     }
 
     // Row info
@@ -438,7 +441,7 @@ export class QueryResults extends BaseElement {
       const rowInfo = ` Row ${this.selectedRow + 1}/${this.displayRows.length}`;
       const infoStart = modeText.length;
       for (let i = 0; i < rowInfo.length && infoStart + i < width; i++) {
-        buffer.set(x + infoStart + i, y, { char: rowInfo[i], fg, bg });
+        buffer.set(x + infoStart + i, y, { char: rowInfo[i] ?? ' ', fg, bg });
       }
     }
 
@@ -448,7 +451,7 @@ export class QueryResults extends BaseElement {
     if (hintsStart > modeText.length + 20) {
       for (let i = 0; i < hints.length; i++) {
         buffer.set(x + hintsStart + i, y, {
-          char: hints[i],
+          char: hints[i] ?? ' ',
           fg: this.ctx.getThemeColor('descriptionForeground', '#cccccc'),
           bg,
         });
@@ -517,6 +520,7 @@ export class QueryResults extends BaseElement {
     if (columnIndex < 0 || columnIndex >= this.columns.length) return;
 
     const col = this.columns[columnIndex];
+    if (!col) return;
 
     // Toggle sort direction
     if (this.sortColumn === columnIndex) {
@@ -566,12 +570,13 @@ export class QueryResults extends BaseElement {
   // Input Handling
   // ─────────────────────────────────────────────────────────────────────────
 
-  handleKey(event: KeyEvent): boolean {
+  override handleKey(event: KeyEvent): boolean {
     // View mode toggle: Tab
-    if (event.key === 'tab' && !event.ctrl && !event.shift) {
+    if (event.key === 'Tab' && !event.ctrl && !event.shift) {
       const modes: ResultViewMode[] = ['table', 'json', 'text'];
       const currentIdx = modes.indexOf(this.viewMode);
-      this.setViewMode(modes[(currentIdx + 1) % modes.length]);
+      const nextMode = modes[(currentIdx + 1) % modes.length];
+      if (nextMode) this.setViewMode(nextMode);
       return true;
     }
 
@@ -588,19 +593,19 @@ export class QueryResults extends BaseElement {
     }
 
     // Navigation
-    if (event.key === 'up') {
+    if (event.key === 'ArrowUp') {
       this.selectedRow = Math.max(0, this.selectedRow - 1);
       this.ensureRowVisible();
       this.ctx.markDirty();
       return true;
     }
-    if (event.key === 'down') {
+    if (event.key === 'ArrowDown') {
       this.selectedRow = Math.min(this.displayRows.length - 1, this.selectedRow + 1);
       this.ensureRowVisible();
       this.ctx.markDirty();
       return true;
     }
-    if (event.key === 'left') {
+    if (event.key === 'ArrowLeft') {
       if (this.viewMode === 'table') {
         this.selectedColumn = Math.max(0, this.selectedColumn - 1);
         this.ensureColumnVisible();
@@ -610,7 +615,7 @@ export class QueryResults extends BaseElement {
       this.ctx.markDirty();
       return true;
     }
-    if (event.key === 'right') {
+    if (event.key === 'ArrowRight') {
       if (this.viewMode === 'table') {
         this.selectedColumn = Math.min(this.columns.length - 1, this.selectedColumn + 1);
         this.ensureColumnVisible();
@@ -620,21 +625,21 @@ export class QueryResults extends BaseElement {
       this.ctx.markDirty();
       return true;
     }
-    if (event.key === 'pageup') {
+    if (event.key === 'PageUp') {
       const pageSize = this.bounds.height - this.HEADER_HEIGHT - this.STATUS_HEIGHT;
       this.selectedRow = Math.max(0, this.selectedRow - pageSize);
       this.ensureRowVisible();
       this.ctx.markDirty();
       return true;
     }
-    if (event.key === 'pagedown') {
+    if (event.key === 'PageDown') {
       const pageSize = this.bounds.height - this.HEADER_HEIGHT - this.STATUS_HEIGHT;
       this.selectedRow = Math.min(this.displayRows.length - 1, this.selectedRow + pageSize);
       this.ensureRowVisible();
       this.ctx.markDirty();
       return true;
     }
-    if (event.key === 'home') {
+    if (event.key === 'Home') {
       this.selectedRow = 0;
       this.selectedColumn = 0;
       this.scrollTop = 0;
@@ -642,7 +647,7 @@ export class QueryResults extends BaseElement {
       this.ctx.markDirty();
       return true;
     }
-    if (event.key === 'end') {
+    if (event.key === 'End') {
       this.selectedRow = this.displayRows.length - 1;
       this.ensureRowVisible();
       this.ctx.markDirty();
@@ -652,8 +657,8 @@ export class QueryResults extends BaseElement {
     return false;
   }
 
-  handleMouse(event: MouseEvent): boolean {
-    if (event.type === 'mousedown' && this.viewMode === 'table') {
+  override handleMouse(event: MouseEvent): boolean {
+    if (event.type === 'press' && this.viewMode === 'table') {
       const relY = event.y - this.bounds.y;
 
       // Click on header to sort
@@ -678,8 +683,8 @@ export class QueryResults extends BaseElement {
       }
     }
 
-    if (event.type === 'wheel') {
-      const delta = event.button === 4 ? -3 : 3;
+    if (event.type === 'scroll') {
+      const delta = event.scrollDirection === -1 ? -3 : 3;
       this.scrollTop = Math.max(0, Math.min(this.displayRows.length - 1, this.scrollTop + delta));
       this.ctx.markDirty();
       return true;
@@ -691,10 +696,11 @@ export class QueryResults extends BaseElement {
   private getColumnAtX(screenX: number): number {
     let colX = this.bounds.x - this.scrollLeft;
     for (let i = 0; i < this.columns.length; i++) {
-      if (screenX >= colX && screenX < colX + this.columns[i].width) {
+      const col = this.columns[i];
+      if (col && screenX >= colX && screenX < colX + col.width) {
         return i;
       }
-      colX += this.columns[i].width;
+      if (col) colX += col.width;
     }
     return -1;
   }
@@ -712,9 +718,11 @@ export class QueryResults extends BaseElement {
     // Calculate column position
     let colStart = 0;
     for (let i = 0; i < this.selectedColumn; i++) {
-      colStart += this.columns[i].width;
+      const col = this.columns[i];
+      if (col) colStart += col.width;
     }
-    const colEnd = colStart + this.columns[this.selectedColumn].width;
+    const selectedCol = this.columns[this.selectedColumn];
+    const colEnd = colStart + (selectedCol ? selectedCol.width : 0);
 
     if (colStart < this.scrollLeft) {
       this.scrollLeft = colStart;

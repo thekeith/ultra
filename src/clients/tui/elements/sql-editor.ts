@@ -93,6 +93,14 @@ export class SQLEditor extends BaseElement {
   // ─────────────────────────────────────────────────────────────────────────
 
   /**
+   * Set callbacks after construction.
+   * Useful when element is created via factory and callbacks need to be attached later.
+   */
+  setCallbacks(callbacks: SQLEditorCallbacks): void {
+    this.callbacks = { ...this.callbacks, ...callbacks };
+  }
+
+  /**
    * Set the content of the editor.
    */
   setContent(content: string): void {
@@ -228,7 +236,7 @@ export class SQLEditor extends BaseElement {
 
       for (let col = 0; col < contentWidth; col++) {
         const charIndex = this.scrollLeft + col;
-        const char = charIndex < line.length ? line[charIndex] : ' ';
+        const char = charIndex < line.length ? (line[charIndex] ?? ' ') : ' ';
         const screenX = x + this.GUTTER_WIDTH + col;
 
         // Apply syntax highlighting (simplified)
@@ -250,7 +258,7 @@ export class SQLEditor extends BaseElement {
       if (isCurrentLine && this.focused) {
         const cursorScreenX = x + this.GUTTER_WIDTH + (this.cursor.column - this.scrollLeft);
         if (cursorScreenX >= x + this.GUTTER_WIDTH && cursorScreenX < x + width) {
-          const cursorChar = this.cursor.column < line.length ? line[this.cursor.column] : ' ';
+          const cursorChar = this.cursor.column < line.length ? (line[this.cursor.column] ?? ' ') : ' ';
           buffer.set(cursorScreenX, screenY, {
             char: cursorChar,
             fg: bg,
@@ -282,7 +290,7 @@ export class SQLEditor extends BaseElement {
     const connColor = this.connectionId ? fg : this.ctx.getThemeColor('errorForeground', '#f48771');
 
     for (let i = 0; i < connStatus.length && i < width; i++) {
-      buffer.set(x + i, y, { char: connStatus[i], fg: connColor, bg });
+      buffer.set(x + i, y, { char: connStatus[i] ?? ' ', fg: connColor, bg });
     }
 
     // Execution status
@@ -298,7 +306,7 @@ export class SQLEditor extends BaseElement {
     const statusStart = connStatus.length;
     for (let i = 0; i < statusText.length && statusStart + i < width; i++) {
       const color = this.lastError ? this.ctx.getThemeColor('errorForeground', '#f48771') : fg;
-      buffer.set(x + statusStart + i, y, { char: statusText[i], fg: color, bg });
+      buffer.set(x + statusStart + i, y, { char: statusText[i] ?? ' ', fg: color, bg });
     }
 
     // Cursor position (right side)
@@ -306,7 +314,7 @@ export class SQLEditor extends BaseElement {
     const posStart = width - posText.length - 1;
     if (posStart > statusStart + statusText.length) {
       for (let i = 0; i < posText.length; i++) {
-        buffer.set(x + posStart + i, y, { char: posText[i], fg, bg });
+        buffer.set(x + posStart + i, y, { char: posText[i] ?? ' ', fg, bg });
       }
     }
 
@@ -316,7 +324,7 @@ export class SQLEditor extends BaseElement {
     if (hintStart > statusStart + statusText.length && hintStart + hint.length < posStart) {
       for (let i = 0; i < hint.length; i++) {
         buffer.set(x + hintStart + i, y, {
-          char: hint[i],
+          char: hint[i] ?? ' ',
           fg: this.ctx.getThemeColor('descriptionForeground', '#858585'),
           bg,
         });
@@ -346,8 +354,8 @@ export class SQLEditor extends BaseElement {
     let start = charIndex;
     let end = charIndex;
 
-    while (start > 0 && /\w/.test(line[start - 1])) start--;
-    while (end < line.length && /\w/.test(line[end])) end++;
+    while (start > 0 && /\w/.test(line[start - 1] ?? '')) start--;
+    while (end < line.length && /\w/.test(line[end] ?? '')) end++;
 
     const word = line.slice(start, end).toLowerCase();
     return this.SQL_KEYWORDS.has(word);
@@ -357,7 +365,9 @@ export class SQLEditor extends BaseElement {
     // Simple single-quote string detection
     let inString = false;
     for (let i = 0; i < charIndex; i++) {
-      if (line[i] === "'" && (i === 0 || line[i - 1] !== '\\')) {
+      const char = line[i];
+      const prevChar = i > 0 ? line[i - 1] : '';
+      if (char === "'" && prevChar !== '\\') {
         inString = !inString;
       }
     }
@@ -371,11 +381,12 @@ export class SQLEditor extends BaseElement {
   }
 
   private isNumber(line: string, charIndex: number): boolean {
-    const char = line[charIndex];
+    const char = line[charIndex] ?? '';
     if (!/\d/.test(char)) return false;
 
     // Check it's not part of an identifier
-    if (charIndex > 0 && /\w/.test(line[charIndex - 1])) return false;
+    const prevChar = charIndex > 0 ? (line[charIndex - 1] ?? '') : '';
+    if (charIndex > 0 && /\w/.test(prevChar)) return false;
 
     return true;
   }
@@ -384,7 +395,7 @@ export class SQLEditor extends BaseElement {
   // Input Handling
   // ─────────────────────────────────────────────────────────────────────────
 
-  handleKey(event: KeyEvent): boolean {
+  override handleKey(event: KeyEvent): boolean {
     // Execute query: Ctrl+Enter
     if (event.ctrl && event.key === 'Enter') {
       this.executeQuery();
@@ -421,7 +432,8 @@ export class SQLEditor extends BaseElement {
       return true;
     }
     if (event.key === 'End') {
-      this.cursor.column = this.lines[this.cursor.line].length;
+      const currentLine = this.lines[this.cursor.line];
+      this.cursor.column = currentLine ? currentLine.length : 0;
       this.ensureCursorVisible();
       this.ctx.markDirty();
       return true;
@@ -454,8 +466,8 @@ export class SQLEditor extends BaseElement {
     return false;
   }
 
-  handleMouse(event: MouseEvent): boolean {
-    if (event.type === 'mousedown') {
+  override handleMouse(event: MouseEvent): boolean {
+    if (event.type === 'press') {
       // Click to position cursor
       const relX = event.x - this.bounds.x - this.GUTTER_WIDTH;
       const relY = event.y - this.bounds.y;
@@ -466,15 +478,16 @@ export class SQLEditor extends BaseElement {
 
         if (line < this.lines.length) {
           this.cursor.line = line;
-          this.cursor.column = Math.min(column, this.lines[line].length);
+          const lineContent = this.lines[line];
+          this.cursor.column = Math.min(column, lineContent ? lineContent.length : 0);
           this.ctx.markDirty();
         }
         return true;
       }
     }
 
-    if (event.type === 'wheel') {
-      const delta = event.button === 4 ? -3 : 3;
+    if (event.type === 'scroll') {
+      const delta = event.scrollDirection === -1 ? -3 : 3;
       this.scrollTop = Math.max(0, Math.min(this.lines.length - 1, this.scrollTop + delta));
       this.ctx.markDirty();
       return true;
@@ -485,7 +498,8 @@ export class SQLEditor extends BaseElement {
 
   private moveCursor(deltaLine: number, deltaCol: number): void {
     const newLine = Math.max(0, Math.min(this.lines.length - 1, this.cursor.line + deltaLine));
-    const newCol = Math.max(0, Math.min(this.lines[newLine].length, this.cursor.column + deltaCol));
+    const targetLine = this.lines[newLine] ?? '';
+    const newCol = Math.max(0, Math.min(targetLine.length, this.cursor.column + deltaCol));
 
     this.cursor.line = newLine;
     this.cursor.column = newCol;
@@ -513,7 +527,7 @@ export class SQLEditor extends BaseElement {
   }
 
   private insertText(text: string): void {
-    const line = this.lines[this.cursor.line];
+    const line = this.lines[this.cursor.line] ?? '';
     this.lines[this.cursor.line] =
       line.slice(0, this.cursor.column) + text + line.slice(this.cursor.column);
     this.cursor.column += text.length;
@@ -524,14 +538,15 @@ export class SQLEditor extends BaseElement {
 
   private handleBackspace(): void {
     if (this.cursor.column > 0) {
-      const line = this.lines[this.cursor.line];
+      const line = this.lines[this.cursor.line] ?? '';
       this.lines[this.cursor.line] =
         line.slice(0, this.cursor.column - 1) + line.slice(this.cursor.column);
       this.cursor.column--;
     } else if (this.cursor.line > 0) {
-      const prevLine = this.lines[this.cursor.line - 1];
+      const prevLine = this.lines[this.cursor.line - 1] ?? '';
+      const currentLine = this.lines[this.cursor.line] ?? '';
       this.cursor.column = prevLine.length;
-      this.lines[this.cursor.line - 1] = prevLine + this.lines[this.cursor.line];
+      this.lines[this.cursor.line - 1] = prevLine + currentLine;
       this.lines.splice(this.cursor.line, 1);
       this.cursor.line--;
     }
@@ -541,12 +556,13 @@ export class SQLEditor extends BaseElement {
   }
 
   private handleDelete(): void {
-    const line = this.lines[this.cursor.line];
+    const line = this.lines[this.cursor.line] ?? '';
     if (this.cursor.column < line.length) {
       this.lines[this.cursor.line] =
         line.slice(0, this.cursor.column) + line.slice(this.cursor.column + 1);
     } else if (this.cursor.line < this.lines.length - 1) {
-      this.lines[this.cursor.line] = line + this.lines[this.cursor.line + 1];
+      const nextLine = this.lines[this.cursor.line + 1] ?? '';
+      this.lines[this.cursor.line] = line + nextLine;
       this.lines.splice(this.cursor.line + 1, 1);
     }
     this.ctx.markDirty();
@@ -554,7 +570,7 @@ export class SQLEditor extends BaseElement {
   }
 
   private handleEnter(): void {
-    const line = this.lines[this.cursor.line];
+    const line = this.lines[this.cursor.line] ?? '';
     const before = line.slice(0, this.cursor.column);
     const after = line.slice(this.cursor.column);
 

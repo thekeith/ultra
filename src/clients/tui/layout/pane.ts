@@ -1167,6 +1167,8 @@ export class Pane {
       DiagnosticsView: 'Problems',
       OutlinePanel: 'Outline',
       GitTimelinePanel: 'Timeline',
+      SQLEditor: 'Query',
+      QueryResults: 'Results',
     };
     return titles[type] ?? type;
   }

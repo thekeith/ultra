@@ -163,3 +163,17 @@ export {
   createConnectionPicker,
   type ConnectionPickerResult,
 } from './connection-picker.ts';
+
+export {
+  ConnectionEditDialog,
+  createConnectionEditDialog,
+  type ConnectionEditDialogOptions,
+  type ConnectionEditResult,
+} from './connection-edit-dialog.ts';
+
+export {
+  SchemaBrowser,
+  createSchemaBrowser,
+  type SchemaBrowserConfig,
+  type SchemaBrowserResult,
+} from './schema-browser.ts';

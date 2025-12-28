@@ -5,7 +5,7 @@
  */
 
 // Interface
-export { DatabaseService } from './interface.ts';
+export type { DatabaseService } from './interface.ts';
 
 // Types
 export type {

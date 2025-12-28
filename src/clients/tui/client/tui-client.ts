@@ -93,6 +93,21 @@ import type { PTYBackend } from '../../../terminal/pty-backend.ts';
 import { createLSPIntegration, type LSPIntegration } from './lsp-integration.ts';
 import { localLSPService, type LSPDocumentSymbol } from '../../../services/lsp/index.ts';
 
+// Database
+import { localDatabaseService } from '../../../services/database/index.ts';
+import { localSecretService } from '../../../services/secret/index.ts';
+import type { ConnectionInfo, QueryResult } from '../../../services/database/types.ts';
+import {
+  ConnectionPickerDialog,
+  createConnectionPicker,
+  ConnectionEditDialog,
+  createConnectionEditDialog,
+  type ConnectionEditResult,
+  SchemaBrowser,
+  createSchemaBrowser,
+} from '../overlays/index.ts';
+import { SQLEditor, QueryResults } from '../elements/index.ts';
+
 // ============================================
 // Types
 // ============================================
@@ -206,6 +221,15 @@ export class TUIClient {
 
   /** Tab switcher dialog */
   private tabSwitcherDialog: TabSwitcherDialog | null = null;
+
+  /** Connection picker dialog */
+  private connectionPickerDialog: ConnectionPickerDialog | null = null;
+
+  /** Connection edit dialog */
+  private connectionEditDialog: ConnectionEditDialog | null = null;
+
+  /** Schema browser dialog */
+  private schemaBrowser: SchemaBrowser | null = null;
 
   /** Command handlers */
   private commandHandlers: Map<string, () => boolean | Promise<boolean>> = new Map();
@@ -374,6 +398,15 @@ export class TUIClient {
     // Create tab switcher dialog
     this.tabSwitcherDialog = new TabSwitcherDialog(overlayCallbacks);
     this.window.getOverlayManager().addOverlay(this.tabSwitcherDialog);
+
+    // Create database connection dialogs
+    this.connectionPickerDialog = createConnectionPicker(overlayCallbacks);
+    this.window.getOverlayManager().addOverlay(this.connectionPickerDialog);
+    this.connectionEditDialog = createConnectionEditDialog(overlayCallbacks);
+    this.window.getOverlayManager().addOverlay(this.connectionEditDialog);
+    this.schemaBrowser = createSchemaBrowser('schema-browser', overlayCallbacks);
+    this.schemaBrowser.setDatabaseService(localDatabaseService);
+    this.window.getOverlayManager().addOverlay(this.schemaBrowser);
 
     // Create input handler
     this.inputHandler = createInputHandler();
@@ -7152,41 +7185,338 @@ export class TUIClient {
   /**
    * Open a new SQL editor tab.
    */
-  private async openNewSqlEditor(): Promise<void> {
+  private async openNewSqlEditor(connectionId?: string): Promise<SQLEditor | null> {
     const activePane = this.window.getFocusedPane();
-    if (!activePane) return;
-
-    // For now, skip connection picker and just open the editor
-    // TODO: Show connection picker first once dialogs are implemented
-    // const connectionId = await this.showDatabaseConnectionPicker();
-    // if (!connectionId) return;
+    if (!activePane) return null;
 
     // Create SQL editor element using the pane's addElement method
     const editorId = activePane.addElement('SQLEditor', 'New Query');
     if (!editorId) {
       this.window.showNotification('Failed to create SQL editor', 'error');
-      return;
+      return null;
+    }
+
+    // Get the created element and set up callbacks
+    const element = activePane.getElement(editorId);
+    if (element && element instanceof SQLEditor) {
+      this.setupSqlEditorCallbacks(element);
+
+      // Set connection if provided
+      if (connectionId) {
+        const conn = localDatabaseService.getConnection(connectionId);
+        element.setConnection(connectionId, conn?.name);
+      }
+
+      this.scheduleRender();
+      return element;
     }
 
     this.scheduleRender();
-  }
-
-  /**
-   * Show database connection picker.
-   */
-  private async showDatabaseConnectionPicker(): Promise<string | null> {
-    // TODO: Implement connection picker dialog
-    // For now, show a notification
-    this.window.showNotification('Database connection picker coming soon', 'info');
     return null;
   }
 
   /**
+   * Set up callbacks for a SQL editor.
+   */
+  private setupSqlEditorCallbacks(editor: SQLEditor): void {
+    editor.setCallbacks({
+      onExecuteQuery: async (sql: string, connectionId: string): Promise<QueryResult> => {
+        return this.executeSqlQuery(sql, connectionId);
+      },
+      onPickConnection: async (): Promise<ConnectionInfo | null> => {
+        const connId = await this.showDatabaseConnectionPicker();
+        if (!connId) return null;
+        return localDatabaseService.getConnection(connId);
+      },
+      getConnection: (connectionId: string): ConnectionInfo | null => {
+        return localDatabaseService.getConnection(connectionId);
+      },
+    });
+  }
+
+  /**
+   * Execute a SQL query using the database service.
+   */
+  private async executeSqlQuery(sql: string, connectionId: string): Promise<QueryResult> {
+    try {
+      const result = await localDatabaseService.executeQuery(connectionId, sql);
+      return result;
+    } catch (error) {
+      // Re-throw with a more user-friendly message
+      throw new Error(
+        error instanceof Error ? error.message : 'Query execution failed'
+      );
+    }
+  }
+
+  /**
+   * Show database connection picker.
+   * Returns selected connection ID or null if cancelled.
+   */
+  private async showDatabaseConnectionPicker(): Promise<string | null> {
+    if (!this.connectionPickerDialog) {
+      this.window.showNotification('Connection picker not available', 'error');
+      return null;
+    }
+
+    try {
+      // Initialize database service if needed
+      await localDatabaseService.init(this.workingDirectory || undefined);
+
+      // Loop until user selects a connection or cancels
+      while (true) {
+        // Get available connections (refreshed each iteration)
+        const connections = localDatabaseService.listConnections();
+
+        // Show picker
+        const result = await this.connectionPickerDialog.showWithConnections(
+          connections,
+          null // No current connection selected
+        );
+
+        if (!result) {
+          return null;
+        }
+
+        // Handle each action
+        switch (result.action) {
+          case 'new':
+            await this.showNewDatabaseConnectionDialog();
+            // Continue loop to show picker again
+            continue;
+
+          case 'edit':
+            if (result.connection) {
+              await this.showEditConnectionDialog(result.connection.id);
+            }
+            // Continue loop to show picker again
+            continue;
+
+          case 'delete':
+            if (result.connection) {
+              await this.confirmDeleteConnection(result.connection);
+            }
+            // Continue loop to show picker again
+            continue;
+
+          case 'select':
+            if (!result.connection) {
+              return null;
+            }
+            // Connect if not already connected
+            if (result.connection.status !== 'connected') {
+              try {
+                this.window.showNotification(`Connecting to ${result.connection.name}...`, 'info');
+                await localDatabaseService.connect(result.connection.id);
+                this.window.showNotification(`Connected to ${result.connection.name}`, 'success');
+              } catch (error) {
+                this.window.showNotification(
+                  `Failed to connect: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                  'error'
+                );
+                // Continue loop to let user try again
+                continue;
+              }
+            }
+            return result.connection.id;
+
+          default:
+            return null;
+        }
+      }
+    } catch (error) {
+      debugLog(`[TUIClient] Connection picker error: ${error}`);
+      this.window.showNotification(
+        `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'error'
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Show edit connection dialog for an existing connection.
+   */
+  private async showEditConnectionDialog(connectionId: string): Promise<void> {
+    if (!this.connectionEditDialog) {
+      this.window.showNotification('Connection editor not available', 'error');
+      return;
+    }
+
+    try {
+      // Get the existing connection config
+      const existingConfig = localDatabaseService.getConnectionConfig(connectionId);
+      if (!existingConfig) {
+        this.window.showNotification('Connection not found', 'error');
+        return;
+      }
+
+      // Get existing password from secret service if set
+      let existingPassword: string | undefined;
+      if (existingConfig.passwordSecret) {
+        existingPassword = await localSecretService.get(existingConfig.passwordSecret) ?? undefined;
+      }
+
+      // Get existing Supabase key if set
+      let existingSupabaseKey: string | undefined;
+      if (existingConfig.supabaseKeySecret) {
+        existingSupabaseKey = await localSecretService.get(existingConfig.supabaseKeySecret) ?? undefined;
+      }
+
+      // Show the dialog with existing data
+      const result = await this.connectionEditDialog.showForConnection({
+        existingConnection: existingConfig,
+        existingPassword,
+        existingSupabaseKey,
+        projectPath: this.workingDirectory || undefined,
+      });
+
+      if (!result.confirmed || !result.value) {
+        return;
+      }
+
+      const { config, password, supabaseKey } = result.value;
+
+      // Update password in secret service
+      if (password && config.passwordSecret) {
+        await localSecretService.set(config.passwordSecret, password);
+      } else if (!password && existingConfig.passwordSecret) {
+        // Password was cleared, remove secret
+        await localSecretService.delete(existingConfig.passwordSecret);
+      }
+
+      // Update Supabase key in secret service
+      if (supabaseKey && config.supabaseKeySecret) {
+        await localSecretService.set(config.supabaseKeySecret, supabaseKey);
+      } else if (!supabaseKey && existingConfig.supabaseKeySecret) {
+        // Key was cleared, remove secret
+        await localSecretService.delete(existingConfig.supabaseKeySecret);
+      }
+
+      // Update the connection
+      await localDatabaseService.updateConnection(connectionId, config);
+
+      this.window.showNotification(`Connection "${config.name}" updated`, 'success');
+    } catch (error) {
+      debugLog(`[TUIClient] Edit connection error: ${error}`);
+      this.window.showNotification(
+        `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'error'
+      );
+    }
+  }
+
+  /**
+   * Confirm and delete a connection.
+   */
+  private async confirmDeleteConnection(connection: ConnectionInfo): Promise<void> {
+    if (!this.dialogManager) {
+      this.window.showNotification('Dialog manager not available', 'error');
+      return;
+    }
+
+    try {
+      const confirmResult = await this.dialogManager.showConfirm({
+        title: 'Delete Connection',
+        message: `Are you sure you want to delete "${connection.name}"?\n\nThis action cannot be undone.`,
+        confirmText: 'Delete',
+        declineText: 'Cancel',
+      });
+
+      if (!confirmResult.confirmed || !confirmResult.value) {
+        return;
+      }
+
+      // Get config to check for secrets to delete
+      const config = localDatabaseService.getConnectionConfig(connection.id);
+
+      // Delete the connection
+      await localDatabaseService.deleteConnection(connection.id);
+
+      // Clean up secrets
+      if (config?.passwordSecret) {
+        await localSecretService.delete(config.passwordSecret);
+      }
+      if (config?.supabaseKeySecret) {
+        await localSecretService.delete(config.supabaseKeySecret);
+      }
+
+      this.window.showNotification(`Connection "${connection.name}" deleted`, 'success');
+    } catch (error) {
+      debugLog(`[TUIClient] Delete connection error: ${error}`);
+      this.window.showNotification(
+        `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'error'
+      );
+    }
+  }
+
+  /**
    * Show new database connection dialog.
+   * Creates a new connection and optionally connects to it.
    */
   private async showNewDatabaseConnectionDialog(): Promise<void> {
-    // TODO: Implement new connection dialog
-    this.window.showNotification('New database connection dialog coming soon', 'info');
+    if (!this.connectionEditDialog) {
+      this.window.showNotification('Connection editor not available', 'error');
+      return;
+    }
+
+    try {
+      // Show the dialog
+      const result = await this.connectionEditDialog.showForConnection({
+        projectPath: this.workingDirectory || undefined,
+      });
+
+      if (!result.confirmed || !result.value) {
+        return;
+      }
+
+      const { config, password, supabaseKey } = result.value;
+
+      // Store password in secret service (if provided)
+      if (password && config.passwordSecret) {
+        await localSecretService.set(config.passwordSecret, password);
+      }
+
+      // Store Supabase key if provided
+      if (supabaseKey && config.supabaseKeySecret) {
+        await localSecretService.set(config.supabaseKeySecret, supabaseKey);
+      }
+
+      // Create the connection
+      const connectionId = await localDatabaseService.createConnection(config);
+
+      this.window.showNotification(`Connection "${config.name}" created`, 'success');
+
+      // Ask if user wants to connect now
+      if (this.dialogManager) {
+        const confirmResult = await this.dialogManager.showConfirm({
+          title: 'Connect Now?',
+          message: `Would you like to connect to "${config.name}" now?`,
+          confirmText: 'Connect',
+          declineText: 'Later',
+        });
+
+        if (confirmResult.confirmed && confirmResult.value) {
+          try {
+            this.window.showNotification(`Connecting to ${config.name}...`, 'info');
+            await localDatabaseService.connect(connectionId);
+            this.window.showNotification(`Connected to ${config.name}`, 'success');
+          } catch (error) {
+            this.window.showNotification(
+              `Failed to connect: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              'error'
+            );
+          }
+        }
+      }
+    } catch (error) {
+      debugLog(`[TUIClient] New connection dialog error: ${error}`);
+      this.window.showNotification(
+        `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'error'
+      );
+    }
   }
 
   /**
@@ -7201,8 +7531,49 @@ export class TUIClient {
    * Show database schema browser.
    */
   private async showDatabaseSchemaBrowser(): Promise<void> {
-    // TODO: Implement schema browser
-    this.window.showNotification('Schema browser coming soon', 'info');
+    if (!this.schemaBrowser) return;
+
+    // First, pick a connection
+    const connectionId = await this.showDatabaseConnectionPicker();
+    if (!connectionId) return;
+
+    // Ensure connected
+    const connection = localDatabaseService.getConnection(connectionId);
+    if (!connection) {
+      this.window.showNotification('Connection not found', 'error');
+      return;
+    }
+
+    if (connection.status !== 'connected') {
+      try {
+        await localDatabaseService.connect(connectionId);
+      } catch (error) {
+        this.window.showNotification(
+          `Failed to connect: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          'error'
+        );
+        return;
+      }
+    }
+
+    // Show schema browser
+    const result = await this.schemaBrowser.showBrowser({
+      connectionId,
+      title: `Schema: ${connection.name}`,
+    });
+
+    if (result.confirmed && result.value?.action === 'select') {
+      const { nodeType, schema, tableName } = result.value;
+
+      if (nodeType === 'table' || nodeType === 'view') {
+        // Open SQL editor with SELECT query for the table
+        const editor = await this.openNewSqlEditor(connectionId);
+        if (editor && tableName && schema) {
+          const qualifiedName = schema === 'public' ? tableName : `${schema}.${tableName}`;
+          editor.setContent(`SELECT * FROM ${qualifiedName} LIMIT 100;`);
+        }
+      }
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────

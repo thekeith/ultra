@@ -168,10 +168,10 @@ export class LocalDatabaseService implements DatabaseService {
     });
 
     try {
-      // Get password from secret service
-      const password = await localSecretService.get(conn.config.passwordSecret);
-      if (!password) {
-        throw DatabaseError.secretNotFound(conn.config.passwordSecret);
+      // Get password from secret service (optional - may be empty for local servers)
+      let password = '';
+      if (conn.config.passwordSecret) {
+        password = await localSecretService.get(conn.config.passwordSecret) ?? '';
       }
 
       await conn.backend.connect(conn.config, password);
@@ -276,6 +276,15 @@ export class LocalDatabaseService implements DatabaseService {
     };
   }
 
+  getConnectionConfig(connectionId: string): ConnectionConfig | null {
+    const conn = this.connections.get(connectionId);
+    if (!conn) {
+      return null;
+    }
+    // Return a copy of the config to prevent direct mutation
+    return { ...conn.config };
+  }
+
   listConnections(scope?: 'global' | 'project'): ConnectionInfo[] {
     const connections: ConnectionInfo[] = [];
 
@@ -305,13 +314,10 @@ export class LocalDatabaseService implements DatabaseService {
     const backend = this.createBackend(config.type);
 
     try {
-      // Get password
-      const password = await localSecretService.get(config.passwordSecret);
-      if (!password) {
-        return {
-          success: false,
-          error: `Password secret not found: ${config.passwordSecret}`,
-        };
+      // Get password (optional - may be empty for local servers)
+      let password = '';
+      if (config.passwordSecret) {
+        password = await localSecretService.get(config.passwordSecret) ?? '';
       }
 
       await backend.connect(config, password);

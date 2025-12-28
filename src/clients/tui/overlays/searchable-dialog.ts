@@ -46,6 +46,8 @@ export interface SearchableDialogConfig extends DialogConfig {
   showSearchInput?: boolean;
   /** Maximum visible results */
   maxResults?: number;
+  /** Hints to show at the bottom of the dialog */
+  hints?: string;
 }
 
 // ============================================
@@ -73,6 +75,7 @@ export abstract class SearchableDialog<T> extends PromiseDialog<T> {
   protected maxVisibleResults: number = 15;
   protected showSearchInput: boolean = true;
   protected placeholder: string = 'Type to search...';
+  protected searchDialogConfig: SearchableDialogConfig | null = null;
 
   // Highlight tracking
   protected highlightedId: string = '';
@@ -121,6 +124,7 @@ export abstract class SearchableDialog<T> extends PromiseDialog<T> {
     this.showSearchInput = config.showSearchInput !== false;
     this.placeholder = config.placeholder ?? 'Type to search...';
     this.maxVisibleResults = config.maxResults ?? 15;
+    this.searchDialogConfig = config;
 
     // Initial filter (shows all items)
     this.filter();
@@ -532,6 +536,14 @@ export abstract class SearchableDialog<T> extends PromiseDialog<T> {
   protected renderFooter(buffer: ScreenBuffer, x: number, y: number, width: number): void {
     const dimFg = this.callbacks.getThemeColor('descriptionForeground', '#888888');
     const bg = this.callbacks.getThemeColor('editorWidget.background', '#252526');
+
+    // Hints (if provided)
+    if (this.searchDialogConfig?.hints) {
+      const hints = this.searchDialogConfig.hints;
+      const maxHints = width - 15; // Leave room for count
+      const displayHints = hints.length > maxHints ? hints.slice(0, maxHints - 1) + '…' : hints;
+      buffer.writeString(x, y, displayHints, dimFg, bg);
+    }
 
     // Item count
     const total = this.items.length;

@@ -5,7 +5,7 @@
  */
 
 // Interface
-export { SecretService } from './interface.ts';
+export type { SecretService } from './interface.ts';
 
 // Types
 export type {

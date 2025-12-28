@@ -78,11 +78,17 @@ export class PostgresBackend implements DatabaseBackend {
     this.config = config;
     this.connectionId = config.id || randomUUID();
 
-    const sslConfig = config.ssl === true
-      ? { rejectUnauthorized: true }
-      : config.ssl === false
-        ? false
-        : config.ssl;
+    // SSL configuration:
+    // - true: enable SSL with certificate validation
+    // - false or undefined: disable SSL (common for local development)
+    // - object: custom SSL config
+    let sslConfig: boolean | { rejectUnauthorized?: boolean } | undefined = false;
+    if (config.ssl === true) {
+      sslConfig = { rejectUnauthorized: true };
+    } else if (typeof config.ssl === 'object') {
+      sslConfig = config.ssl;
+    }
+    // Default to false (no SSL) for local development compatibility
 
     try {
       this.sql = postgres({
@@ -90,8 +96,8 @@ export class PostgresBackend implements DatabaseBackend {
         port: config.port,
         database: config.database,
         username: config.username,
-        password: password,
-        ssl: sslConfig || false,
+        password: password || undefined, // undefined = no password (for trust auth)
+        ssl: sslConfig,
         connect_timeout: (config.connectionTimeout || 30000) / 1000,
         idle_timeout: 60,
         max_lifetime: 60 * 30, // 30 minutes

@@ -7,10 +7,12 @@
  * - Quick filter by name
  * - Option to create new connection
  * - Shows connection status (connected/disconnected/error)
+ * - Edit and delete connections (e/Delete keys)
  */
 
 import { SearchableDialog, type ItemDisplay } from './searchable-dialog.ts';
 import type { OverlayManagerCallbacks } from './overlay-manager.ts';
+import type { KeyEvent } from '../types.ts';
 import type { ConnectionInfo } from '../../../services/database/types.ts';
 
 // ============================================
@@ -18,9 +20,17 @@ import type { ConnectionInfo } from '../../../services/database/types.ts';
 // ============================================
 
 /**
+ * Action type for connection picker.
+ */
+export type ConnectionPickerAction = 'select' | 'new' | 'edit' | 'delete';
+
+/**
  * Connection picker result.
  */
-export type ConnectionPickerResult = ConnectionInfo | 'new' | null;
+export interface ConnectionPickerResult {
+  action: ConnectionPickerAction;
+  connection?: ConnectionInfo;
+}
 
 // ============================================
 // Connection Picker Dialog
@@ -32,6 +42,12 @@ export type ConnectionPickerResult = ConnectionInfo | 'new' | null;
 export class ConnectionPickerDialog extends SearchableDialog<ConnectionInfo | 'new'> {
   /** Currently selected connection ID (for highlighting) */
   private currentConnectionId: string | null = null;
+
+  /** Pending action (set by keyboard shortcuts) */
+  private pendingAction: ConnectionPickerAction = 'select';
+
+  /** Connections list (for resolving by index) */
+  private connectionsList: ConnectionInfo[] = [];
 
   constructor(id: string, callbacks: OverlayManagerCallbacks) {
     super(id, callbacks);
@@ -48,8 +64,10 @@ export class ConnectionPickerDialog extends SearchableDialog<ConnectionInfo | 'n
   showWithConnections(
     connections: ConnectionInfo[],
     currentConnectionId?: string | null
-  ): Promise<ConnectionPickerResult> {
+  ): Promise<ConnectionPickerResult | null> {
     this.currentConnectionId = currentConnectionId ?? null;
+    this.pendingAction = 'select';
+    this.connectionsList = connections;
 
     // Add "New Connection" option at the end
     const items: (ConnectionInfo | 'new')[] = [...connections, 'new'];
@@ -60,13 +78,65 @@ export class ConnectionPickerDialog extends SearchableDialog<ConnectionInfo | 'n
         placeholder: 'Type to filter connections...',
         showSearchInput: true,
         maxResults: 15,
+        hints: 'Enter: Select  e: Edit  Del: Delete  n: New',
       },
       items,
       currentConnectionId ?? undefined
     ).then(result => {
       if (result.cancelled) return null;
-      return result.value ?? null;
+
+      const item = result.value;
+      if (!item) return null;
+
+      if (item === 'new') {
+        return { action: 'new' as ConnectionPickerAction };
+      }
+
+      return {
+        action: this.pendingAction,
+        connection: item,
+      };
     });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Input Handling
+  // ─────────────────────────────────────────────────────────────────────────
+
+  protected override handleKeyInput(event: KeyEvent): boolean {
+    const { key } = event;
+
+    // Get current selected item
+    const selectedItem = this.getSelectedItem();
+
+    // Edit: 'e' key (only for connections, not 'new')
+    if (key === 'e' && selectedItem && selectedItem !== 'new') {
+      this.pendingAction = 'edit';
+      this.confirm(selectedItem);
+      return true;
+    }
+
+    // Delete: Delete or Backspace key (only for connections, not 'new')
+    if ((key === 'Delete' || (key === 'Backspace' && !this.hasSearchQuery())) && selectedItem && selectedItem !== 'new') {
+      this.pendingAction = 'delete';
+      this.confirm(selectedItem);
+      return true;
+    }
+
+    // New: 'n' key
+    if (key === 'n') {
+      this.confirm('new');
+      return true;
+    }
+
+    return super.handleKeyInput(event);
+  }
+
+  /**
+   * Check if there's a search query (to avoid delete when backspacing search).
+   */
+  private hasSearchQuery(): boolean {
+    return this.getQuery().length > 0;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
