@@ -1,44 +1,75 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { layoutStore, sidebar, panel } from '../../lib/stores/layout';
+  import { keybindingsStore } from '../../lib/stores/keybindings';
   import Sidebar from '../sidebar/Sidebar.svelte';
   import EditorArea from './EditorArea.svelte';
   import Panel from './Panel.svelte';
   import StatusBar from './StatusBar.svelte';
   import CommandPalette from '../overlays/CommandPalette.svelte';
+  import ThemeSelector from '../overlays/ThemeSelector.svelte';
 
   let showCommandPalette = false;
+  let showThemeSelector = false;
   let sidebarResizing = false;
   let panelResizing = false;
 
-  // Handle keyboard shortcuts
+  onMount(() => {
+    // Register command handlers for keybindings
+    const unsubscribe = keybindingsStore.registerCommands({
+      // Command palette
+      'workbench.commandPalette': () => {
+        showCommandPalette = true;
+      },
+      'workbench.quickOpen': () => {
+        showCommandPalette = true;
+      },
+
+      // View commands
+      'workbench.toggleSidebar': () => {
+        layoutStore.toggleSidebar();
+      },
+      'workbench.togglePanel': () => {
+        layoutStore.togglePanel();
+      },
+      'workbench.toggleTerminal': () => {
+        layoutStore.setPanelTab('terminal');
+      },
+      'view.focusFileExplorer': () => {
+        layoutStore.setSidebarSection('files');
+      },
+      'view.focusGit': () => {
+        layoutStore.setSidebarSection('git');
+      },
+      'git.focusPanel': () => {
+        layoutStore.setSidebarSection('git');
+      },
+
+      // Theme
+      'workbench.selectTheme': () => {
+        showThemeSelector = true;
+      },
+
+      // Terminal
+      'terminal.new': () => {
+        layoutStore.setPanelTab('terminal');
+      },
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  });
+
+  // Handle keyboard shortcuts via keybindings store
   function handleKeydown(event: KeyboardEvent) {
-    // Command palette: Ctrl+Shift+P or Cmd+Shift+P
-    if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'P') {
-      event.preventDefault();
-      showCommandPalette = true;
-      return;
-    }
+    // Let the keybindings store handle the event
+    keybindingsStore.handleKeyEvent(event);
+  }
 
-    // Quick open: Ctrl+P or Cmd+P
-    if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key === 'p') {
-      event.preventDefault();
-      showCommandPalette = true;
-      return;
-    }
-
-    // Toggle sidebar: Ctrl+B or Cmd+B
-    if ((event.ctrlKey || event.metaKey) && event.key === 'b') {
-      event.preventDefault();
-      layoutStore.toggleSidebar();
-      return;
-    }
-
-    // Toggle panel: Ctrl+J or Cmd+J
-    if ((event.ctrlKey || event.metaKey) && event.key === 'j') {
-      event.preventDefault();
-      layoutStore.togglePanel();
-      return;
-    }
+  // Function to open theme selector (called from command palette)
+  export function openThemeSelector() {
+    showThemeSelector = true;
   }
 
   function handleSidebarResize(event: MouseEvent) {
@@ -107,7 +138,17 @@
 
 <!-- Overlays -->
 {#if showCommandPalette}
-  <CommandPalette onclose={() => (showCommandPalette = false)} />
+  <CommandPalette
+    onclose={() => (showCommandPalette = false)}
+    onOpenThemeSelector={() => {
+      showCommandPalette = false;
+      showThemeSelector = true;
+    }}
+  />
+{/if}
+
+{#if showThemeSelector}
+  <ThemeSelector on:close={() => (showThemeSelector = false)} />
 {/if}
 
 <style>

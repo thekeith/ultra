@@ -1,11 +1,12 @@
 <script lang="ts">
-  import { onMount, createEventDispatcher } from 'svelte';
-  import { filesStore } from '../../lib/stores/files';
+  import { onMount } from 'svelte';
   import { documentsStore } from '../../lib/stores/documents';
   import { layoutStore } from '../../lib/stores/layout';
   import { ecpClient } from '../../lib/ecp/client';
+  import { gitStore } from '../../lib/stores/git';
 
   export let onclose: () => void;
+  export let onOpenThemeSelector: (() => void) | undefined = undefined;
 
   interface CommandItem {
     id: string;
@@ -30,12 +31,12 @@
 
   // Commands list
   const commands: CommandItem[] = [
+    // File commands
     {
       id: 'file.new',
       label: 'New File',
       category: 'File',
       action: () => {
-        // TODO: Implement new file dialog
         console.log('New file');
       },
     },
@@ -51,6 +52,21 @@
       },
     },
     {
+      id: 'file.saveAll',
+      label: 'Save All',
+      category: 'File',
+      action: async () => {
+        const docs = documentsStore.getAll();
+        for (const doc of docs) {
+          if (doc.isDirty) {
+            await documentsStore.save(doc.id);
+          }
+        }
+      },
+    },
+
+    // View commands
+    {
       id: 'view.toggleSidebar',
       label: 'Toggle Sidebar',
       category: 'View',
@@ -63,10 +79,123 @@
       action: () => layoutStore.togglePanel(),
     },
     {
+      id: 'view.focusExplorer',
+      label: 'Focus on Explorer',
+      category: 'View',
+      action: () => {
+        layoutStore.setSidebarSection('files');
+      },
+    },
+    {
+      id: 'view.focusGit',
+      label: 'Focus on Source Control',
+      category: 'View',
+      action: () => {
+        layoutStore.setSidebarSection('git');
+      },
+    },
+
+    // Theme commands
+    {
+      id: 'preferences.colorTheme',
+      label: 'Color Theme',
+      description: 'Change the editor color theme',
+      category: 'Preferences',
+      action: () => {
+        if (onOpenThemeSelector) {
+          onOpenThemeSelector();
+        }
+      },
+    },
+
+    // Terminal commands
+    {
       id: 'terminal.new',
       label: 'New Terminal',
       category: 'Terminal',
-      action: () => layoutStore.setPanelTab('terminal'),
+      action: () => {
+        layoutStore.setPanelTab('terminal');
+      },
+    },
+    {
+      id: 'terminal.focus',
+      label: 'Focus Terminal',
+      category: 'Terminal',
+      action: () => {
+        layoutStore.setPanelTab('terminal');
+      },
+    },
+
+    // Git commands
+    {
+      id: 'git.stageAll',
+      label: 'Stage All Changes',
+      category: 'Git',
+      action: async () => {
+        await gitStore.stageAll();
+      },
+    },
+    {
+      id: 'git.commit',
+      label: 'Commit...',
+      category: 'Git',
+      action: () => {
+        layoutStore.setSidebarSection('git');
+      },
+    },
+    {
+      id: 'git.pull',
+      label: 'Pull',
+      category: 'Git',
+      action: async () => {
+        await gitStore.pull();
+      },
+    },
+    {
+      id: 'git.push',
+      label: 'Push',
+      category: 'Git',
+      action: async () => {
+        await gitStore.push();
+      },
+    },
+    {
+      id: 'git.refresh',
+      label: 'Refresh',
+      category: 'Git',
+      action: async () => {
+        await gitStore.refresh();
+      },
+    },
+
+    // Editor commands
+    {
+      id: 'editor.formatDocument',
+      label: 'Format Document',
+      category: 'Editor',
+      action: () => {
+        console.log('Format document');
+      },
+    },
+    {
+      id: 'editor.wordWrap',
+      label: 'Toggle Word Wrap',
+      category: 'Editor',
+      action: async () => {
+        const { settingsStore } = await import('../../lib/stores/settings');
+        const current = settingsStore.get('editor.wordWrap', 'off');
+        await settingsStore.set('editor.wordWrap', current === 'off' ? 'on' : 'off');
+      },
+    },
+    {
+      id: 'editor.minimap',
+      label: 'Toggle Minimap',
+      category: 'Editor',
+      action: async () => {
+        const { settingsStore } = await import('../../lib/stores/settings');
+        const current = settingsStore.get('editor.minimap.enabled', true);
+        await settingsStore.set('editor.minimap.enabled', !current);
+      },
     },
   ];
 

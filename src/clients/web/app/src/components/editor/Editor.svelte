@@ -9,6 +9,7 @@
   import { toMonacoTheme } from '../../lib/theme/loader';
   import { ecpClient } from '../../lib/ecp/client';
   import { lspIntegration } from '../../lib/lsp/integration';
+  import { editorSettings } from '../../lib/stores/settings';
 
   export let documentId: string;
 
@@ -55,25 +56,28 @@
     // Notify LSP that document was opened
     lspIntegration.documentOpened(doc.uri, doc.language || 'plaintext', doc.content);
 
+    // Get current settings
+    const settings = $editorSettings;
+
     // Create editor
     console.log('Creating Monaco editor...');
     editor = monaco.editor.create(editorContainer, {
       model,
       theme: 'ultra-theme',
       automaticLayout: true,
-      fontSize: 14,
-      fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, 'Courier New', monospace",
-      fontLigatures: true,
-      lineNumbers: 'on',
-      minimap: { enabled: true },
+      fontSize: settings.fontSize,
+      fontFamily: settings.fontFamily,
+      fontLigatures: settings.fontLigatures,
+      lineNumbers: settings.lineNumbers as 'on' | 'off' | 'relative',
+      minimap: { enabled: settings.minimap },
       scrollBeyondLastLine: false,
-      wordWrap: 'off',
-      renderWhitespace: 'selection',
-      tabSize: 2,
-      insertSpaces: true,
-      cursorBlinking: 'smooth',
+      wordWrap: settings.wordWrap as 'on' | 'off' | 'wordWrapColumn' | 'bounded',
+      renderWhitespace: settings.renderWhitespace as 'none' | 'boundary' | 'selection' | 'trailing' | 'all',
+      tabSize: settings.tabSize,
+      insertSpaces: settings.insertSpaces,
+      cursorBlinking: settings.cursorBlinking as 'blink' | 'smooth' | 'phase' | 'expand' | 'solid',
       cursorSmoothCaretAnimation: 'on',
-      smoothScrolling: true,
+      smoothScrolling: settings.smoothScrolling,
       padding: { top: 8 },
     });
     console.log('Monaco editor created:', editor);
@@ -188,6 +192,23 @@
       );
       editor.setModel(model);
     }
+  }
+
+  // Update editor options when settings change
+  $: if (editor && $editorSettings) {
+    editor.updateOptions({
+      fontSize: $editorSettings.fontSize,
+      fontFamily: $editorSettings.fontFamily,
+      fontLigatures: $editorSettings.fontLigatures,
+      lineNumbers: $editorSettings.lineNumbers as 'on' | 'off' | 'relative',
+      minimap: { enabled: $editorSettings.minimap },
+      wordWrap: $editorSettings.wordWrap as 'on' | 'off' | 'wordWrapColumn' | 'bounded',
+      renderWhitespace: $editorSettings.renderWhitespace as 'none' | 'boundary' | 'selection' | 'trailing' | 'all',
+      tabSize: $editorSettings.tabSize,
+      insertSpaces: $editorSettings.insertSpaces,
+      cursorBlinking: $editorSettings.cursorBlinking as 'blink' | 'smooth' | 'phase' | 'expand' | 'solid',
+      smoothScrolling: $editorSettings.smoothScrolling,
+    });
   }
 </script>
 

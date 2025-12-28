@@ -5,6 +5,8 @@
   import { gitStore } from './lib/stores/git';
   import { ecpClient } from './lib/ecp/client';
   import { lspIntegration } from './lib/lsp/integration';
+  import { settingsStore } from './lib/stores/settings';
+  import { keybindingsStore } from './lib/stores/keybindings';
 
   let isConnected = true;
   let workspaceRoot = '';
@@ -36,13 +38,15 @@
       // Use workspace root from server, fallback to root
       workspaceRoot = result.root || '/';
 
-      // Initialize file tree
-      await filesStore.init(workspaceRoot);
+      // Initialize stores in parallel where possible
+      await Promise.all([
+        filesStore.init(workspaceRoot),
+        gitStore.init(workspaceRoot),
+        settingsStore.init(),
+        keybindingsStore.init(),
+      ]);
 
-      // Initialize git
-      await gitStore.init(workspaceRoot);
-
-      // Initialize LSP
+      // Initialize LSP (depends on workspace root)
       await lspIntegration.init(workspaceRoot);
     } catch (error) {
       console.error('Failed to initialize workspace:', error);
