@@ -25,6 +25,9 @@ export interface DocumentState {
   isDirty: boolean;
   language: string;
   cursors: Cursor[];
+  scrollTop?: number;
+  cursorLine?: number;
+  cursorColumn?: number;
 }
 
 function createDocumentsStore() {
@@ -183,6 +186,24 @@ function createDocumentsStore() {
      */
     getAll(): DocumentState[] {
       return Array.from(get(documents).values());
+    },
+
+    /**
+     * Update cursor and scroll position for a document.
+     */
+    updateCursor(
+      documentId: string,
+      cursor: { line?: number; column?: number; scrollTop?: number }
+    ): void {
+      documents.update((docs) => {
+        const doc = docs.get(documentId);
+        if (doc) {
+          if (cursor.line !== undefined) doc.cursorLine = cursor.line;
+          if (cursor.column !== undefined) doc.cursorColumn = cursor.column;
+          if (cursor.scrollTop !== undefined) doc.scrollTop = cursor.scrollTop;
+        }
+        return docs;
+      });
     },
   };
 }

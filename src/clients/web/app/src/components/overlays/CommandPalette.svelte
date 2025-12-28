@@ -7,6 +7,7 @@
 
   export let onclose: () => void;
   export let onOpenThemeSelector: (() => void) | undefined = undefined;
+  export let onOpenSettings: (() => void) | undefined = undefined;
   export let initialMode: 'commands' | 'files' = 'files';
 
   interface CommandItem {
@@ -105,6 +106,17 @@
       action: () => {
         if (onOpenThemeSelector) {
           onOpenThemeSelector();
+        }
+      },
+    },
+    {
+      id: 'preferences.openSettings',
+      label: 'Open Settings',
+      description: 'Open the settings editor',
+      category: 'Preferences',
+      action: () => {
+        if (onOpenSettings) {
+          onOpenSettings();
         }
       },
     },
@@ -244,9 +256,14 @@
     isLoading = true;
     try {
       // Use file/glob for simple pattern matching
+      // Exclude common non-source directories and increase limit for better results
       const result = await ecpClient.request<{ uris: string[] }>(
         'file/glob',
-        { pattern: `**/*${search}*`, maxResults: 50 }
+        {
+          pattern: `**/*${search}*`,
+          maxResults: 200,
+          excludePatterns: ['node_modules', '.git', 'dist', 'build', '.svelte-kit', 'coverage'],
+        }
       );
 
       // file/glob returns an array of file URIs
@@ -262,9 +279,12 @@
         // Score: lower is better
         let score = 100;
         if (nameLower === searchLower) {
-          score = 0; // Exact match
+          score = 0; // Exact filename match
         } else if (nameLower.startsWith(searchLower)) {
-          score = 10; // Starts with
+          score = 10; // Filename starts with search
+        } else if (name.length === search.length + nameLower.indexOf(searchLower)) {
+          // Filename ends with search (e.g., "lsp.test.ts" when searching "test.ts")
+          score = 15;
         } else if (nameLower.includes(searchLower)) {
           score = 20; // Contains in name
         } else {

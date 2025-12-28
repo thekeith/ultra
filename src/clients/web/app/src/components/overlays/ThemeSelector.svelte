@@ -29,11 +29,11 @@
     try {
       const [listResult, currentResult] = await Promise.all([
         ecpClient.request<{ themes: ThemeInfo[] }>('theme/list', {}),
-        ecpClient.request<{ themeId: string }>('theme/current', {}),
+        ecpClient.request<{ theme: { id: string } }>('theme/current', {}),
       ]);
 
       themes = listResult.themes || [];
-      currentTheme = currentResult.themeId || '';
+      currentTheme = currentResult.theme?.id || '';
 
       // Select current theme
       const currentIndex = filteredThemes.findIndex((t) => t.id === currentTheme);

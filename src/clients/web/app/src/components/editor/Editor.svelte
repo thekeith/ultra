@@ -122,6 +122,21 @@
       }, 150);
     });
 
+    // Track cursor position changes for session persistence
+    editor.onDidChangeCursorPosition((e) => {
+      documentsStore.updateCursor(documentId, {
+        line: e.position.lineNumber - 1,
+        column: e.position.column - 1,
+      });
+    });
+
+    // Track scroll position changes for session persistence
+    editor.onDidScrollChange((e) => {
+      documentsStore.updateCursor(documentId, {
+        scrollTop: e.scrollTop,
+      });
+    });
+
     // Handle save command
     editor.addAction({
       id: 'ultra.save',
@@ -209,6 +224,13 @@
       cursorBlinking: $editorSettings.cursorBlinking as 'blink' | 'smooth' | 'phase' | 'expand' | 'solid',
       smoothScrolling: $editorSettings.smoothScrolling,
     });
+  }
+
+  // Update Monaco theme when theme changes
+  $: if (editor && $themeStore) {
+    const monacoTheme = toMonacoTheme($themeStore);
+    monaco.editor.defineTheme('ultra-theme', monacoTheme as monaco.editor.IStandaloneThemeData);
+    monaco.editor.setTheme('ultra-theme');
   }
 </script>
 

@@ -145,6 +145,13 @@ Issues and improvements to address in future sessions.
 
 - [x] **PTY loading fails in bundled binary from different directory** - Resolved using IPC sidecar approach. The bundled binary spawns a child `bun` process that runs a PTY bridge script (`~/.ultra/pty-bridge.ts`). The bridge loads node-pty from `~/.ultra/node_modules` and communicates via stdin/stdout JSON messages. See PTY_ERROR.md for details.
 
+## Web GUI
+
+- [ ] **Unify theme loading between TUI and LocalSessionService** - The TUI loads themes from `defaultThemes` in `config/defaults.ts` (auto-generated from `config/themes/*.json`), but `LocalSessionService` has its own hardcoded themes ("One Dark", "One Light"). The web GUI uses ECP calls to LocalSessionService, so it only sees 2 themes while the TUI sees all themes. To fix:
+  - Option 1: Have LocalSessionService import and use `defaultThemes` from `config/defaults.ts`
+  - Option 2: Load themes from `~/.ultra/themes/` directory in LocalSessionService (started but reverted)
+  - Consider: Should themes be managed by a dedicated ThemeService?
+
 ## Services
 
 ### Database Service

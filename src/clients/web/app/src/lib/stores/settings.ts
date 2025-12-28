@@ -48,13 +48,16 @@ function createSettingsStore() {
         error.set(null);
 
         // Fetch all settings and schema in parallel
-        const [allSettings, schemaResult] = await Promise.all([
-          ecpClient.request<Record<string, unknown>>('config/getAll', {}),
-          ecpClient.request<{ schema: SettingsSchema }>('config/schema', {}),
+        const [settingsResult, schemaResult] = await Promise.all([
+          ecpClient.request<{ settings: Record<string, unknown> }>('config/getAll', {}),
+          ecpClient.request<{ schema: { properties?: SettingsSchema } & SettingsSchema }>('config/schema', {}),
         ]);
 
-        settings.set(allSettings);
-        schema.set(schemaResult.schema || {});
+        // Server returns { settings: {...} }
+        settings.set(settingsResult.settings || {});
+        // Server returns { schema: { properties: {...} } }, extract properties
+        const schemaData = schemaResult.schema?.properties || schemaResult.schema || {};
+        schema.set(schemaData);
       } catch (err) {
         error.set(err instanceof Error ? err.message : String(err));
       } finally {

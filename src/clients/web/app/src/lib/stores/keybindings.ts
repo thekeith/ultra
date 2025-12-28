@@ -396,6 +396,9 @@ const DEFAULT_KEYBINDINGS: KeyBinding[] = [
   // Theme
   { key: 'ctrl+k ctrl+t', command: 'workbench.selectTheme' },
 
+  // Settings
+  { key: 'ctrl+,', command: 'workbench.openSettings' },
+
   // Editor
   { key: 'ctrl+/', command: 'editor.toggleComment' },
   { key: 'ctrl+shift+k', command: 'editor.deleteLine' },

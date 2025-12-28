@@ -8,10 +8,12 @@
   import StatusBar from './StatusBar.svelte';
   import CommandPalette from '../overlays/CommandPalette.svelte';
   import ThemeSelector from '../overlays/ThemeSelector.svelte';
+  import SettingsEditor from '../overlays/SettingsEditor.svelte';
 
   let showCommandPalette = false;
   let commandPaletteMode: 'commands' | 'files' = 'files';
   let showThemeSelector = false;
+  let showSettingsEditor = false;
   let sidebarResizing = false;
   let panelResizing = false;
 
@@ -52,6 +54,11 @@
       // Theme
       'workbench.selectTheme': () => {
         showThemeSelector = true;
+      },
+
+      // Settings
+      'workbench.openSettings': () => {
+        showSettingsEditor = true;
       },
 
       // Terminal
@@ -149,11 +156,19 @@
       showCommandPalette = false;
       showThemeSelector = true;
     }}
+    onOpenSettings={() => {
+      showCommandPalette = false;
+      showSettingsEditor = true;
+    }}
   />
 {/if}
 
 {#if showThemeSelector}
   <ThemeSelector on:close={() => (showThemeSelector = false)} />
+{/if}
+
+{#if showSettingsEditor}
+  <SettingsEditor on:close={() => (showSettingsEditor = false)} />
 {/if}
 
 <style>

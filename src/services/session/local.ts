@@ -97,7 +97,7 @@ export class LocalSessionService implements SessionService {
 
   constructor() {
     this.settings = new Settings();
-    this.loadBuiltinThemes();
+    // Themes are loaded asynchronously in init()
   }
 
   /**
@@ -937,62 +937,78 @@ export class LocalSessionService implements SessionService {
     return this.themes.get(this.currentThemeId) || this.getDefaultTheme();
   }
 
-  private loadBuiltinThemes(): void {
-    // Add a simple default theme
+  private async loadThemesFromDirectory(): Promise<void> {
+    const themesDir = `${process.env.HOME}/.ultra/themes`;
+
+    try {
+      const { readdir } = await import('fs/promises');
+      const files = await readdir(themesDir);
+
+      for (const file of files) {
+        if (!file.endsWith('.json')) continue;
+
+        try {
+          const filePath = `${themesDir}/${file}`;
+          const themeFile = Bun.file(filePath);
+          const content = await themeFile.text();
+          const themeData = JSON.parse(content);
+
+          // Extract theme ID from filename (without .json)
+          const themeId = file.replace('.json', '');
+
+          const theme: Theme = {
+            id: themeId,
+            name: themeData.name || themeId,
+            type: themeData.type || 'dark',
+            colors: themeData.colors || {},
+            tokenColors: themeData.tokenColors,
+          };
+
+          this.themes.set(themeId, theme);
+          this.debugLog(`Loaded theme: ${themeId}`);
+        } catch (err) {
+          this.debugLog(`Failed to load theme ${file}: ${err}`);
+        }
+      }
+    } catch (err) {
+      this.debugLog(`Failed to read themes directory: ${err}`);
+    }
+
+    // Ensure we have at least one fallback theme
+    if (this.themes.size === 0) {
+      this.loadFallbackTheme();
+    }
+  }
+
+  private loadFallbackTheme(): void {
     const defaultTheme: Theme = {
-      id: 'One Dark',
-      name: 'One Dark',
+      id: 'default-dark',
+      name: 'Default Dark',
       type: 'dark',
       colors: {
-        'editor.background': '#282c34',
-        'editor.foreground': '#abb2bf',
-        'editor.lineHighlightBackground': '#2c313c',
-        'editor.selectionBackground': '#3e4451',
-        'editor.findMatchBackground': '#42557b',
-        'editor.findMatchHighlightBackground': '#314365',
-        'editorCursor.foreground': '#528bff',
-        'editorLineNumber.foreground': '#636d83',
-        'editorLineNumber.activeForeground': '#abb2bf',
-        'sideBar.background': '#21252b',
-        'sideBar.foreground': '#abb2bf',
-        'statusBar.background': '#21252b',
-        'statusBar.foreground': '#9da5b4',
-        'terminal.background': '#21252b',
-        'terminal.foreground': '#abb2bf',
+        'editor.background': '#1e1e1e',
+        'editor.foreground': '#d4d4d4',
+        'editor.lineHighlightBackground': '#2a2a2a',
+        'editor.selectionBackground': '#264f78',
+        'editorCursor.foreground': '#ffffff',
+        'editorLineNumber.foreground': '#858585',
+        'editorLineNumber.activeForeground': '#c6c6c6',
+        'sideBar.background': '#252526',
+        'sideBar.foreground': '#cccccc',
+        'statusBar.background': '#007acc',
+        'statusBar.foreground': '#ffffff',
+        'terminal.background': '#1e1e1e',
+        'terminal.foreground': '#cccccc',
       },
     };
-
-    this.themes.set('One Dark', defaultTheme);
-
-    // Add a light theme
-    const lightTheme: Theme = {
-      id: 'One Light',
-      name: 'One Light',
-      type: 'light',
-      colors: {
-        'editor.background': '#fafafa',
-        'editor.foreground': '#383a42',
-        'editor.lineHighlightBackground': '#f0f0f0',
-        'editor.selectionBackground': '#e5e5e6',
-        'editor.findMatchBackground': '#d9ead3',
-        'editor.findMatchHighlightBackground': '#e4e4e4',
-        'editorCursor.foreground': '#526fff',
-        'editorLineNumber.foreground': '#9d9d9f',
-        'editorLineNumber.activeForeground': '#383a42',
-        'sideBar.background': '#eaeaeb',
-        'sideBar.foreground': '#383a42',
-        'statusBar.background': '#eaeaeb',
-        'statusBar.foreground': '#383a42',
-        'terminal.background': '#fafafa',
-        'terminal.foreground': '#383a42',
-      },
-    };
-
-    this.themes.set('One Light', lightTheme);
+    this.themes.set('default-dark', defaultTheme);
   }
 
   private getDefaultTheme(): Theme {
-    return this.themes.get('One Dark')!;
+    // Try catppuccin-frappe first (the project default), then any available theme
+    return this.themes.get('catppuccin-frappe')
+      || this.themes.get('default-dark')
+      || this.themes.values().next().value!;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1001,7 +1017,19 @@ export class LocalSessionService implements SessionService {
 
   async init(workspaceRoot: string): Promise<void> {
     this.workspaceRoot = workspaceRoot;
+
+    // Load themes from ~/.ultra/themes directory
+    await this.loadThemesFromDirectory();
+    this.debugLog(`Loaded ${this.themes.size} themes`);
+
     this.currentThemeId = this.getSetting('workbench.colorTheme');
+    // Ensure the current theme exists, otherwise use default
+    if (!this.themes.has(this.currentThemeId)) {
+      const defaultTheme = this.getDefaultTheme();
+      this.currentThemeId = defaultTheme.id;
+      this.debugLog(`Theme ${this.getSetting('workbench.colorTheme')} not found, using ${this.currentThemeId}`);
+    }
+
     // Don't create an empty session here - let tryLoadLastSession() load from disk first
     // If no session is found, setCurrentSession() will be called later
     this.currentSession = null;

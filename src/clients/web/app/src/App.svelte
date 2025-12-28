@@ -7,6 +7,7 @@
   import { lspIntegration } from './lib/lsp/integration';
   import { settingsStore } from './lib/stores/settings';
   import { keybindingsStore } from './lib/stores/keybindings';
+  import { sessionStore } from './lib/stores/session';
 
   let isConnected = true;
   let workspaceRoot = '';
@@ -21,12 +22,20 @@
       isConnected = false;
     });
 
+    // Handle before unload - save session
+    const handleBeforeUnload = () => {
+      sessionStore.handleBeforeUnload();
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     // Initialize workspace
     initWorkspace();
 
     return () => {
       unsubConnect();
       unsubDisconnect();
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      sessionStore.stopAutoSave();
     };
   });
 
@@ -48,6 +57,9 @@
 
       // Initialize LSP (depends on workspace root)
       await lspIntegration.init(workspaceRoot);
+
+      // Initialize session (restore previous session)
+      await sessionStore.init();
     } catch (error) {
       console.error('Failed to initialize workspace:', error);
       // Use a sensible default
