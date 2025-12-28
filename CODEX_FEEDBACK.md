@@ -1,58 +1,47 @@
 # CODEX Feedback for Ultra 1.0
 
 ## Scope & Approach
-Reviewed the current `ux-fixes-20251226.3` worktree with a focus on the new ECP server, git timeline UI, AI/terminal tooling, and configuration plumbing. No automated tests were run in this pass.
+Reviewed the current `ux-fixes-20251228` branch with emphasis on the newly added database service, SQL editor tooling, and row-details UI. No automated tests were executed during this pass.
 
-## Key Findings & Risks (Ordered by Severity)
+## Key Findings & Risks (ordered by severity)
 
-### 1) ECP session APIs never persist to disk
-- **Where**: `src/ecp/server.ts:74-101`, `src/services/session/local.ts:257-300`.
-- **What**: `ECPServer` constructs `LocalSessionService` but never calls `setSessionPaths`, so `saveSession/listSessions/tryLoadLastSession` skip disk writes because `sessionPaths` stays `null`.
-- **Impact**: Remote clients using ECP think sessions were saved, yet nothing hits disk. Session restores, `session/list`, and `session/delete` silently fail after the process restarts.
-- **Recommendation**: Accept session path settings in `ECPServerOptions` (defaulting to `~/.ultra/sessions/...`) and call `sessionService.setSessionPaths()` before exposing the adapter. Add coverage around `session/save` to guard against future regressions.
+### 1) Database connection dialogs never initialize the secret or database services
+- **Where**: `src/clients/tui/client/tui-client.ts:8398-8447`, `src/services/secret/local.ts:288-305`, `src/services/database/local.ts:1003-1022`.
+- **What**: `showNewDatabaseConnectionDialog` (and the edit/delete flows) call `localSecretService.set/delete` and `localDatabaseService.createConnection` without first invoking `localDatabaseService.init(...)`. The secret service throws `SecretService not initialized` until `localSecretService.init()` runs (which only happens inside `LocalDatabaseService.init`). Because the only callers of `localDatabaseService.init` are SQL-editor restore/query flows (`tui-client.ts:6836-6857`, `8173-8185`, `8207-8221`), creating or editing a connection before running a query crashes whenever a password or Supabase key is supplied.
+- **Impact**: Users cannot save credentials (or Supabase service keys) unless they accidentally hit a path that initialized the database service earlier in the session, making the new connection workflow effectively unusable.
+- **Recommendation**: Initialize the database service as part of client startup (or lazily within the connection dialogs before using secrets). At minimum, call `await localDatabaseService.init(...)` at the top of every connection-create/edit/delete path so the secret service is ready.
 
-### 2) Git timeline still uses workspace-relative paths
-- **Where**: `src/clients/tui/client/tui-client.ts:1067-1076`.
-- **What**: `loadTimelineForEditor` strips `this.workingDirectory` from document URIs and hands the remainder to `gitCliService.fileLog/show`. That only works when the workspace root *is* the repo root; nested workspaces produce invalid repo-relative paths.
-- **Impact**: In monorepos the timeline always renders empty and “open file @ commit” fails with `fatal: Path '...' does not exist in 'commit'`. Users cannot inspect history for files outside the repo root.
-- **Recommendation**: Resolve the actual repo root via `gitCliService.getRoot`, compute `relative(root, filePath)`, and fall back gracefully when the file is outside the repo. Add a regression test for workspaces rooted below the repo.
+### 2) New connections are never persisted unless the service was initialized beforehand
+- **Where**: `src/services/database/local.ts:88-134`, `src/services/database/local.ts:1110-1136`, `src/clients/tui/client/tui-client.ts:8398-8451`.
+- **What**: `LocalDatabaseService.createConnection` always calls `saveConnections()`, but `saveConnections()` immediately returns when `connectionsLoaded` is `false`. That flag only flips to `true` inside `LocalDatabaseService.init`. Because the connection dialogs never call `init`, `connectionsLoaded` remains `false`, `workspaceRoot` stays `null`, and the JSON files under `~/.ultra/`/`<workspace>/.ultra/` are never written.
+- **Impact**: Even if the secret calls above were fixed, every connection created before running a query disappears on the next launch (and project-scoped connections never persist at all because `workspaceRoot` is unset). Users believe their connections are saved, but all work is lost after restart.
+- **Recommendation**: Make `createConnection/updateConnection/deleteConnection` either auto-initialize the service (and set `workspaceRoot`) or ensure every caller initializes it first. Consider removing the `connectionsLoaded` guard or defaulting it to `true` after an in-memory creation so saves cannot silently no-op.
 
-### 3) Settings schema drops the `tui.` prefix
-- **Where**: `src/services/session/schema.ts:200-250`.
-- **What**: The schema entries for tab bar, outline, and timeline settings are named `tabBar.scrollAmount`, `outline.*`, `timeline.*` instead of `tui.tabBar.scrollAmount`, `tui.outline.*`, `tui.timeline.*`.
-- **Impact**: `validateSetting` rejects the real keys (`tui.outline.autoFollow`, etc.), so ECP `config/set`, CLI tools, or any consumer of `SessionService` cannot change those settings (“Unknown setting”). Defaults also drift if schema-derived helpers are ever used.
-- **Recommendation**: Rename the schema properties to match the actual keys (or add aliases) and add validation tests for the `tui.*` settings so the mismatch cannot reappear.
+### 3) SQL LSP configuration never succeeds because cached passwords only exist after a live connection
+- **Where**: `src/clients/tui/elements/sql-editor.ts:187-202`, `src/clients/tui/client/tui-client.ts:7791-7828`, `src/services/database/local.ts:286-295`.
+- **What**: Selecting a connection in the SQL editor immediately calls `configureSQLLanguageServer`, but that function insists on `localDatabaseService.getCachedPassword(connectionId)`. Passwords are cached only during an active `connect()`, and the SQL editor does not connect when the user changes the dropdown—it only connects later when executing a query. There is no second call to `configureSQLLanguageServer` after the query triggers a real connection, so the method always returns early with `“no password cached”`.
+- **Impact**: Postgres-language-server is never configured with host/user/password, meaning schema-aware completions, hover, and diagnostics never activate even after the user connects. The flagship “database-aware LSP” feature is effectively dead.
+- **Recommendation**: Either fetch the password directly from the secret service when configuring the LSP (falling back to prompting the user) or call `configureSQLLanguageServer` again once `connect()` succeeds. Do not gate configuration solely on `cachedPassword`.
 
-### 4) Commit viewers create untracked editors with no URI
-- **Where**: `src/clients/tui/client/tui-client.ts:1099-1123`.
-- **What**: `openFileAtCommit` creates a `DocumentEditor`, injects text, and focuses it without assigning a URI or marking the buffer read-only.
-- **Impact**: The editor status bar shows “Untitled”, save attempts overwrite nothing, diagnostics/LSP ignore the document, and users can edit a historical snapshot believing it’s tied to a file. The buffer is also invisible to session restore.
-- **Recommendation**: Use a virtual URI like `ultra://git/<hash>/<relativePath>` and call `editor.setUri()` with a read-only flag or wiring to a temp file. Hook save attempts to reopen the diff or warn the user.
+### 4) Row Details panel hardcodes the `public` schema for every table
+- **Where**: `src/clients/tui/client/tui-client.ts:7990-8038`, `src/clients/tui/client/tui-client.ts:8060-8099`.
+- **What**: When the user opens row details, the client always calls `describeTable(connectionId, 'public', tableName)` and later builds `UPDATE`/`DELETE` statements using `"public"."<table>"`, even though `parseTableNameFromSql` strips whatever schema the query actually referenced.
+- **Impact**: Editing or deleting a row from any schema other than `public` either targets the wrong table or fails with `relation does not exist`. Primary keys also fail to load for non-`public` tables, making optimistic updates impossible.
+- **Recommendation**: Preserve the schema when parsing the `FROM` (or store it with the query result metadata) and pass it through to `describeTable`, `setRowData`, and the generated SQL. Until then, block row editing when the schema cannot be determined rather than issuing incorrect SQL.
 
-### 5) Terminal backends force `-il` shell flags with no override
-- **Where**: `src/terminal/pty.ts:97-103`, `src/terminal/backends/node-pty.ts:56-61`.
-- **What**: Both bun-pty and node-pty backends append `['-il']` regardless of the configured shell, and `PTYBackendOptions` exposes no setting to change or remove the flags.
-- **Impact**: Shells that don’t support `-il` (fish, nu, Windows shells, custom binaries) fail to spawn. Even supported shells can’t run with user-specified args (e.g., login vs. non-login) because the code overwrites them.
-- **Recommendation**: Respect `options.args`, add a `terminal.integrated.shellArgs` setting, and default to `['-il']` only when the shell is zsh/bash. Validate by spawning at least one non-POSIX shell in CI.
-
-### 6) `tui.outline.showIcons` setting still unused
-- **Where**: Setting definition `src/config/settings.ts:38-42`; rendering `src/clients/tui/elements/outline-panel.ts:716-780`.
-- **What**: The Outline panel always renders the symbol icon (`SYMBOL_ICONS`), and no code path consults `tui.outline.showIcons`.
-- **Impact**: Users editing settings see no effect, which undermines trust and clutters the settings schema. Also, ECP/CLI tooling will continue to reject this setting because of the schema bug above.
-- **Recommendation**: Gate the icon drawing on `this.ctx.getSetting('tui.outline.showIcons', true)` (and adjust layout when icons are hidden) or remove the setting entirely until it’s supported.
-
-### 7) Tab-bar scroll amount ignores user settings
-- **Where**: `src/clients/tui/elements/terminal-panel.ts:250-266`, `src/clients/tui/client/tui-client.ts:290-302`.
-- **What**: The terminal panel directly calls `localSessionService.getSetting('tui.tabBar.scrollAmount')`, but `LocalSessionService` never ingests values from `TUIConfigManager` (no `setSetting`/`updateSettings` calls). All other UI components read from the config manager provided via `ElementContext`.
-- **Impact**: Editing `tui.tabBar.scrollAmount` in settings changes editor tab scrolling but not the terminal tabs, so the UI behaves inconsistently and user expectations are violated.
-- **Recommendation**: Use the element context (`this.ctx.getSetting`) for the tab scroll amount, or synchronize `localSessionService` with the loaded settings once during startup.
+### 5) Database connection events announce “connected” before the backend actually connects
+- **Where**: `src/services/database/local.ts:168-194`.
+- **What**: `LocalDatabaseService.connect` sets `status = 'connecting'` but immediately emits a connection-change event with `type: 'connected'`. Only afterward does it attempt the actual backend `connect()`, emitting another `'connected'` event if the call succeeds (and `'error'` otherwise).
+- **Impact**: Subscribers (TUI overlays, ECP clients, telemetry) are told a connection is established before credentials are validated. UI badges will flip to “connected” briefly even if the connection later fails, and ref-counting logic may reuse a connection that has not finished establishing yet.
+- **Recommendation**: Emit a distinct `'connecting'` event when entering that state, and only emit `'connected'` after `backend.connect()` resolves. This keeps UI state and LSP configuration in sync with the real connection lifecycle.
 
 ## Coverage & Testing Gaps
-- The newly introduced ECP stack (document/file/git/session/terminal adapters) lacks integration tests; the missing session-path wiring would have been caught by a simple `session/save` → restart → `session/list` test.
-- Git timeline regressions still have no automated coverage for nested repos or commit-open flows.
-- PTY backends don’t have even smoke tests for spawning non-zsh shells, so the forced `-il` regression went unnoticed.
+- There are no integration tests covering the connection dialogs, secret-storage flows, or persistence of `connections.json`, so the two regressions above slipped through unnoticed.
+- SQL-editor tests exercise neither the LSP configuration path nor row-details editing. A simple end-to-end test that opens a SQL editor, assigns a schema-qualified table, and edits a row would catch the schema hardcoding immediately.
+- Database-service unit tests only cover the in-memory service; they do not validate event emissions or the `connectionsLoaded` guard.
 
 ## Suggested Next Steps
-1. Fix the ECP session-path plumbing and extend the E2E ECP tests to cover session save/load/list flows.
-2. Normalize git timeline paths using the repo root, and add a regression test so nested workspaces don’t break again.
-3. Audit configuration handling so schema keys, context getters, and UI usage stay in sync (outline/timeline/tabBar settings plus terminal tab scroll).
+1. Initialize `localDatabaseService` (and therefore `localSecretService`) during client startup or at the top of every connection-management action so persistence and secret storage work.
+2. Rework SQL LSP configuration to fetch credentials independently of cached passwords and re-run configuration whenever a connection actually succeeds.
+3. Track the schema associated with query results and use it throughout the row-details panel (describe, update, delete).
+4. Fix the connection-change event semantics and add regression tests so UI and clients can trust the events they receive.

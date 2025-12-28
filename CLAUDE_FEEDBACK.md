@@ -1,203 +1,386 @@
-# Claude Code Feedback for Ultra 1.0
+# Claude Feedback for Ultra 1.0
 
-## Scope & Context
-Reviewed PR #3: "Plan diff viewer framework for Ultra" (merged commit `cdd98a2`).
+## Overview (2025-12-28)
 
-This PR implemented the diff viewer enhancement plan across 6 sprints:
-1. Summary section and Timeline panel integration
-2. Side-by-side diff view mode
-3. Auto-refresh with file watching
-4. LSP Diagnostics for diff viewer
-5. Inline editing for diff viewer
-6. Viewer abstraction patterns (BaseViewer)
+Comprehensive codebase analysis comparing implementation against CLAUDE.md conventions, architecture design documents, and incorporating feedback from CODEX_FEEDBACK.md and GEMINI_FEEDBACK.md.
 
-## Summary of Changes
+**Current Status:** v0.5.1 UX Polish Phase
+**Test Status:** 1740/1740 tests passing
+**Branch:** `ux-fixes-20251228`
 
-### Files Added
-| File | Purpose |
-|------|---------|
-| `architecture/diff-viewer-plan.md` | Detailed planning document with sprint breakdown |
-| `architecture/viewer-patterns.md` | Documentation for viewer component patterns |
-| `src/clients/tui/elements/base-viewer.ts` | Abstract base class for simple list/tree viewers |
+---
 
-### Files Modified
-| File | Changes |
-|------|---------|
-| `src/clients/tui/artifacts/types.ts` | Added ViewerItem, ViewerCallbacks, ViewerState, SummaryItem interfaces |
-| `src/clients/tui/elements/content-browser.ts` | Added pinned summary section support |
-| `src/clients/tui/elements/git-diff-browser.ts` | +1000 lines: side-by-side view, diagnostics, edit mode, auto-refresh |
-| `src/clients/tui/client/tui-client.ts` | +210 lines: Timeline integration, git change listener |
-| `src/services/git/cli.ts` | Added `diffCommit()` and `getCommitFiles()` methods |
-| `src/services/session/schema.ts` | Added 6 diff viewer settings |
-| `src/clients/tui/elements/index.ts` | Exported new types and BaseViewer |
+## Critical Issues (Priority 1)
 
-### Settings Added
-```jsonc
-"tui.diffViewer.summaryPinned": true
-"tui.diffViewer.defaultViewMode": "unified"  // or "side-by-side"
-"tui.diffViewer.autoRefresh": true
-"tui.diffViewer.showDiagnostics": true
-"tui.diffViewer.editMode": "stage-modified"  // or "direct-write"
-"tui.contentBrowser.summaryPinned": true
+### 1.1 Database Service Initialization Race Condition
+
+**Source:** CODEX_FEEDBACK.md #1, #2
+**Status:** CONFIRMED - Still present
+
+**Problem:** Connection dialogs can be invoked before `localDatabaseService.init()` runs:
+- `showNewDatabaseConnectionDialog` calls secret service methods
+- Secret service throws "not initialized" if database service hasn't been initialized
+- `saveConnections()` silently returns when `connectionsLoaded` is false
+
+**Locations:**
+- `src/clients/tui/client/tui-client.ts:8398-8447` - Dialog invocation
+- `src/services/database/local.ts:1109` - `connectionsLoaded` guard
+- `src/services/database/local.ts:1006` - Secret service init inside database init
+
+**Impact:** Users cannot create/save database connections until they've triggered a query execution path.
+
+**Recommendation:**
+```typescript
+// Option 1: Initialize database service at TUI startup
+async init(): Promise<void> {
+  // ... existing init code ...
+  await localDatabaseService.init(this.workingDirectory || undefined);
+}
+
+// Option 2: Lazy init in dialog handlers
+private async showNewDatabaseConnectionDialog(): Promise<void> {
+  await localDatabaseService.init(this.workingDirectory || undefined);
+  // ... rest of method
+}
 ```
 
-## Key Findings & Issues (Ordered by Severity)
+---
 
-### 1) TypeScript Compilation Fails (Critical) - FIXED
-- **Where**: `src/clients/tui/elements/base-viewer.ts`, `src/clients/tui/client/tui-client.ts`
-- **What**: 10 TypeScript errors prevented build:
-  - `BaseViewer` uses `'BaseViewer'` as ElementType but it's not registered
-  - Method name mismatch: `handleMouseEvent` vs `handleMouse` (base class method)
-  - Missing `override` modifiers on `getState()` and `setState()`
-  - MouseEvent type uses `'mousedown'`/`'wheel'` but actual types are `'press'`/`'scroll'`
-  - `'line'` property doesn't exist in `OpenFileOptions` type
-  - `dispose()` called on `ContentBrowser` but not defined in base class
-- **Status**: FIXED - All type errors resolved:
-  - Added 'BaseViewer' to ElementType union in types.ts
-  - Renamed `handleMouseEvent` to `handleMouse` in base-viewer.ts
-  - Added `override` modifiers to `getState()` and `setState()`
-  - Changed `'mousedown'`→`'press'`, `'wheel'`→`'scroll'`, `direction`→`scrollDirection`
-  - Added `line` and `column` to `OpenFileOptions` interface
-  - Added `dispose()` method to `BaseElement`
-  - Added 'BaseViewer' to pane.ts title map
+### 1.2 SQL LSP Configuration Timing Issue
 
-### 2) No Tests Added (Critical) - FIXED
-- **Status**: FIXED - Added comprehensive tests:
-  - `tests/unit/clients/tui/elements/base-viewer.test.ts` - Navigation, state, mouse handling, rendering
-  - `tests/unit/clients/tui/elements/git-diff-browser.test.ts` - View modes, callbacks, diagnostics, edit mode
-  - `tests/unit/clients/tui/elements/content-browser.test.ts` - Summary section, pinned state
-  - Extended `tests/unit/services/git/git-cli-service.test.ts` with `diffCommit()` and `getCommitFiles()` tests
-  - Total: 93+ new tests added
+**Source:** CODEX_FEEDBACK.md #3
+**Status:** CONFIRMED - Still present
 
-### 2) No Tests Added (Critical) - Original Issue
-- **Where**: Entire PR
-- **What**: Zero test files added despite CLAUDE.md stating "All new features and bug fixes MUST include corresponding tests."
-- **Impact**: 1000+ lines of new functionality with no test coverage. Regressions possible.
-- **Recommendation**: Add tests for:
-  - `GitDiffBrowser`: view mode toggle, diagnostics rendering, edit mode
-  - `BaseViewer`: navigation, expand/collapse, state serialization
-  - `ContentBrowser`: summary section rendering
-  - `diffCommit()` and `getCommitFiles()` git service methods
-  - Integration test for timeline → diff viewer flow
+**Problem:** `configureSQLLanguageServer` requires cached password, but password is only cached after `connect()`:
+1. User selects connection in SQL editor dropdown
+2. `onConnectionChange` callback fires
+3. `configureSQLLanguageServer` tries to get cached password
+4. Password is null (connection not established yet)
+5. LSP never gets configured
 
-### 3) Edit Mode is Incomplete (High) - FIXED
-- **Where**: `src/clients/tui/client/tui-client.ts:5610-5670`
-- **What**: `stage-modified` edit mode showed a "coming soon" notification.
-- **Status**: FIXED - Implemented `onSaveEdit` to:
-  1. Find the GitDiffBrowser and get hunk details
-  2. Apply the edited content to the file
-  3. Stage the modified file via `gitCliService.stage()`
-  4. Trigger refresh of the diff view
+**Location:** `src/clients/tui/client/tui-client.ts:7848-7872`
 
-### 4) Direct-Write Mode Has Potential Off-by-One Errors (High) - FIXED
-- **Where**: `src/clients/tui/elements/git-diff-browser.ts:96-106`, `src/clients/tui/client/tui-client.ts:5671`
-- **What**: `onDirectWrite` used wrong line count for splice.
-- **Status**: FIXED:
-  - Extended `EditCallbacks.onDirectWrite` to accept `originalLineCount` parameter
-  - `GitDiffBrowser.saveEdit()` now passes `originalEditLines.length`
-  - `onDirectWrite` now uses correct `splice(startIdx, originalLineCount, ...newLines)`
+**Impact:** Schema-aware SQL completions never activate, even after connecting.
 
-### 5) Diagnostics Cache Not Auto-Refreshed (Medium) - FIXED
-- **Where**: `src/clients/tui/elements/git-diff-browser.ts:188-194`
-- **What**: `refreshDiagnosticsCache()` was only called when `setDiagnosticsProvider()` is called.
-- **Status**: FIXED - Added `onFocus()` override to refresh diagnostics cache when the diff browser gains focus. Test added to verify behavior.
+**Recommendation:**
+```typescript
+// Re-configure LSP after successful connection
+private async executeQuery(sql: string, connectionId: string): Promise<void> {
+  await localDatabaseService.connect(connectionId);
+  // Now password is cached - configure LSP
+  this.configureSQLLanguageServer(connectionId);
+  // ... execute query
+}
+```
 
-### 6) BaseViewer Registered as Non-Existent ElementType (Medium) - FIXED
-- **Where**: `src/clients/tui/types.ts:44`
-- **What**: Constructor passes `'BaseViewer'` to super, but `ElementType` union didn't include this value.
-- **Status**: FIXED - Added 'BaseViewer' to ElementType union in types.ts and to pane.ts title map.
+---
 
-### 7) MouseEvent Type Mismatch (Medium) - FIXED
-- **Where**: `src/clients/tui/elements/base-viewer.ts:433-474`
-- **What**: Code checked for `'mousedown'` and `'wheel'` event types.
-- **Status**: FIXED - Updated to use correct event types: `'press'` instead of `'mousedown'`, `'scroll'` instead of `'wheel'`, `scrollDirection` instead of `direction`.
+### 1.3 Row Details Panel Hardcodes 'public' Schema
 
-### 8) Missing dispose() in ContentBrowser (Low) - FIXED
-- **Where**: `src/clients/tui/elements/base.ts:124-128`
-- **What**: `GitDiffBrowser.dispose()` calls `super.dispose()` but base class didn't define it.
-- **Status**: FIXED - Added `dispose()` method to `BaseElement` base class.
+**Source:** CODEX_FEEDBACK.md #4
+**Status:** CONFIRMED - Still present
 
-## Positive Aspects
+**Problem:** All row operations use hardcoded `'public'` schema:
 
-1. **Well-Structured Plan**: The diff-viewer-plan.md is comprehensive with clear sprint breakdown
-2. **Good Documentation**: viewer-patterns.md provides clear guidance for future viewer implementations
-3. **Proper Settings Integration**: New settings follow the established schema pattern
-4. **Service Layer Usage**: Git operations properly delegated to `gitCliService`
-5. **Theme Color Usage**: Rendering uses `ctx.getThemeColor()` consistently
+```typescript
+// tui-client.ts:8072
+'public', // TODO: Parse schema from table name
 
-## Code Quality Observations
+// tui-client.ts:8084
+detailsPanel.setRowData(row, fields, tableName, 'public', primaryKey);
 
-### Followed CLAUDE.md Patterns
-- Used debugLog() instead of console.log
-- Settings read via ctx.getSetting() with defaults
-- Git commands use .quiet() appropriately
-- Singleton pattern with named exports
+// tui-client.ts:8107, 8134
+const schemaName = (panel as any).schemaName || 'public';
+```
 
-### Deviated from CLAUDE.md Patterns
-- No tests added (mandatory per CLAUDE.md) - **NOW FIXED**
-- TypeScript errors not caught before PR merge - **NOW FIXED**
+**Impact:** UPDATE/DELETE operations target wrong tables for non-public schemas.
 
-## Testing Gaps - ALL ADDRESSED
+**Recommendation:**
+1. Parse schema from SQL query or store with QueryResult metadata
+2. Pass schema through to all row operations
+3. Block editing when schema cannot be determined
 
-| Feature | Expected Test | Status |
-|---------|--------------|--------|
-| Side-by-side rendering | Snapshot test for layout | Added basic render test |
-| View mode toggle | Unit test for state change | **Added** |
-| Auto-refresh | Integration test with mock git changes | **Added** |
-| Diagnostics display | Unit test with mock provider | **Added** |
-| Edit mode | Unit tests for cursor, text manipulation | **Added** (undo/redo tests) |
-| Summary section | Snapshot test for content browser | **Added** |
-| Timeline integration | Integration test for diff opening | **Added** (20 tests) |
-| diffCommit() | Unit test with mock git output | **Added** |
-| getCommitFiles() | Unit test with mock git output | **Added** |
+---
 
-## Recommended Next Steps - STATUS
+## High Priority Issues (Priority 2)
 
-1. **Fix TypeScript Errors (Immediate)** - ✅ COMPLETED
-   - ✅ Update MouseEvent type usage in base-viewer.ts
-   - ✅ Add missing override modifiers
-   - ✅ Fix OpenFileOptions usage in tui-client.ts
-   - ✅ Resolve dispose() inheritance
+### 2.1 console.log/console.error Violations
 
-2. **Add Core Tests** - ✅ COMPLETED
-   - ✅ GitDiffBrowser view mode and state
-   - ✅ BaseViewer navigation and serialization
-   - ✅ Git service diffCommit/getCommitFiles
+**Source:** CLAUDE.md Anti-Patterns
+**Status:** 26 violations found
 
-3. **Complete Edit Mode** - ✅ COMPLETED
-   - ✅ Implement stage-modified (apply + stage file)
-   - ✅ Fix direct-write line replacement logic
-   - ✅ Add proper undo/redo support (Ctrl+Z/Ctrl+Y)
+The convention states: "Never use `console.log` for debugging. Use the centralized debug system."
 
-4. **Improve Diagnostics Integration** - ✅ COMPLETED
-   - ✅ Auto-refresh cache on focus
-   - ✅ Subscribe to LSP diagnostic change events (refreshDiffBrowserDiagnostics)
+**Violations by file:**
 
-5. **Add Timeline Integration Tests** - ✅ COMPLETED
-   - ✅ Created `tests/unit/clients/tui/elements/git-timeline-panel.test.ts` (20 tests)
-   - ✅ Mode switching (file/repo)
-   - ✅ Navigation (arrow keys, j/k, bounds checking)
-   - ✅ Callbacks (onViewDiff, onCopyHash, onModeChange, onFocusChange)
-   - ✅ State persistence (getState, setState)
+| File | Count | Type |
+|------|-------|------|
+| `src/clients/tui/main.ts` | 6 | console.log, console.error |
+| `src/index.ts` | 3 | console.log, console.error |
+| `src/config/settings-loader.ts` | 2 | console.error |
+| `src/core/errors.ts` | 3 | console.error |
+| `src/core/event-emitter.ts` | 1 | console.error |
+| `src/clients/tui/client/keybinding-adapter.ts` | 1 | console.error |
+| `src/services/syntax/highlighter.ts` | 1 | console.error |
+| `src/terminal/pty-bridge.ts` | 1 | console.error |
+| `src/terminal/pty-loader.ts` | 1 | console.error |
+| `src/terminal/pty.ts` | 1 | console.error |
 
-## Summary of All Changes Made
+**Note:** Some console.log in main.ts are intentional (version output, help). Those should stay.
 
-### Files Created
-| File | Purpose |
-|------|---------|
-| `tests/unit/clients/tui/elements/git-timeline-panel.test.ts` | Timeline panel unit tests (20 tests) |
+**Recommendation:** Replace with `debugLog()` where appropriate, or use proper error reporting mechanisms.
 
-### Files Modified (Follow-up Session)
-| File | Changes |
-|------|---------|
-| `src/clients/tui/elements/git-diff-browser.ts` | Added undo/redo support with Ctrl+Z/Ctrl+Y |
-| `src/clients/tui/client/tui-client.ts` | Added `refreshDiffBrowserDiagnostics()` for LSP event handling |
-| `tests/unit/clients/tui/elements/git-diff-browser.test.ts` | Added undo/redo and diagnostics refresh tests |
+---
 
-### Test Summary
-- **Total tests**: 1635 (all passing)
-- **New tests added**: 28
-  - GitDiffBrowser undo/redo: 5 tests
-  - GitDiffBrowser diagnostics refresh: 2 tests
-  - GitTimelinePanel: 20 tests
-  - LSP diagnostic subscription behavior: 1 test
+### 2.2 Silent Empty Catch Blocks
+
+**Status:** 30+ occurrences
+
+Pattern detected: `} catch {` with no error handling:
+
+```typescript
+// Example from src/services/git/cli.ts:68
+} catch {
+  return false;
+}
+```
+
+**Locations with silent catches:**
+- `src/services/session/local.ts` - 3 occurrences
+- `src/services/git/cli.ts` - 15+ occurrences
+- `src/services/file/local.ts` - 2 occurrences
+- `src/services/lsp/service.ts` - 3 occurrences
+- `src/terminal/input.ts` - 1 occurrence
+- `src/core/document.ts` - 2 occurrences
+
+**Impact:** Errors are swallowed without logging, making debugging difficult.
+
+**Recommendation:**
+```typescript
+// Bad
+} catch {
+  return false;
+}
+
+// Good
+} catch (error) {
+  debugLog(`[GitCli] Operation failed: ${error}`);
+  return false;
+}
+```
+
+---
+
+### 2.3 Incremental LSP Document Sync Not Implemented
+
+**Source:** GEMINI_FEEDBACK.md #1
+**Status:** CONFIRMED - TODO marker present
+
+**Location:** `src/services/document/local.ts:831`
+```typescript
+// TODO: Implement incremental change tracking
+```
+
+**Impact:** Every document change sends full content to LSP servers. Performance bottleneck for large files.
+
+**Recommendation:** Track changes in DocumentService and emit `TextDocumentContentChangeEvent` with ranges.
+
+---
+
+### 2.4 Connection Change Event Emitted Prematurely
+
+**Source:** CODEX_FEEDBACK.md #5
+**Status:** CONFIRMED
+
+**Location:** `src/services/database/local.ts:168-194`
+
+```typescript
+conn.status = 'connecting';
+this.emitConnectionChange({
+  connectionId,
+  type: 'connected',  // BUG: Should be 'connecting'
+  connection: this.getConnection(connectionId)!,
+});
+
+try {
+  // ... actual connection happens here
+  this.emitConnectionChange({ type: 'connected' }); // Correct event
+```
+
+**Impact:** Subscribers see "connected" before connection is established.
+
+**Recommendation:** Emit `'connecting'` when entering connecting state, `'connected'` only after success.
+
+---
+
+## Medium Priority Issues (Priority 3)
+
+### 3.1 Hardcoded Theme Colors in Fallbacks
+
+**Source:** CLAUDE.md Architecture Principle #8
+**Status:** Acceptable with caveats
+
+Theme fallback colors in `theme-adapter.ts` are intentional defaults. However, some components may have inline hardcoded colors.
+
+**Recommendation:** Audit render methods for hardcoded colors outside of fallback contexts.
+
+---
+
+### 3.2 Legacy 'archived' References Remain
+
+**Source:** GEMINI_FEEDBACK.md #4
+**Status:** Partially resolved
+
+The `src/archived/` directory has been removed, but references remain:
+
+| File | Issue |
+|------|-------|
+| `tsconfig.json:36-37` | Excludes non-existent `src/archived` paths |
+| `BACKLOG.md:178-280` | References archived feature sources |
+| `src/clients/tui/config/config-manager.ts:596,667` | Archives to `~/.ultra/archived/` |
+
+**Recommendation:**
+1. Remove `src/archived` from tsconfig.json excludes
+2. Update BACKLOG.md to mark sources as "historical"
+3. Keep config-manager archiving logic (it's for user config, not source)
+
+---
+
+### 3.3 Magic Numbers in Timeouts
+
+**Source:** CLAUDE.md Constants section
+**Status:** 2 violations found
+
+```typescript
+// src/services/database/local.ts:160
+setTimeout(check, 100);
+
+// src/terminal/backends/ipc-pty.ts:190
+const timeout = setTimeout(() => reject(...), 5000);
+```
+
+**Recommendation:** Use `TIMEOUTS` constants from `src/constants.ts`
+
+---
+
+### 3.4 TODO Markers Need Tracking
+
+**Status:** 7 active TODO markers
+
+| Location | Description |
+|----------|-------------|
+| `document/local.ts:831` | Incremental change tracking |
+| `tui-client.ts:1252` | Detect add/delete from diff |
+| `tui-client.ts:8072` | Parse schema from table name |
+| `tui-client.ts:8515` | Query history dialog |
+| `settings-dialog.ts:189` | Multiline text editor popup |
+| `lsp-integration.ts:530` | References picker |
+| `window.ts:304` | Status log content |
+
+**Recommendation:** Create GitHub issues for each TODO or resolve them.
+
+---
+
+## Low Priority Issues (Priority 4)
+
+### 4.1 Singleton Pattern Compliance
+
+**Status:** GOOD - Properly implemented
+
+All services follow the singleton pattern with named and default exports:
+```typescript
+export const localDatabaseService = new LocalDatabaseService();
+export default localDatabaseService;
+```
+
+---
+
+### 4.2 Import Extension Compliance
+
+**Status:** GOOD - All imports include `.ts` extension
+
+Verified across all source files.
+
+---
+
+### 4.3 Git Commands Using .quiet()
+
+**Status:** GOOD - All git commands use `.quiet()`
+
+Verified in `src/services/git/cli.ts` - all `$\`git ...` calls include `.quiet()`.
+
+---
+
+### 4.4 SGR Mouse Mode
+
+**Source:** GEMINI_FEEDBACK.md #3
+**Status:** Already implemented
+
+SGR mouse mode is enabled in `src/terminal/index.ts:195`:
+```typescript
+this.write(MOUSE.enableSGR);
+```
+
+The TUI input handler also parses SGR mouse events correctly.
+
+---
+
+## Architecture Compliance Summary
+
+| Principle | Status | Notes |
+|-----------|--------|-------|
+| Use Services, Don't Duplicate | GOOD | TUI delegates to services |
+| Settings Over Hardcoded Values | PARTIAL | Some magic numbers remain |
+| TUI Translates to ECP | GOOD | Proper separation |
+| Error Handling | POOR | Many silent failures |
+| Service Layer Structure | GOOD | Consistent interface/local/adapter pattern |
+| Single Source of Truth | GOOD | Centralized in appropriate files |
+| Validation at Boundaries | PARTIAL | Settings lack validation |
+| Theme Color Inheritance | GOOD | Uses ctx.getThemeColor() |
+| LSP Integration Pattern | GOOD | Proper overlay management |
+| Session Persistence | GOOD | Full state serialization |
+
+---
+
+## Testing Gaps
+
+Based on CODEX feedback and analysis:
+
+1. **No integration tests for connection dialogs** - Secret storage and persistence flows untested
+2. **No tests for LSP configuration** - SQL editor LSP path untested
+3. **No tests for row editing** - Schema handling untested
+4. **Database service events** - Connection state machine untested
+
+---
+
+## Recommended Action Plan
+
+### Phase 1: Critical Fixes (This Sprint)
+1. Initialize database service at TUI startup
+2. Re-configure SQL LSP after successful connection
+3. Fix connection event emission sequence
+4. Parse and preserve schema in SQL queries
+
+### Phase 2: Code Quality (Next Sprint)
+1. Replace console.log/error with debugLog where appropriate
+2. Add error logging to catch blocks
+3. Move magic numbers to constants.ts
+4. Create GitHub issues for TODO markers
+
+### Phase 3: Performance (Future)
+1. Implement incremental LSP document sync
+2. Add connection pooling optimizations
+3. Profile large file handling
+
+---
+
+## Conclusion
+
+The codebase follows most conventions in CLAUDE.md well. The primary issues are:
+1. **Database service initialization timing** - Critical for new users
+2. **SQL LSP configuration** - Critical for database feature adoption
+3. **Silent error handling** - Hinders debugging
+
+The architecture is sound, test coverage is excellent (1740 tests), and the service layer pattern is consistently applied. Focus should be on the database service initialization flow and error visibility.
+
+**Confidence Score:** High (Ready for targeted fixes)

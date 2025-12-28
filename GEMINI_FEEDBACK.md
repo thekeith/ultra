@@ -1,55 +1,57 @@
 # Gemini Feedback
 
-## Overview (Update: 2025-12-25)
+## Overview (Update: 2025-12-28)
 
-I have completed a thorough review of the codebase following the recent architectural cleanup and feature stabilization phase. The removal of the `src/archived` directory marks a significant milestone in project hygiene, and the new TUI components (Outline, Timeline) are now fully matured.
+I have performed a full codebase review, analyzing architecture, implementation details, and test suite health. The project remains in a highly stable and professional state. The extensive test suite, with 1740 passing tests, demonstrates a robust and well-maintained codebase where the core ECP architecture and service layer are functioning correctly under numerous integration scenarios.
 
-**Current Status:** v0.5.0 Stability Phase
-**Test Status:** 10/10 Integration Workflow tests passing (Verified)
-**Key Progress:** Enhanced Terminal Compatibility (DECSTBM) and Sidebar Maturity.
+While the core is solid, this review focuses on advancing the editor's performance, usability, and code hygiene by addressing recommendations from the previous review cycle and uncovering new areas for polish.
 
-## Key Achievements & Verification
+**Current Status:** v0.5.1 Polish Phase
+**Test Status:** 1740/1740 Unit & Integration tests passing (Verified)
+**Key Progress:** Partial implementation of prior recommendations; parser support for SGR mouse tracking.
 
-### 1. Terminal Compatibility: Scroll Regions (New)
-The implementation of `DECSTBM` (Set Top and Bottom Margins) and `ESC M` (Reverse Index) in `src/terminal/screen-buffer.ts` is a major advancement.
-- **Impact:** This enables full compatibility with modern shell prompts (like `oh-my-zsh` with Powerlevel10k or Starship) that rely on "sticky" status lines at the top or bottom of the scroll region.
-- **Verification:** The `AnsiParser` now correctly routes `CSI r` and `ESC M` to the `ScreenBuffer`, which manages internal region scrolling.
+## Progress on Previous Recommendations
 
-### 2. AI Terminal Cursor Stability
-The fix in `src/clients/tui/elements/ai-terminal-chat.ts` resolves a common UX issue where AI tools (like Claude Code) would hide the terminal cursor during output.
-- **Mechanism:** The element now ignores `DECTCEM` (cursor visibility) hints from the PTY when focused, ensuring the user always sees their input position.
-- **Result:** Smoother interaction during AI-driven workflows.
+There has been notable progress on recommendations from the last review, though some items remain incomplete.
 
-### 3. Sidebar State & Navigation
-The integration of `OutlinePanel` and `GitTimelinePanel` is now complete.
-- **Persistence:** Both panels correctly implement `getState`/`setState` for session recovery.
-- **Focus Safety:** The fix in `TUIClient.handleFocusChange` successfully prevents the sidebar from clearing itself when the user interacts with it, while still ensuring it stays synced with the active editor tab.
+1.  **Git Timeline UI Polish:** **Partially Complete.**
+    -   **Verification:** The `git-timeline-panel.ts` element now includes a fully functional search filter that correctly narrows the commit list based on user queries.
+    -   **Gap:** The UI polish recommendations for **search term highlighting** within the results and **file-vs-commit comparison** have not yet been implemented.
 
-### 4. Integration Workflow Health
-- **Status:** All 10 high-level workflows (Document+Git, File+Git, Session+Document) are passing.
-- **Reliability:** The use of `TempWorkspace` for git-identity configuration has eliminated CI-specific failures.
+2.  **Mouse Tracking Expansion:** **Partially Complete.**
+    -   **Verification:** The input handler at `src/terminal/input.ts` now contains a parser (`parseSGRMouse`) for the modern SGR mouse protocol (`CSI ? 1006 h`). This is a significant step.
+    -   **Gap:** The application does not yet enable SGR mode in the terminal on startup, meaning it still relies on the older X10 protocol. The feature is implemented but not activated.
 
-## Actionable Recommendations
+3.  **LSP Incremental Updates:** **Not Started.**
+    -   **Verification:** The `LSPClient` still sends the full document content on every `didChange` notification. A `TODO` in `src/services/document/local.ts` confirms that incremental change tracking is still pending. This remains a critical performance bottleneck for large files.
 
-### 1. LSP Polish: Incremental Updates
-The editor currently sends the full document content on every change (debounced). 
-- **Recommendation:** Implement incremental document synchronization (`didChange` with `TextDocumentContentChangeEvent`) in `src/services/lsp/client.ts`. This is critical for performance in large files.
+4.  **Archived Code Cleanup:** **Partially Complete.**
+    -   **Verification:** The `src/archived` directory has been successfully removed from the source tree.
+    -   **Gap:** Multiple references to the `archived` directory remain in configuration and documentation files (`tsconfig.json`, `src/clients/tui/config/config-manager.ts`, `BACKLOG.md`). This dead configuration and code should be removed to finalize the cleanup.
 
-### 2. UI: Timeline Commit Actions
-The `GitTimelinePanel` is excellent for browsing history. To reach "Pro" status, add:
-- **Search Highlighting:** When searching in the timeline, highlight the matching text in the commit messages.
-- **Branch Comparison:** Allow comparing the current file state against a selected commit in the timeline using the `InlineDiffExpander`.
+## Actionable Recommendations (New)
 
-### 3. Terminal: Mouse Tracking Expansion
-While basic mouse clicks and scrolling work, some TUI tools expect full X10/SGR mouse tracking.
-- **Recommendation:** Expand `src/terminal/input.ts` to support SGR mouse mode (`CSI ? 1006 h`) for better compatibility with advanced terminal tools.
+### 1. High Priority: Enable Incremental LSP Document Sync
+This remains the most critical task for improving editor performance.
+-   **Action:** Modify `LocalDocumentService` to compute and emit incremental changes (`TextChange[]`) instead of the full document content in `notifyContentChange`.
+-   **Action:** Update the `LSPClient.didChange` method to accept these incremental changes and send them to the language server using `TextDocumentContentChangeEvent`, which includes both the `range` of the change and the new `text`.
 
-### 4. Code Cleanup: Documentation Sync
-Now that `src/archived` is gone:
-- **Task:** Perform a project-wide search for any remaining references to `src/archived` or `--legacy` in READMEs, documentation, or help strings.
-- **Task:** Update `architecture/overview.md` to reflect the final removal of the legacy monolithic app.
+### 2. Medium Priority: Finalize Code & Configuration Hygiene
+Complete the cleanup of legacy artifacts.
+-   **Action:** Remove the `"src/archived"` paths from the `exclude` array in `tsconfig.json`.
+-   **Action:** Remove the legacy configuration migration logic from `src/clients/tui/config/config-manager.ts` that archives a legacy folder.
+-   **Action:** Review documentation (`BACKLOG.md`, etc.) to either remove or clearly mark as "historical" any remaining references to `src/archived`.
+
+### 3. Medium Priority: Activate SGR Mouse Mode
+The groundwork for this is already complete, making it a high-impact, low-effort fix.
+-   **Action:** In `src/terminal/input.ts`, add the ANSI sequence `process.stdout.write('\x1b[?1006h')` to the `start()` method to enable SGR mouse reporting from the terminal.
+
+### 4. Low Priority: Complete Git Timeline Polish
+Build on the existing search functionality.
+-   **Action:** In `git-timeline-panel.ts`, update the `renderCommitEntry` method to highlight occurrences of the `searchQuery` in the commit message, author, and hash.
+-   **Action:** Add a new command/callback to allow comparing the current file in the editor against a selected commit from the timeline, likely leveraging the existing diff viewers.
 
 ## Conclusion
-The editor has reached a high level of professional polish. The terminal engine is now robust enough to handle complex TUIs, and the ECP service layer is proving its worth through stable integration tests. v0.5.0 is effectively ready for a wider beta.
+The project's foundation is exceptionally strong, proven by its comprehensive and passing test suite. The remaining work is primarily focused on refining the user experience and optimizing performance. By addressing the LSP performance bottleneck, completing UI polish, and tidying up legacy code, the editor will be in an excellent position for a wider release.
 
-**Confidence Score:** Very High (v0.5.0 Gold)
+**Confidence Score:** Very High (v0.5.1 Ready for Polish)
