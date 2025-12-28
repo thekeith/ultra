@@ -14,6 +14,10 @@ import type {
   SchemaInfo,
   TableInfo,
   TableDetails,
+  FunctionInfo,
+  TriggerInfo,
+  IndexInfo,
+  PolicyInfo,
   QueryHistoryEntry,
   ConnectionChangeCallback,
   QueryStartCallback,
@@ -142,6 +146,42 @@ export interface DatabaseService {
    * Get the CREATE TABLE statement for a table.
    */
   getTableDDL(connectionId: string, schema: string, table: string): Promise<string>;
+
+  /**
+   * List functions in a schema.
+   * @param connectionId Connection to use
+   * @param schema Schema name (default: 'public')
+   */
+  listFunctions(connectionId: string, schema?: string): Promise<FunctionInfo[]>;
+
+  /**
+   * List triggers in a schema or for a specific table.
+   * @param connectionId Connection to use
+   * @param schema Schema name
+   * @param table Optional table name to filter by
+   */
+  listTriggers(connectionId: string, schema: string, table?: string): Promise<TriggerInfo[]>;
+
+  /**
+   * List indexes in a schema or for a specific table.
+   * @param connectionId Connection to use
+   * @param schema Schema name
+   * @param table Optional table name to filter by
+   */
+  listIndexes(connectionId: string, schema: string, table?: string): Promise<IndexInfo[]>;
+
+  /**
+   * List RLS policies in a schema or for a specific table.
+   * @param connectionId Connection to use
+   * @param schema Schema name
+   * @param table Optional table name to filter by
+   */
+  listPolicies(connectionId: string, schema: string, table?: string): Promise<PolicyInfo[]>;
+
+  /**
+   * Get function definition (source code).
+   */
+  getFunctionDDL(connectionId: string, schema: string, name: string, argTypes: string): Promise<string>;
 
   // ─────────────────────────────────────────────────────────────────────────
   // Query History

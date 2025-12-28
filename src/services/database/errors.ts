@@ -215,6 +215,16 @@ export class DatabaseError extends Error {
   }
 
   /**
+   * Create an OBJECT_NOT_FOUND error (without connectionId).
+   */
+  static notFound(type: string, name: string): DatabaseError {
+    return new DatabaseError(
+      DatabaseErrorCode.OBJECT_NOT_FOUND,
+      `${type} not found: ${name}`
+    );
+  }
+
+  /**
    * Create an INVALID_CONFIG error.
    */
   static invalidConfig(field: string, reason: string): DatabaseError {

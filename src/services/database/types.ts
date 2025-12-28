@@ -325,6 +325,78 @@ export interface IndexInfo {
 }
 
 /**
+ * Function/procedure information.
+ */
+export interface FunctionInfo {
+  /** Schema name */
+  schema: string;
+  /** Function name */
+  name: string;
+  /** Function kind: f=function, p=procedure, a=aggregate, w=window */
+  kind: 'function' | 'procedure' | 'aggregate' | 'window';
+  /** Return type */
+  returnType: string;
+  /** Argument types as string */
+  arguments: string;
+  /** Language (plpgsql, sql, etc) */
+  language: string;
+  /** Whether it's a security definer */
+  securityDefiner: boolean;
+  /** Volatility: immutable, stable, volatile */
+  volatility: 'immutable' | 'stable' | 'volatile';
+  /** Function comment */
+  comment?: string;
+  /** Full function definition (source) */
+  definition?: string;
+}
+
+/**
+ * Trigger information.
+ */
+export interface TriggerInfo {
+  /** Schema containing the trigger */
+  schema: string;
+  /** Table the trigger is on */
+  table: string;
+  /** Trigger name */
+  name: string;
+  /** When: BEFORE, AFTER, INSTEAD OF */
+  timing: 'BEFORE' | 'AFTER' | 'INSTEAD OF';
+  /** Events: INSERT, UPDATE, DELETE, TRUNCATE */
+  events: string[];
+  /** Row or statement level */
+  level: 'ROW' | 'STATEMENT';
+  /** Function called by trigger */
+  functionName: string;
+  /** Whether trigger is enabled */
+  enabled: boolean;
+  /** Full trigger definition */
+  definition?: string;
+}
+
+/**
+ * Row Level Security policy information.
+ */
+export interface PolicyInfo {
+  /** Schema name */
+  schema: string;
+  /** Table name */
+  table: string;
+  /** Policy name */
+  name: string;
+  /** Policy command: ALL, SELECT, INSERT, UPDATE, DELETE */
+  command: 'ALL' | 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE';
+  /** Permissive or restrictive */
+  type: 'PERMISSIVE' | 'RESTRICTIVE';
+  /** Roles the policy applies to */
+  roles: string[];
+  /** USING expression */
+  usingExpr?: string;
+  /** WITH CHECK expression */
+  checkExpr?: string;
+}
+
+/**
  * Detailed table information.
  */
 export interface TableDetails {

@@ -22,6 +22,9 @@ import type {
   ColumnInfo,
   ForeignKeyInfo,
   IndexInfo,
+  FunctionInfo,
+  TriggerInfo,
+  PolicyInfo,
   QueryHistoryEntry,
   DatabaseBackend,
   ConnectionChangeCallback,
@@ -705,6 +708,196 @@ export class LocalDatabaseService implements DatabaseService {
     const pkDef = pkCols ? `,\n  PRIMARY KEY (${pkCols})` : '';
 
     return `CREATE TABLE "${schema}"."${table}" (\n${columnDefs}${pkDef}\n);`;
+  }
+
+  async listFunctions(connectionId: string, schema = 'public'): Promise<FunctionInfo[]> {
+    const result = await this.executeQuery(connectionId, `
+      SELECT
+        n.nspname as schema,
+        p.proname as name,
+        CASE p.prokind
+          WHEN 'f' THEN 'function'
+          WHEN 'p' THEN 'procedure'
+          WHEN 'a' THEN 'aggregate'
+          WHEN 'w' THEN 'window'
+          ELSE 'function'
+        END as kind,
+        pg_get_function_result(p.oid) as return_type,
+        pg_get_function_identity_arguments(p.oid) as arguments,
+        l.lanname as language,
+        p.prosecdef as security_definer,
+        CASE p.provolatile
+          WHEN 'i' THEN 'immutable'
+          WHEN 's' THEN 'stable'
+          ELSE 'volatile'
+        END as volatility,
+        d.description as comment
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      JOIN pg_language l ON l.oid = p.prolang
+      LEFT JOIN pg_description d ON d.objoid = p.oid AND d.classoid = 'pg_proc'::regclass
+      WHERE n.nspname = $1
+        AND p.prokind IN ('f', 'p', 'a', 'w')
+      ORDER BY p.proname
+    `, [schema]);
+
+    return result.rows.map(row => ({
+      schema: row.schema as string,
+      name: row.name as string,
+      kind: row.kind as 'function' | 'procedure' | 'aggregate' | 'window',
+      returnType: row.return_type as string,
+      arguments: row.arguments as string,
+      language: row.language as string,
+      securityDefiner: row.security_definer as boolean,
+      volatility: row.volatility as 'immutable' | 'stable' | 'volatile',
+      comment: row.comment as string | undefined,
+    }));
+  }
+
+  async listTriggers(connectionId: string, schema: string, table?: string): Promise<TriggerInfo[]> {
+    const tableFilter = table ? 'AND c.relname = $2' : '';
+    const params = table ? [schema, table] : [schema];
+
+    const result = await this.executeQuery(connectionId, `
+      SELECT
+        n.nspname as schema,
+        c.relname as table,
+        t.tgname as name,
+        CASE
+          WHEN (t.tgtype & 2) > 0 THEN 'BEFORE'
+          WHEN (t.tgtype & 64) > 0 THEN 'INSTEAD OF'
+          ELSE 'AFTER'
+        END as timing,
+        ARRAY_REMOVE(ARRAY[
+          CASE WHEN (t.tgtype & 4) > 0 THEN 'INSERT' END,
+          CASE WHEN (t.tgtype & 8) > 0 THEN 'DELETE' END,
+          CASE WHEN (t.tgtype & 16) > 0 THEN 'UPDATE' END,
+          CASE WHEN (t.tgtype & 32) > 0 THEN 'TRUNCATE' END
+        ], NULL) as events,
+        CASE WHEN (t.tgtype & 1) > 0 THEN 'ROW' ELSE 'STATEMENT' END as level,
+        p.proname as function_name,
+        t.tgenabled != 'D' as enabled,
+        pg_get_triggerdef(t.oid) as definition
+      FROM pg_trigger t
+      JOIN pg_class c ON c.oid = t.tgrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      JOIN pg_proc p ON p.oid = t.tgfoid
+      WHERE NOT t.tgisinternal
+        AND n.nspname = $1
+        ${tableFilter}
+      ORDER BY c.relname, t.tgname
+    `, params);
+
+    return result.rows.map(row => ({
+      schema: row.schema as string,
+      table: row.table as string,
+      name: row.name as string,
+      timing: row.timing as 'BEFORE' | 'AFTER' | 'INSTEAD OF',
+      events: row.events as string[],
+      level: row.level as 'ROW' | 'STATEMENT',
+      functionName: row.function_name as string,
+      enabled: row.enabled as boolean,
+      definition: row.definition as string | undefined,
+    }));
+  }
+
+  async listIndexes(connectionId: string, schema: string, table?: string): Promise<IndexInfo[]> {
+    const tableFilter = table ? 'AND t.relname = $2' : '';
+    const params = table ? [schema, table] : [schema];
+
+    const result = await this.executeQuery(connectionId, `
+      SELECT
+        n.nspname as schema,
+        t.relname as table,
+        i.relname as name,
+        ARRAY(
+          SELECT pg_get_indexdef(idx.indexrelid, k.n, true)
+          FROM generate_series(1, idx.indnatts) as k(n)
+        ) as columns,
+        idx.indisunique as is_unique,
+        idx.indisprimary as is_primary,
+        am.amname as method,
+        pg_relation_size(i.oid) as size_bytes,
+        pg_get_indexdef(idx.indexrelid) as definition
+      FROM pg_index idx
+      JOIN pg_class i ON i.oid = idx.indexrelid
+      JOIN pg_class t ON t.oid = idx.indrelid
+      JOIN pg_namespace n ON n.oid = t.relnamespace
+      JOIN pg_am am ON am.oid = i.relam
+      WHERE n.nspname = $1
+        ${tableFilter}
+      ORDER BY t.relname, i.relname
+    `, params);
+
+    return result.rows.map(row => ({
+      schema: row.schema as string,
+      table: row.table as string,
+      name: row.name as string,
+      columns: row.columns as string[],
+      isUnique: row.is_unique as boolean,
+      isPrimary: row.is_primary as boolean,
+      method: row.method as 'btree' | 'hash' | 'gin' | 'gist' | 'spgist' | 'brin',
+      sizeBytes: Number(row.size_bytes) || undefined,
+      definition: row.definition as string | undefined,
+    }));
+  }
+
+  async listPolicies(connectionId: string, schema: string, table?: string): Promise<PolicyInfo[]> {
+    const tableFilter = table ? 'AND c.relname = $2' : '';
+    const params = table ? [schema, table] : [schema];
+
+    const result = await this.executeQuery(connectionId, `
+      SELECT
+        n.nspname as schema,
+        c.relname as table,
+        pol.polname as name,
+        CASE pol.polcmd
+          WHEN 'r' THEN 'SELECT'
+          WHEN 'a' THEN 'INSERT'
+          WHEN 'w' THEN 'UPDATE'
+          WHEN 'd' THEN 'DELETE'
+          ELSE 'ALL'
+        END as command,
+        CASE WHEN pol.polpermissive THEN 'PERMISSIVE' ELSE 'RESTRICTIVE' END as type,
+        ARRAY(
+          SELECT rolname FROM pg_roles WHERE oid = ANY(pol.polroles)
+        ) as roles,
+        pg_get_expr(pol.polqual, pol.polrelid) as using_expr,
+        pg_get_expr(pol.polwithcheck, pol.polrelid) as check_expr
+      FROM pg_policy pol
+      JOIN pg_class c ON c.oid = pol.polrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = $1
+        ${tableFilter}
+      ORDER BY c.relname, pol.polname
+    `, params);
+
+    return result.rows.map(row => ({
+      schema: row.schema as string,
+      table: row.table as string,
+      name: row.name as string,
+      command: row.command as 'ALL' | 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE',
+      type: row.type as 'PERMISSIVE' | 'RESTRICTIVE',
+      roles: (row.roles as string[]) || [],
+      usingExpr: row.using_expr as string | undefined,
+      checkExpr: row.check_expr as string | undefined,
+    }));
+  }
+
+  async getFunctionDDL(connectionId: string, schema: string, name: string, argTypes: string): Promise<string> {
+    // Use regprocedure to get exact function signature
+    const funcRef = argTypes ? `"${schema}"."${name}"(${argTypes})` : `"${schema}"."${name}"()`;
+
+    const result = await this.executeQuery(connectionId, `
+      SELECT pg_get_functiondef($1::regprocedure) as definition
+    `, [funcRef]);
+
+    const row = result.rows[0];
+    if (!row) {
+      throw DatabaseError.notFound('function', `${schema}.${name}(${argTypes})`);
+    }
+
+    return row.definition as string;
   }
 
   // ─────────────────────────────────────────────────────────────────────────

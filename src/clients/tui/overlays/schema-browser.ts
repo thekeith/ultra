@@ -12,6 +12,10 @@ import type {
   DatabaseService,
   SchemaInfo,
   TableInfo,
+  FunctionInfo,
+  TriggerInfo,
+  IndexInfo,
+  PolicyInfo,
 } from '../../../services/database/index.ts';
 
 // ============================================
@@ -27,9 +31,15 @@ type NodeType =
   | 'tables_folder'
   | 'views_folder'
   | 'functions_folder'
+  | 'triggers_folder'
+  | 'indexes_folder'
+  | 'policies_folder'
   | 'table'
   | 'view'
-  | 'function';
+  | 'function'
+  | 'trigger'
+  | 'index'
+  | 'policy';
 
 /**
  * A node in the schema tree.
@@ -78,9 +88,15 @@ const ICONS: Record<NodeType | 'expanded' | 'collapsed', string> = {
   tables_folder: '',
   views_folder: '',
   functions_folder: 'ƒ',
+  triggers_folder: '⚡',
+  indexes_folder: '',
+  policies_folder: '',
   table: '',
   view: '',
   function: 'ƒ',
+  trigger: '⚡',
+  index: '',
+  policy: '',
   expanded: '',
   collapsed: '',
 };
@@ -264,11 +280,44 @@ export class SchemaBrowser extends PromiseDialog<SchemaBrowserResult> {
       data: { connectionId: this.connectionId ?? undefined, schema: schema.name },
     };
 
-    // Load tables for this schema
-    if (this.connectionId) {
-      try {
-        const tables = await this.databaseService?.listTables(this.connectionId, schema.name) ?? [];
+    const triggersFolder: TreeNode = {
+      id: `triggers:${schema.name}`,
+      type: 'triggers_folder',
+      name: 'Triggers',
+      icon: ICONS.triggers_folder,
+      depth: depth + 1,
+      expanded: false,
+      children: [],
+      data: { connectionId: this.connectionId ?? undefined, schema: schema.name },
+    };
 
+    const indexesFolder: TreeNode = {
+      id: `indexes:${schema.name}`,
+      type: 'indexes_folder',
+      name: 'Indexes',
+      icon: ICONS.indexes_folder,
+      depth: depth + 1,
+      expanded: false,
+      children: [],
+      data: { connectionId: this.connectionId ?? undefined, schema: schema.name },
+    };
+
+    const policiesFolder: TreeNode = {
+      id: `policies:${schema.name}`,
+      type: 'policies_folder',
+      name: 'RLS Policies',
+      icon: ICONS.policies_folder,
+      depth: depth + 1,
+      expanded: false,
+      children: [],
+      data: { connectionId: this.connectionId ?? undefined, schema: schema.name },
+    };
+
+    // Load all schema objects
+    if (this.connectionId && this.databaseService) {
+      // Load tables and views
+      try {
+        const tables = await this.databaseService.listTables(this.connectionId, schema.name);
         for (const table of tables) {
           const nodeType: NodeType = table.type === 'view' || table.type === 'materialized_view' ? 'view' : 'table';
           const folder = nodeType === 'view' ? viewsFolder : tablesFolder;
@@ -289,27 +338,139 @@ export class SchemaBrowser extends PromiseDialog<SchemaBrowserResult> {
           });
         }
       } catch (err) {
-        // Add error node
-        tablesFolder.children.push({
-          id: `error:${schema.name}`,
-          type: 'table',
-          name: `Error loading: ${err instanceof Error ? err.message : 'Unknown'}`,
-          icon: '!',
-          depth: depth + 2,
-          expanded: false,
-          children: [],
-        });
+        tablesFolder.children.push(this.createErrorNode(schema.name, 'tables', err, depth + 2));
+      }
+
+      // Load functions
+      try {
+        const functions = await this.databaseService.listFunctions(this.connectionId, schema.name);
+        for (const func of functions) {
+          const displayName = func.arguments ? `${func.name}(${func.arguments})` : `${func.name}()`;
+          functionsFolder.children.push({
+            id: `function:${schema.name}.${func.name}(${func.arguments})`,
+            type: 'function',
+            name: displayName,
+            icon: ICONS.function,
+            depth: depth + 2,
+            expanded: false,
+            children: [],
+            data: {
+              connectionId: this.connectionId ?? undefined,
+              schema: schema.name,
+            },
+          });
+        }
+      } catch (err) {
+        functionsFolder.children.push(this.createErrorNode(schema.name, 'functions', err, depth + 2));
+      }
+
+      // Load triggers
+      try {
+        const triggers = await this.databaseService.listTriggers(this.connectionId, schema.name);
+        for (const trigger of triggers) {
+          const displayName = `${trigger.name} (${trigger.table})`;
+          triggersFolder.children.push({
+            id: `trigger:${schema.name}.${trigger.table}.${trigger.name}`,
+            type: 'trigger',
+            name: displayName,
+            icon: ICONS.trigger,
+            depth: depth + 2,
+            expanded: false,
+            children: [],
+            data: {
+              connectionId: this.connectionId ?? undefined,
+              schema: schema.name,
+              table: trigger.table,
+            },
+          });
+        }
+      } catch (err) {
+        triggersFolder.children.push(this.createErrorNode(schema.name, 'triggers', err, depth + 2));
+      }
+
+      // Load indexes
+      try {
+        const indexes = await this.databaseService.listIndexes(this.connectionId, schema.name);
+        for (const idx of indexes) {
+          const displayName = `${idx.name} (${idx.table})`;
+          indexesFolder.children.push({
+            id: `index:${schema.name}.${idx.table}.${idx.name}`,
+            type: 'index',
+            name: displayName,
+            icon: ICONS.index,
+            depth: depth + 2,
+            expanded: false,
+            children: [],
+            data: {
+              connectionId: this.connectionId ?? undefined,
+              schema: schema.name,
+              table: idx.table,
+            },
+          });
+        }
+      } catch (err) {
+        indexesFolder.children.push(this.createErrorNode(schema.name, 'indexes', err, depth + 2));
+      }
+
+      // Load RLS policies
+      try {
+        const policies = await this.databaseService.listPolicies(this.connectionId, schema.name);
+        for (const policy of policies) {
+          const displayName = `${policy.name} (${policy.table})`;
+          policiesFolder.children.push({
+            id: `policy:${schema.name}.${policy.table}.${policy.name}`,
+            type: 'policy',
+            name: displayName,
+            icon: ICONS.policy,
+            depth: depth + 2,
+            expanded: false,
+            children: [],
+            data: {
+              connectionId: this.connectionId ?? undefined,
+              schema: schema.name,
+              table: policy.table,
+            },
+          });
+        }
+      } catch (err) {
+        policiesFolder.children.push(this.createErrorNode(schema.name, 'policies', err, depth + 2));
       }
     }
 
-    // Add folders that have content or are expandable
+    // Add folders (show all, even if empty, to indicate capability)
     schemaNode.children.push(tablesFolder);
     if (viewsFolder.children.length > 0) {
       schemaNode.children.push(viewsFolder);
     }
-    schemaNode.children.push(functionsFolder); // Always show, will be populated in Phase 2
+    if (functionsFolder.children.length > 0) {
+      schemaNode.children.push(functionsFolder);
+    }
+    if (triggersFolder.children.length > 0) {
+      schemaNode.children.push(triggersFolder);
+    }
+    if (indexesFolder.children.length > 0) {
+      schemaNode.children.push(indexesFolder);
+    }
+    if (policiesFolder.children.length > 0) {
+      schemaNode.children.push(policiesFolder);
+    }
 
     return schemaNode;
+  }
+
+  /**
+   * Create an error node for display.
+   */
+  private createErrorNode(schema: string, type: string, err: unknown, depth: number): TreeNode {
+    return {
+      id: `error:${schema}:${type}`,
+      type: 'table',
+      name: `Error: ${err instanceof Error ? err.message : 'Unknown'}`,
+      icon: '!',
+      depth,
+      expanded: false,
+      children: [],
+    };
   }
 
   /**
@@ -632,6 +793,15 @@ export class SchemaBrowser extends PromiseDialog<SchemaBrowserResult> {
       case 'functions_folder':
       case 'function':
         return this.callbacks.getThemeColor('terminal.ansiMagenta', '#cba6f7');
+      case 'triggers_folder':
+      case 'trigger':
+        return this.callbacks.getThemeColor('terminal.ansiYellow', '#f9e2af');
+      case 'indexes_folder':
+      case 'index':
+        return this.callbacks.getThemeColor('terminal.ansiGreen', '#a6e3a1');
+      case 'policies_folder':
+      case 'policy':
+        return this.callbacks.getThemeColor('terminal.ansiRed', '#f38ba8');
       default:
         return this.callbacks.getThemeColor('editorWidget.foreground', '#cccccc');
     }

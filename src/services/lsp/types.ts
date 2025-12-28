@@ -209,6 +209,9 @@ export const EXTENSION_TO_LANGUAGE: Record<string, string> = {
   '.json': 'json',
   '.html': 'html',
   '.htm': 'html',
+  '.sql': 'sql',
+  '.pgsql': 'sql',
+  '.psql': 'sql',
   '.css': 'css',
   '.scss': 'css',
   '.less': 'css',
@@ -231,6 +234,7 @@ export const DEFAULT_SERVERS: Record<string, ServerConfig> = {
   json: { command: 'vscode-json-language-server', args: ['--stdio'] },
   html: { command: 'vscode-html-language-server', args: ['--stdio'] },
   css: { command: 'vscode-css-language-server', args: ['--stdio'] },
+  sql: { command: 'postgres-language-server', args: ['lsp-proxy'] },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
