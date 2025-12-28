@@ -168,7 +168,7 @@ export class LocalDatabaseService implements DatabaseService {
     conn.status = 'connecting';
     this.emitConnectionChange({
       connectionId,
-      type: 'connected',
+      type: 'connecting',
       connection: this.getConnection(connectionId)!,
     });
 

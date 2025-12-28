@@ -98,6 +98,7 @@ import { localLSPService, type LSPDocumentSymbol } from '../../../services/lsp/i
 import {
   localDatabaseService,
   getSQLCompletionProvider,
+  parseTableInfoFromSql,
   type SQLCompletionItem,
   SQLCompletionKind,
 } from '../../../services/database/index.ts';
@@ -470,6 +471,10 @@ export class TUIClient {
 
     // Initialize session service (before layout setup)
     await this.initSessionService();
+
+    // Initialize database service (enables connection dialogs and secret storage)
+    await localDatabaseService.init(this.workingDirectory || undefined);
+    this.log('Database service initialized');
 
     // Initialize syntax service
     await this.syntaxService.waitForReady();
@@ -7983,6 +7988,9 @@ export class TUIClient {
     const currentConnectionId = connectionId;
     const currentSql = sql;
 
+    // Parse schema and table from SQL for row details
+    const { schema: parsedSchema, tableName: parsedTableName } = parseTableInfoFromSql(sql);
+
     // Set up callbacks (this overrides but that's OK for now)
     (results as any).callbacks = {
       ...(results as any).callbacks,
@@ -7992,7 +8000,9 @@ export class TUIClient {
         tableName: string,
         rowIndex: number
       ) => {
-        this.showRowDetailsPanel(row, fields, tableName, currentConnectionId, results);
+        // Use parsed schema, or default to 'public' if parsing failed
+        const schemaName = tableName === parsedTableName ? parsedSchema : 'public';
+        this.showRowDetailsPanel(row, fields, tableName, schemaName, currentConnectionId, results);
       },
       onRefresh: async () => {
         if (!currentSql || !currentConnectionId) {
@@ -8016,18 +8026,8 @@ export class TUIClient {
    * Parse table name from a SQL query (simple heuristic).
    */
   private parseTableNameFromSql(sql: string): string {
-    const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
-
-    // Try to extract table from SELECT ... FROM <table>
-    const fromMatch = normalized.match(/from\s+([^\s,;()]+)/i);
-    if (fromMatch) {
-      // Clean up table name (remove schema prefix for display)
-      const tableName = fromMatch[1]!;
-      const parts = tableName.split('.');
-      return parts[parts.length - 1] || tableName;
-    }
-
-    return 'Query Results';
+    const { tableName } = parseTableInfoFromSql(sql);
+    return tableName;
   }
 
   /**
@@ -8037,6 +8037,7 @@ export class TUIClient {
     row: Record<string, unknown>,
     fields: import('../../../services/database/types.ts').FieldInfo[],
     tableName: string,
+    schemaName: string,
     connectionId: string,
     sourceResults: QueryResults
   ): Promise<void> {
@@ -8069,7 +8070,7 @@ export class TUIClient {
         try {
           const tableDetails = await localDatabaseService.describeTable(
             connectionId,
-            'public', // TODO: Parse schema from table name
+            schemaName,
             tableName
           );
           if (tableDetails?.primaryKey) {
@@ -8081,7 +8082,7 @@ export class TUIClient {
       }
 
       // Set the row data
-      detailsPanel.setRowData(row, fields, tableName, 'public', primaryKey);
+      detailsPanel.setRowData(row, fields, tableName, schemaName, primaryKey);
 
       // Focus the details panel
       activePane.setActiveElement(detailsPanel.id);
@@ -8226,6 +8227,8 @@ export class TUIClient {
 
       if (connection.status === 'disconnected' || connection.status === 'error') {
         await localDatabaseService.connect(connectionId);
+        // Now password is cached - configure SQL LSP with database connection
+        this.configureSQLLanguageServer(connectionId);
       }
 
       const result = await localDatabaseService.executeQuery(connectionId, sql);
