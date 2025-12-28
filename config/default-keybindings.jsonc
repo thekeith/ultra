@@ -137,6 +137,26 @@
   { "key": "j", "command": "timelinePanel.moveDown", "when": "timelinePanelFocus" }, // Move down (vim)
   { "key": "y", "command": "timelinePanel.copyHash", "when": "timelinePanelFocus" }, // Copy commit hash
 
+  // Query Results (context: queryResultsFocus)
+  { "key": "ArrowUp", "command": "queryResults.moveUp", "when": "queryResultsFocus" }, // Move up
+  { "key": "ArrowDown", "command": "queryResults.moveDown", "when": "queryResultsFocus" }, // Move down
+  { "key": "ArrowLeft", "command": "queryResults.moveLeft", "when": "queryResultsFocus" }, // Move left
+  { "key": "ArrowRight", "command": "queryResults.moveRight", "when": "queryResultsFocus" }, // Move right
+  { "key": "PageUp", "command": "queryResults.pageUp", "when": "queryResultsFocus" }, // Page up
+  { "key": "PageDown", "command": "queryResults.pageDown", "when": "queryResultsFocus" }, // Page down
+  { "key": "Home", "command": "queryResults.goToFirst", "when": "queryResultsFocus" }, // First
+  { "key": "End", "command": "queryResults.goToLast", "when": "queryResultsFocus" }, // Last
+  { "key": "Enter", "command": "queryResults.showDetails", "when": "queryResultsFocus" }, // Show row details
+  { "key": "r", "command": "queryResults.refresh", "when": "queryResultsFocus" }, // Refresh query
+  { "key": "F5", "command": "queryResults.refresh", "when": "queryResultsFocus" }, // Refresh query
+  { "key": "e", "command": "queryResults.export", "when": "queryResultsFocus" }, // Export results
+  { "key": "s", "command": "queryResults.sort", "when": "queryResultsFocus" }, // Sort by column
+  { "key": "Tab", "command": "queryResults.toggleViewMode", "when": "queryResultsFocus" }, // Toggle view mode
+  { "key": "k", "command": "queryResults.moveUp", "when": "queryResultsFocus" }, // Move up (vim)
+  { "key": "j", "command": "queryResults.moveDown", "when": "queryResultsFocus" }, // Move down (vim)
+  { "key": "h", "command": "queryResults.moveLeft", "when": "queryResultsFocus" }, // Move left (vim)
+  { "key": "l", "command": "queryResults.moveRight", "when": "queryResultsFocus" }, // Move right (vim)
+
   // Application
   { "key": "ctrl+q", "command": "workbench.quit" }, // Quit application
   { "key": "ctrl+,", "command": "workbench.openSettings" }, // Open settings

@@ -141,6 +141,13 @@ export {
   type QueryResultsCallbacks,
 } from './query-results.ts';
 
+export {
+  RowDetailsPanel,
+  type RowDetailsPanelCallbacks,
+  type RowDetailsPanelState,
+  type PrimaryKeyDef,
+} from './row-details-panel.ts';
+
 // ============================================
 // Element Registration
 // ============================================
@@ -158,6 +165,7 @@ import { OutlinePanel } from './outline-panel.ts';
 import { GitTimelinePanel } from './git-timeline-panel.ts';
 import { SQLEditor } from './sql-editor.ts';
 import { QueryResults } from './query-results.ts';
+import { RowDetailsPanel } from './row-details-panel.ts';
 
 /**
  * Register all built-in elements with the factory.
@@ -240,5 +248,13 @@ export function registerBuiltinElements(): void {
       results.setState(state as import('./query-results.ts').QueryResultsState);
     }
     return results;
+  });
+
+  registerElement('RowDetailsPanel', (id, title, ctx, state) => {
+    const panel = new RowDetailsPanel(id, ctx);
+    if (state && typeof state === 'object') {
+      panel.setState(state as import('./row-details-panel.ts').RowDetailsPanelState);
+    }
+    return panel;
   });
 }

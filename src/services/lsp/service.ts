@@ -476,6 +476,40 @@ export class LocalLSPService implements LSPService {
     return this.customConfigs.has(languageId) || languageId in DEFAULT_SERVERS;
   }
 
+  /**
+   * Configure the SQL language server with database connection settings.
+   * This allows the postgres-language-server to provide schema-aware completions and hover.
+   */
+  configureSQLServer(config: {
+    host: string;
+    port: number;
+    database: string;
+    username: string;
+    password: string;
+  }): void {
+    const client = this.clients.get('sql');
+    if (!client) {
+      this.debugLog('Cannot configure SQL server: not running');
+      return;
+    }
+
+    // Send configuration to postgres-language-server
+    // The server expects settings in a specific format
+    client.didChangeConfiguration({
+      db: {
+        host: config.host,
+        port: config.port,
+        database: config.database,
+        username: config.username,
+        password: config.password,
+        connTimeoutSecs: 10,
+        disableConnection: false,
+      },
+    });
+
+    this.debugLog(`Configured SQL server with database: ${config.host}:${config.port}/${config.database}`);
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Events
   // ─────────────────────────────────────────────────────────────────────────

@@ -561,6 +561,13 @@ export class LSPIntegration {
     return this.lspService.getDiagnosticsSummary();
   }
 
+  /**
+   * Get the underlying LSP service for direct access.
+   */
+  getLSPService(): LSPService {
+    return this.lspService;
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Helpers
   // ─────────────────────────────────────────────────────────────────────────

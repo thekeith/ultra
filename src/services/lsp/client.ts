@@ -649,6 +649,16 @@ export class LSPClient {
     });
   }
 
+  /**
+   * Send configuration change notification to the server.
+   * Used to configure server-specific settings like database connections.
+   */
+  didChangeConfiguration(settings: unknown): void {
+    this.notify('workspace/didChangeConfiguration', {
+      settings,
+    });
+  }
+
   // ============ Feature Methods ============
 
   /**

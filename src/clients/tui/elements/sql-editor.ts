@@ -49,6 +49,8 @@ export interface SQLEditorCallbacks {
   onSave?: (content: string, filePath: string | null) => Promise<string | null>;
   /** Called when a character is typed (for autocomplete triggers) */
   onCharTyped?: (char: string, position: CursorPosition) => void;
+  /** Called when connection changes (for LSP configuration) */
+  onConnectionChange?: (connectionId: string | null) => void;
 }
 
 // ============================================
@@ -132,12 +134,15 @@ export class SQLEditor extends BaseElement {
 
   /**
    * Get the virtual URI for this SQL editor.
+   * Uses file:// scheme for LSP compatibility, with a virtual path that won't conflict with real files.
    */
   getVirtualUri(): string {
     if (this.filePath) {
       return `file://${this.filePath}`;
     }
-    return `sql://query-${this.queryId}.sql`;
+    // Use a virtual file path for LSP compatibility
+    // The .ultra-virtual prefix ensures it won't conflict with real files
+    return `file:///tmp/.ultra-virtual/query-${this.queryId}.sql`;
   }
 
   /**
@@ -185,6 +190,9 @@ export class SQLEditor extends BaseElement {
     this.connectionName = connectionName || 'No connection';
     this.updateTitle();
     this.ctx.markDirty();
+
+    // Notify for LSP configuration
+    this.callbacks.onConnectionChange?.(connectionId);
   }
 
   /**

@@ -47,7 +47,8 @@ export type ElementType =
   | 'OutlinePanel'
   | 'GitTimelinePanel'
   | 'SQLEditor'
-  | 'QueryResults';
+  | 'QueryResults'
+  | 'RowDetailsPanel';
 
 export interface ElementConfig {
   type: ElementType;

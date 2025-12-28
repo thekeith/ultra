@@ -60,6 +60,7 @@ interface ActiveConnection {
   error?: string;
   connectedAt?: Date;
   refCount: number; // Number of clients using this connection
+  cachedPassword?: string; // Cached for LSP configuration
 }
 
 /**
@@ -184,6 +185,7 @@ export class LocalDatabaseService implements DatabaseService {
       conn.connectedAt = new Date();
       conn.refCount = 1;
       conn.error = undefined;
+      conn.cachedPassword = password; // Cache for LSP configuration
 
       this.emitConnectionChange({
         connectionId,
@@ -228,6 +230,7 @@ export class LocalDatabaseService implements DatabaseService {
     conn.status = 'disconnected';
     conn.refCount = 0;
     conn.connectedAt = undefined;
+    conn.cachedPassword = undefined; // Clear password from memory on disconnect
 
     this.emitConnectionChange({
       connectionId,
@@ -278,6 +281,18 @@ export class LocalDatabaseService implements DatabaseService {
       scope: conn.config.scope,
       connectedAt: conn.connectedAt,
     };
+  }
+
+  /**
+   * Get the cached password for a connected connection.
+   * Used for LSP configuration without re-fetching from keychain.
+   */
+  getCachedPassword(connectionId: string): string | null {
+    const conn = this.connections.get(connectionId);
+    if (!conn || !conn.cachedPassword) {
+      return null;
+    }
+    return conn.cachedPassword;
   }
 
   getConnectionConfig(connectionId: string): ConnectionConfig | null {

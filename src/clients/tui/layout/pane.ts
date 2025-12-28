@@ -1169,6 +1169,7 @@ export class Pane {
       GitTimelinePanel: 'Timeline',
       SQLEditor: 'Query',
       QueryResults: 'Results',
+      RowDetailsPanel: 'Row Details',
     };
     return titles[type] ?? type;
   }

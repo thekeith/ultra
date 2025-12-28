@@ -525,6 +525,96 @@ export const defaultKeybindings: KeyBinding[] = [
     "when": "timelinePanelFocus"
   },
   {
+    "key": "ArrowUp",
+    "command": "queryResults.moveUp",
+    "when": "queryResultsFocus"
+  },
+  {
+    "key": "ArrowDown",
+    "command": "queryResults.moveDown",
+    "when": "queryResultsFocus"
+  },
+  {
+    "key": "ArrowLeft",
+    "command": "queryResults.moveLeft",
+    "when": "queryResultsFocus"
+  },
+  {
+    "key": "ArrowRight",
+    "command": "queryResults.moveRight",
+    "when": "queryResultsFocus"
+  },
+  {
+    "key": "PageUp",
+    "command": "queryResults.pageUp",
+    "when": "queryResultsFocus"
+  },
+  {
+    "key": "PageDown",
+    "command": "queryResults.pageDown",
+    "when": "queryResultsFocus"
+  },
+  {
+    "key": "Home",
+    "command": "queryResults.goToFirst",
+    "when": "queryResultsFocus"
+  },
+  {
+    "key": "End",
+    "command": "queryResults.goToLast",
+    "when": "queryResultsFocus"
+  },
+  {
+    "key": "Enter",
+    "command": "queryResults.showDetails",
+    "when": "queryResultsFocus"
+  },
+  {
+    "key": "r",
+    "command": "queryResults.refresh",
+    "when": "queryResultsFocus"
+  },
+  {
+    "key": "F5",
+    "command": "queryResults.refresh",
+    "when": "queryResultsFocus"
+  },
+  {
+    "key": "e",
+    "command": "queryResults.export",
+    "when": "queryResultsFocus"
+  },
+  {
+    "key": "s",
+    "command": "queryResults.sort",
+    "when": "queryResultsFocus"
+  },
+  {
+    "key": "Tab",
+    "command": "queryResults.toggleViewMode",
+    "when": "queryResultsFocus"
+  },
+  {
+    "key": "k",
+    "command": "queryResults.moveUp",
+    "when": "queryResultsFocus"
+  },
+  {
+    "key": "j",
+    "command": "queryResults.moveDown",
+    "when": "queryResultsFocus"
+  },
+  {
+    "key": "h",
+    "command": "queryResults.moveLeft",
+    "when": "queryResultsFocus"
+  },
+  {
+    "key": "l",
+    "command": "queryResults.moveRight",
+    "when": "queryResultsFocus"
+  },
+  {
     "key": "ctrl+q",
     "command": "workbench.quit"
   },

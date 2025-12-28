@@ -112,7 +112,13 @@ import {
   SchemaBrowser,
   createSchemaBrowser,
 } from '../overlays/index.ts';
-import { SQLEditor, QueryResults } from '../elements/index.ts';
+import {
+  SQLEditor,
+  QueryResults,
+  RowDetailsPanel,
+  type RowDetailsPanelCallbacks,
+  type PrimaryKeyDef,
+} from '../elements/index.ts';
 
 // ============================================
 // Types
@@ -194,6 +200,9 @@ export class TUIClient {
 
   /** Open SQL editors in panes by element ID -> SQLEditor mapping */
   private paneSQLEditors = new Map<string, SQLEditor>();
+
+  /** SQL editor syntax session IDs by element ID */
+  private sqlEditorSyntaxSessions = new Map<string, string>();
 
   /** Whether client is running */
   private running = false;
@@ -3336,6 +3345,112 @@ export class TUIClient {
       return true;
     });
 
+    // Query Results commands (context: queryResultsFocus)
+    this.commandHandlers.set('queryResults.moveUp', () => {
+      const element = this.window.getFocusedElement();
+      if (element instanceof QueryResults) {
+        element.handleKey({ key: 'ArrowUp', ctrl: false, alt: false, shift: false, meta: false });
+      }
+      return true;
+    });
+
+    this.commandHandlers.set('queryResults.moveDown', () => {
+      const element = this.window.getFocusedElement();
+      if (element instanceof QueryResults) {
+        element.handleKey({ key: 'ArrowDown', ctrl: false, alt: false, shift: false, meta: false });
+      }
+      return true;
+    });
+
+    this.commandHandlers.set('queryResults.moveLeft', () => {
+      const element = this.window.getFocusedElement();
+      if (element instanceof QueryResults) {
+        element.handleKey({ key: 'ArrowLeft', ctrl: false, alt: false, shift: false, meta: false });
+      }
+      return true;
+    });
+
+    this.commandHandlers.set('queryResults.moveRight', () => {
+      const element = this.window.getFocusedElement();
+      if (element instanceof QueryResults) {
+        element.handleKey({ key: 'ArrowRight', ctrl: false, alt: false, shift: false, meta: false });
+      }
+      return true;
+    });
+
+    this.commandHandlers.set('queryResults.pageUp', () => {
+      const element = this.window.getFocusedElement();
+      if (element instanceof QueryResults) {
+        element.handleKey({ key: 'PageUp', ctrl: false, alt: false, shift: false, meta: false });
+      }
+      return true;
+    });
+
+    this.commandHandlers.set('queryResults.pageDown', () => {
+      const element = this.window.getFocusedElement();
+      if (element instanceof QueryResults) {
+        element.handleKey({ key: 'PageDown', ctrl: false, alt: false, shift: false, meta: false });
+      }
+      return true;
+    });
+
+    this.commandHandlers.set('queryResults.goToFirst', () => {
+      const element = this.window.getFocusedElement();
+      if (element instanceof QueryResults) {
+        element.handleKey({ key: 'Home', ctrl: false, alt: false, shift: false, meta: false });
+      }
+      return true;
+    });
+
+    this.commandHandlers.set('queryResults.goToLast', () => {
+      const element = this.window.getFocusedElement();
+      if (element instanceof QueryResults) {
+        element.handleKey({ key: 'End', ctrl: false, alt: false, shift: false, meta: false });
+      }
+      return true;
+    });
+
+    this.commandHandlers.set('queryResults.showDetails', () => {
+      const element = this.window.getFocusedElement();
+      if (element instanceof QueryResults) {
+        element.handleKey({ key: 'Enter', ctrl: false, alt: false, shift: false, meta: false });
+      }
+      return true;
+    });
+
+    this.commandHandlers.set('queryResults.refresh', () => {
+      const element = this.window.getFocusedElement();
+      if (element instanceof QueryResults) {
+        // Call the refresh callback directly
+        (element as any).callbacks?.onRefresh?.();
+      }
+      return true;
+    });
+
+    this.commandHandlers.set('queryResults.export', () => {
+      const element = this.window.getFocusedElement();
+      if (element instanceof QueryResults) {
+        element.handleKey({ key: 'e', ctrl: false, alt: false, shift: false, meta: false });
+      }
+      return true;
+    });
+
+    this.commandHandlers.set('queryResults.sort', () => {
+      const element = this.window.getFocusedElement();
+      if (element instanceof QueryResults) {
+        element.handleKey({ key: 's', ctrl: false, alt: false, shift: false, meta: false });
+      }
+      return true;
+    });
+
+    this.commandHandlers.set('queryResults.toggleViewMode', () => {
+      const element = this.window.getFocusedElement();
+      if (element instanceof QueryResults) {
+        element.handleKey({ key: 'Tab', ctrl: false, alt: false, shift: false, meta: false });
+      }
+      return true;
+    });
+
     // Session commands
     this.commandHandlers.set('session.save', async () => {
       await this.saveSession();
@@ -3639,6 +3754,10 @@ export class TUIClient {
       case 'timelinePanelFocus': {
         const element = this.window.getFocusedElement();
         return element?.type === 'GitTimelinePanel';
+      }
+      case 'queryResultsFocus': {
+        const element = this.window.getFocusedElement();
+        return element?.type === 'QueryResults';
       }
       default:
         // Unknown when clause - return false to be safe (don't activate binding)
@@ -4303,6 +4422,9 @@ export class TUIClient {
       bash: 'shellscript',
       yml: 'yaml',
       yaml: 'yaml',
+      sql: 'sql',
+      pgsql: 'sql',
+      psql: 'sql',
     };
     return languageMap[ext] ?? 'plaintext';
   }
@@ -4495,6 +4617,42 @@ export class TUIClient {
   }
 
   /**
+   * Update status bar for SQL editor.
+   */
+  private updateStatusBarForSQLEditor(sqlEditor: SQLEditor, docEditor: DocumentEditor): void {
+    // File name
+    const filename = sqlEditor.getFilePath()
+      ? sqlEditor.getFilePath()!.split('/').pop() || 'query.sql'
+      : `Query ${(sqlEditor as any).queryId || ''}`;
+    const dirtyIndicator = sqlEditor.getIsDirty() ? '● ' : '';
+    this.window.setStatusItem('file', `${dirtyIndicator}${filename}`);
+
+    // Language - always SQL
+    this.window.setStatusItem('language', 'SQL');
+
+    // Position (1-indexed for display)
+    const cursor = docEditor.getCursor();
+    this.window.setStatusItem('position', `Ln ${cursor.line + 1}, Col ${cursor.column + 1}`);
+
+    // Selection info
+    const selection = docEditor.getSelection();
+    if (selection) {
+      const lines = Math.abs(selection.end.line - selection.start.line) + 1;
+      const chars = docEditor.getSelectedText()?.length || 0;
+      this.window.setStatusItem('selection', `${lines} lines, ${chars} chars selected`);
+    } else {
+      this.window.setStatusItem('selection', '');
+    }
+
+    // LSP status
+    const lspStatus = this.lspIntegration?.isEnabled() ? 'LSP: SQL' : '';
+    this.window.setStatusItem('lsp', lspStatus);
+
+    // Indent (default for SQL)
+    this.window.setStatusItem('indent', 'Spaces: 2');
+  }
+
+  /**
    * Format language ID to display name.
    */
   private formatLanguageName(langId: string): string {
@@ -4502,6 +4660,7 @@ export class TUIClient {
       typescript: 'TypeScript',
       typescriptreact: 'TypeScript React',
       javascript: 'JavaScript',
+      sql: 'SQL',
       javascriptreact: 'JavaScript React',
       json: 'JSON',
       markdown: 'Markdown',
@@ -4549,6 +4708,10 @@ export class TUIClient {
           this.loadTimelineForEditor(element);
         }
       }
+    } else if (element instanceof SQLEditor) {
+      // SQLEditor contains a DocumentEditor - update status bar with SQL info
+      const docEditor = element.getDocumentEditor();
+      this.updateStatusBarForSQLEditor(element, docEditor);
     } else if (element instanceof GitDiffBrowser) {
       // GitDiffBrowser - keep timeline visible, update outline for first file
       this.clearStatusBarFile();
@@ -6707,6 +6870,24 @@ export class TUIClient {
                   scrollTop: sqlEditorState.scrollTop,
                 });
                 this.paneSQLEditors.set(editorId, element);
+
+                // Create syntax session for SQL highlighting
+                try {
+                  const uri = element.getVirtualUri();
+                  const syntaxSession = await this.syntaxService.createSession(
+                    uri,
+                    'sql',
+                    sqlEditorState.content
+                  );
+                  this.sqlEditorSyntaxSessions.set(element.id, syntaxSession.sessionId);
+                  this.applySyntaxTokens(element.getDocumentEditor(), syntaxSession.sessionId);
+
+                  // Initialize LSP for restored SQL editor
+                  await this.lspDocumentOpened(uri, sqlEditorState.content);
+                } catch (syntaxError) {
+                  this.log(`Failed to create SQL syntax session for restored editor: ${syntaxError}`);
+                }
+
                 debugLog(`[TUIClient] Restored SQL editor in pane ${sqlEditorState.paneId} (file: ${sqlEditorState.filePath})`);
               }
             }
@@ -7068,12 +7249,15 @@ export class TUIClient {
 
   /**
    * Trigger SQL-specific completion for a SQL editor.
+   * Combines LSP completions (from postgres-language-server) with
+   * database-aware completions (tables, columns from connected database).
    */
   private async triggerSQLCompletion(sqlEditor: SQLEditor): Promise<void> {
     if (!this.lspIntegration) return;
 
     const docEditor = sqlEditor.getDocumentEditor();
     const connectionId = sqlEditor.getConnectionId();
+    const uri = sqlEditor.getVirtualUri();
 
     // Get cursor position and screen coordinates
     const cursor = docEditor.getPrimaryCursor();
@@ -7098,35 +7282,61 @@ export class TUIClient {
       }
     }
 
-    // Get SQL completions
-    const sqlProvider = getSQLCompletionProvider(localDatabaseService);
-    const sqlContent = docEditor.getContent();
-    const sqlCompletions = await sqlProvider.getCompletions(
-      connectionId || '',
-      sqlContent,
-      cursor.position.line,
-      cursor.position.column
-    );
+    const position = { line: cursor.position.line, character: cursor.position.column };
+    const allCompletions: import('../../../services/lsp/types.ts').LSPCompletionItem[] = [];
 
-    // Convert SQL completions to LSP format
-    const lspCompletions = sqlCompletions.map((item: SQLCompletionItem) => ({
-      label: item.label,
-      kind: item.kind,
-      detail: item.detail,
-      documentation: item.documentation,
-      insertText: item.insertText,
-      sortText: item.sortText,
-      filterText: item.filterText,
-    }));
+    // Try to get LSP completions from postgres-language-server
+    try {
+      const lspCompletions = await this.lspIntegration.getLSPService().getCompletions(uri, position);
+      if (lspCompletions.length > 0) {
+        allCompletions.push(...lspCompletions);
+      }
+    } catch (error) {
+      this.log(`LSP SQL completions failed: ${error}`);
+    }
 
-    if (lspCompletions.length === 0) {
+    // Get database-aware SQL completions (tables, columns from connected database)
+    if (connectionId) {
+      const sqlProvider = getSQLCompletionProvider(localDatabaseService);
+      const sqlContent = docEditor.getContent();
+      const sqlCompletions = await sqlProvider.getCompletions(
+        connectionId,
+        sqlContent,
+        cursor.position.line,
+        cursor.position.column
+      );
+
+      // Convert SQL completions to LSP format and add them
+      const dbCompletions = sqlCompletions.map((item: SQLCompletionItem) => ({
+        label: item.label,
+        kind: item.kind,
+        detail: item.detail,
+        documentation: item.documentation,
+        insertText: item.insertText,
+        sortText: item.sortText,
+        filterText: item.filterText,
+      }));
+
+      // Add database completions (they have higher priority due to context)
+      allCompletions.push(...dbCompletions);
+    }
+
+    if (allCompletions.length === 0) {
       this.lspIntegration.dismissCompletion();
       return;
     }
 
+    // Deduplicate by label (prefer database completions which are added last)
+    const seenLabels = new Set<string>();
+    const deduped = allCompletions.filter(item => {
+      if (seenLabels.has(item.label)) return false;
+      seenLabels.add(item.label);
+      return true;
+    });
+
     // Show in autocomplete popup
     const popup = this.lspIntegration.getAutocompletePopup();
-    popup.showCompletions(lspCompletions, screenX, screenY, prefix, startColumn);
+    popup.showCompletions(deduped, screenX, screenY, prefix, startColumn);
     this.scheduleRender();
   }
 
@@ -7431,6 +7641,24 @@ export class TUIClient {
         element.setConnection(connectionId, conn?.name);
       }
 
+      // Initialize LSP for SQL
+      await this.lspDocumentOpened(element.getVirtualUri(), element.getContent());
+
+      // Create syntax session for SQL highlighting
+      try {
+        const syntaxSession = await this.syntaxService.createSession(
+          element.getVirtualUri(),
+          'sql',
+          element.getContent()
+        );
+        // Track the syntax session
+        this.sqlEditorSyntaxSessions.set(element.id, syntaxSession.sessionId);
+        // Apply syntax tokens to the embedded DocumentEditor
+        this.applySyntaxTokens(element.getDocumentEditor(), syntaxSession.sessionId);
+      } catch (error) {
+        this.log(`Failed to create SQL syntax session: ${error}`);
+      }
+
       this.markSessionDirty();
       this.scheduleRender();
       return element;
@@ -7491,6 +7719,24 @@ export class TUIClient {
       // Track the SQL editor
       this.paneSQLEditors.set(editorId, element);
 
+      // Initialize LSP for SQL (use file URI for file-based SQL)
+      await this.lspDocumentOpened(uri.startsWith('file://') ? uri : `file://${filePath}`, content);
+
+      // Create syntax session for SQL highlighting
+      try {
+        const syntaxSession = await this.syntaxService.createSession(
+          uri.startsWith('file://') ? uri : `file://${filePath}`,
+          'sql',
+          content
+        );
+        // Track the syntax session
+        this.sqlEditorSyntaxSessions.set(element.id, syntaxSession.sessionId);
+        // Apply syntax tokens to the embedded DocumentEditor
+        this.applySyntaxTokens(element.getDocumentEditor(), syntaxSession.sessionId);
+      } catch (error) {
+        this.log(`Failed to create SQL syntax session: ${error}`);
+      }
+
       if (options.focus !== false) {
         activePane.setActiveElement(element.id);
       }
@@ -7512,7 +7758,7 @@ export class TUIClient {
       onExecuteQuery: async (sql: string, connectionId: string): Promise<QueryResult> => {
         const result = await this.executeSqlQuery(sql, connectionId);
         // Show results in a QueryResults element
-        this.showQueryResults(result);
+        this.showQueryResults(result, { sql, connectionId });
         return result;
       },
       onPickConnection: async (): Promise<ConnectionInfo | null> => {
@@ -7526,7 +7772,60 @@ export class TUIClient {
       onSave: async (content: string, filePath: string | null): Promise<string | null> => {
         return this.saveSqlFile(content, filePath);
       },
+      onContentChange: async (content: string): Promise<void> => {
+        // Update syntax highlighting
+        const sessionId = this.sqlEditorSyntaxSessions.get(editor.id);
+        if (sessionId) {
+          try {
+            await this.syntaxService.updateSession(sessionId, content);
+            this.applySyntaxTokens(editor.getDocumentEditor(), sessionId);
+          } catch (error) {
+            this.log(`Failed to update SQL syntax: ${error}`);
+          }
+        }
+
+        // Notify LSP of content change
+        const uri = editor.getVirtualUri();
+        await this.lspDocumentChanged(uri, content);
+      },
+      onConnectionChange: (connectionId: string | null): void => {
+        // Configure the postgres-language-server with the database connection
+        this.configureSQLLanguageServer(connectionId);
+      },
     });
+  }
+
+  /**
+   * Configure the postgres-language-server with database connection info.
+   * This enables schema-aware completions and hover for SQL editors.
+   */
+  private configureSQLLanguageServer(connectionId: string | null): void {
+    if (!this.lspIntegration || !connectionId) return;
+
+    // Get full config (includes port and username, unlike ConnectionInfo)
+    const config = localDatabaseService.getConnectionConfig(connectionId);
+    if (!config) {
+      this.log(`Cannot configure SQL LSP: connection ${connectionId} not found`);
+      return;
+    }
+
+    // Get the cached password (only available while connected)
+    // Password is cleared from memory when connection is closed for security
+    const password = localDatabaseService.getCachedPassword(connectionId);
+    if (!password) {
+      this.log(`Cannot configure SQL LSP: no password cached for ${connectionId}`);
+      return;
+    }
+
+    this.lspIntegration.getLSPService().configureSQLServer({
+      host: config.host,
+      port: config.port,
+      database: config.database,
+      username: config.username,
+      password: password,
+    });
+
+    this.log(`Configured SQL LSP with connection: ${config.name}`);
   }
 
   /**
@@ -7584,7 +7883,10 @@ export class TUIClient {
    * Show query results in a QueryResults element.
    * Reuses existing QueryResults in the pane, or creates a new one.
    */
-  private showQueryResults(result: QueryResult): void {
+  private showQueryResults(
+    result: QueryResult,
+    options: { tableName?: string; connectionId?: string; sql?: string } = {}
+  ): void {
     const activePane = this.window.getFocusedPane();
     if (!activePane) return;
 
@@ -7606,11 +7908,260 @@ export class TUIClient {
 
     if (resultsElement) {
       resultsElement.setResult(result);
-      // Focus the results element
+
+      // Try to determine table name from SQL if not provided
+      const tableName = options.tableName || this.parseTableNameFromSql(options.sql || '');
+      resultsElement.setTableName(tableName);
+
+      // Store query context for refresh
+      if (options.sql && options.connectionId) {
+        resultsElement.setQueryContext(options.sql, options.connectionId);
+      }
+
+      // Set up row details and refresh callbacks
+      this.setupQueryResultsCallbacks(resultsElement, options.connectionId || '', options.sql || '');
+
+      // Focus the results element (both tab and focus manager)
       activePane.setActiveElement(resultsElement.id);
+      this.window.focusElement(resultsElement);
     }
 
     this.scheduleRender();
+  }
+
+  /**
+   * Set up callbacks for a QueryResults element.
+   */
+  private setupQueryResultsCallbacks(results: QueryResults, connectionId: string, sql: string): void {
+    // Store connection ID and SQL for later use
+    const currentConnectionId = connectionId;
+    const currentSql = sql;
+
+    // Set up callbacks (this overrides but that's OK for now)
+    (results as any).callbacks = {
+      ...(results as any).callbacks,
+      onShowRowDetails: (
+        row: Record<string, unknown>,
+        fields: import('../../../services/database/types.ts').FieldInfo[],
+        tableName: string,
+        rowIndex: number
+      ) => {
+        this.showRowDetailsPanel(row, fields, tableName, currentConnectionId, results);
+      },
+      onRefresh: async () => {
+        if (!currentSql || !currentConnectionId) {
+          this.window.showNotification('No query context for refresh', 'warning');
+          return;
+        }
+        try {
+          this.window.showNotification('Refreshing...', 'info');
+          const result = await this.executeSqlQuery(currentSql, currentConnectionId);
+          results.setResult(result);
+          this.window.showNotification(`Refreshed: ${result.rowCount} rows`, 'info');
+          this.scheduleRender();
+        } catch (error) {
+          this.window.showNotification(`Refresh failed: ${error}`, 'error');
+        }
+      },
+    };
+  }
+
+  /**
+   * Parse table name from a SQL query (simple heuristic).
+   */
+  private parseTableNameFromSql(sql: string): string {
+    const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
+
+    // Try to extract table from SELECT ... FROM <table>
+    const fromMatch = normalized.match(/from\s+([^\s,;()]+)/i);
+    if (fromMatch) {
+      // Clean up table name (remove schema prefix for display)
+      const tableName = fromMatch[1]!;
+      const parts = tableName.split('.');
+      return parts[parts.length - 1] || tableName;
+    }
+
+    return 'Query Results';
+  }
+
+  /**
+   * Show the row details panel for a selected row.
+   */
+  private async showRowDetailsPanel(
+    row: Record<string, unknown>,
+    fields: import('../../../services/database/types.ts').FieldInfo[],
+    tableName: string,
+    connectionId: string,
+    sourceResults: QueryResults
+  ): Promise<void> {
+    const activePane = this.window.getFocusedPane();
+    if (!activePane) return;
+
+    // Look for existing RowDetailsPanel in this pane
+    let detailsPanel = activePane.getElements().find(
+      (el): el is RowDetailsPanel => el instanceof RowDetailsPanel
+    );
+
+    if (!detailsPanel) {
+      // Create new RowDetailsPanel element
+      const newId = activePane.addElement('RowDetailsPanel', 'Row Details');
+      if (newId) {
+        const el = activePane.getElement(newId);
+        if (el instanceof RowDetailsPanel) {
+          detailsPanel = el;
+        }
+      }
+    }
+
+    if (detailsPanel) {
+      // Set up callbacks for the panel
+      this.setupRowDetailsPanelCallbacks(detailsPanel, connectionId, sourceResults);
+
+      // Try to get primary key from table schema
+      let primaryKey: PrimaryKeyDef | null = null;
+      if (connectionId && tableName && tableName !== 'Query Results') {
+        try {
+          const tableDetails = await localDatabaseService.describeTable(
+            connectionId,
+            'public', // TODO: Parse schema from table name
+            tableName
+          );
+          if (tableDetails?.primaryKey) {
+            primaryKey = { columns: tableDetails.primaryKey.columns };
+          }
+        } catch (error) {
+          debugLog(`[RowDetails] Could not fetch primary key: ${error}`);
+        }
+      }
+
+      // Set the row data
+      detailsPanel.setRowData(row, fields, tableName, 'public', primaryKey);
+
+      // Focus the details panel
+      activePane.setActiveElement(detailsPanel.id);
+      this.window.focusElement(detailsPanel);
+    }
+
+    this.scheduleRender();
+  }
+
+  /**
+   * Set up callbacks for a RowDetailsPanel.
+   */
+  private setupRowDetailsPanelCallbacks(
+    panel: RowDetailsPanel,
+    connectionId: string,
+    sourceResults: QueryResults
+  ): void {
+    const callbacks: RowDetailsPanelCallbacks = {
+      onSave: async (updates, whereClause) => {
+        try {
+          // Build UPDATE statement
+          const tableName = (panel as any).tableName || 'unknown';
+          const schemaName = (panel as any).schemaName || 'public';
+          const fullTable = `"${schemaName}"."${tableName}"`;
+
+          const setClauses = Object.entries(updates)
+            .map(([col, val]) => `"${col}" = ${this.formatSqlValue(val)}`)
+            .join(', ');
+
+          const whereClauses = Object.entries(whereClause)
+            .map(([col, val]) => `"${col}" = ${this.formatSqlValue(val)}`)
+            .join(' AND ');
+
+          const sql = `UPDATE ${fullTable} SET ${setClauses} WHERE ${whereClauses}`;
+
+          debugLog(`[RowDetails] Executing: ${sql}`);
+          await localDatabaseService.executeQuery(connectionId, sql);
+          this.window.showNotification('Row updated successfully', 'info');
+          return true;
+        } catch (error) {
+          debugLog(`[RowDetails] Update failed: ${error}`);
+          this.window.showNotification(`Update failed: ${error}`, 'error');
+          return false;
+        }
+      },
+
+      onDelete: async (whereClause) => {
+        try {
+          const tableName = (panel as any).tableName || 'unknown';
+          const schemaName = (panel as any).schemaName || 'public';
+          const fullTable = `"${schemaName}"."${tableName}"`;
+
+          const whereClauses = Object.entries(whereClause)
+            .map(([col, val]) => `"${col}" = ${this.formatSqlValue(val)}`)
+            .join(' AND ');
+
+          const sql = `DELETE FROM ${fullTable} WHERE ${whereClauses}`;
+
+          debugLog(`[RowDetails] Executing: ${sql}`);
+          await localDatabaseService.executeQuery(connectionId, sql);
+          this.window.showNotification('Row deleted successfully', 'info');
+
+          // Close the panel and go back to results
+          const pane = this.window.getFocusedPane();
+          if (pane) {
+            pane.removeElement(panel.id);
+            // Focus the results
+            pane.setActiveElement(sourceResults.id);
+          }
+          this.scheduleRender();
+          return true;
+        } catch (error) {
+          debugLog(`[RowDetails] Delete failed: ${error}`);
+          this.window.showNotification(`Delete failed: ${error}`, 'error');
+          return false;
+        }
+      },
+
+      onConfirmDelete: async (message: string) => {
+        if (!this.dialogManager) {
+          this.window.showNotification('Confirmation dialog not available', 'error');
+          return false;
+        }
+        const result = await this.dialogManager.showConfirm({
+          title: 'Delete Row',
+          message,
+          confirmText: 'Delete',
+          declineText: 'Cancel',
+          destructive: true,
+          defaultButton: 'decline',
+        });
+        return result.value === true;
+      },
+
+      onClose: () => {
+        const pane = this.window.getFocusedPane();
+        if (pane) {
+          pane.removeElement(panel.id);
+          // Focus the results
+          pane.setActiveElement(sourceResults.id);
+        }
+        this.scheduleRender();
+      },
+    };
+
+    // Apply callbacks to the panel
+    (panel as any).callbacks = callbacks;
+  }
+
+  /**
+   * Format a value for SQL.
+   */
+  private formatSqlValue(value: unknown): string {
+    if (value === null || value === undefined) {
+      return 'NULL';
+    }
+    if (typeof value === 'string') {
+      return `'${value.replace(/'/g, "''")}'`;
+    }
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+    if (typeof value === 'object') {
+      return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
+    }
+    return `'${String(value).replace(/'/g, "''")}'`;
   }
 
   /**

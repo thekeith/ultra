@@ -245,6 +245,20 @@ export interface LSPService {
    */
   hasServerFor(languageId: string): boolean;
 
+  /**
+   * Configure the SQL language server with database connection settings.
+   * This allows the postgres-language-server to provide schema-aware completions and hover.
+   *
+   * @param config Database connection configuration
+   */
+  configureSQLServer(config: {
+    host: string;
+    port: number;
+    database: string;
+    username: string;
+    password: string;
+  }): void;
+
   // ─────────────────────────────────────────────────────────────────────────
   // Events
   // ─────────────────────────────────────────────────────────────────────────

@@ -423,6 +423,7 @@ describe('Settings Consistency', () => {
         'fileTree.', // File tree context-specific commands
         'outlinePanel.', // Outline panel context-specific commands
         'timelinePanel.', // Timeline panel context-specific commands
+        'queryResults.', // Query results context-specific commands
         'session.',
         'lsp.',
       ];

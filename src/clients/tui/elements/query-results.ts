@@ -58,6 +58,15 @@ export interface QueryResultsState {
 export interface QueryResultsCallbacks {
   /** Called when export is requested */
   onExport?: (format: 'csv' | 'json', data: string) => void;
+  /** Called when user wants to view row details (Enter key) */
+  onShowRowDetails?: (
+    row: Record<string, unknown>,
+    fields: FieldInfo[],
+    tableName: string,
+    rowIndex: number
+  ) => void;
+  /** Called when user wants to refresh/re-run the query (r key) */
+  onRefresh?: () => void;
 }
 
 // ============================================
@@ -72,6 +81,9 @@ export class QueryResults extends BaseElement {
   private result: QueryResult | null = null;
   private displayRows: Record<string, unknown>[] = [];
   private columns: ColumnConfig[] = [];
+  private tableName: string = '';
+  private lastSql: string = '';
+  private lastConnectionId: string = '';
 
   // View state
   private viewMode: ResultViewMode = 'table';
@@ -149,6 +161,49 @@ export class QueryResults extends BaseElement {
    */
   getViewMode(): ResultViewMode {
     return this.viewMode;
+  }
+
+  /**
+   * Set the table name for this result set.
+   */
+  setTableName(tableName: string): void {
+    this.tableName = tableName;
+  }
+
+  /**
+   * Set the query context for refresh functionality.
+   */
+  setQueryContext(sql: string, connectionId: string): void {
+    this.lastSql = sql;
+    this.lastConnectionId = connectionId;
+  }
+
+  /**
+   * Get the last SQL query.
+   */
+  getLastSql(): string {
+    return this.lastSql;
+  }
+
+  /**
+   * Get the last connection ID.
+   */
+  getLastConnectionId(): string {
+    return this.lastConnectionId;
+  }
+
+  /**
+   * Get the currently selected row.
+   */
+  getSelectedRow(): Record<string, unknown> | null {
+    return this.displayRows[this.selectedRow] || null;
+  }
+
+  /**
+   * Get the selected row index.
+   */
+  getSelectedRowIndex(): number {
+    return this.selectedRow;
   }
 
   /**
@@ -446,7 +501,9 @@ export class QueryResults extends BaseElement {
     }
 
     // Hints
-    const hints = 'Tab: View  E: Export  S: Sort';
+    const hints = this.viewMode === 'table'
+      ? 'Enter: Details  r: Refresh  Tab: View  E: Export  S: Sort'
+      : 'r: Refresh  Tab: View  E: Export';
     const hintsStart = width - hints.length - 1;
     if (hintsStart > modeText.length + 20) {
       for (let i = 0; i < hints.length; i++) {
@@ -586,9 +643,21 @@ export class QueryResults extends BaseElement {
       return true;
     }
 
+    // Refresh: r or F5
+    if ((event.key === 'r' || event.key === 'F5') && !event.ctrl) {
+      this.handleRefresh();
+      return true;
+    }
+
     // Sort: S or click on header
     if (event.key === 's' && !event.ctrl && this.viewMode === 'table') {
       this.sortByColumn(this.selectedColumn);
+      return true;
+    }
+
+    // Show row details: Enter
+    if (event.key === 'Enter' && !event.ctrl && this.viewMode === 'table') {
+      this.showRowDetails();
       return true;
     }
 
@@ -739,6 +808,32 @@ export class QueryResults extends BaseElement {
     this.callbacks.onExport?.('csv', csv);
 
     debugLog(`[QueryResults] Exported ${this.displayRows.length} rows to CSV`);
+  }
+
+  private showRowDetails(): void {
+    if (!this.result || this.displayRows.length === 0) return;
+
+    const row = this.displayRows[this.selectedRow];
+    if (!row) return;
+
+    this.callbacks.onShowRowDetails?.(
+      row,
+      this.result.fields,
+      this.tableName,
+      this.selectedRow
+    );
+
+    debugLog(`[QueryResults] Showing details for row ${this.selectedRow}`);
+  }
+
+  private handleRefresh(): void {
+    if (!this.lastSql || !this.lastConnectionId) {
+      debugLog('[QueryResults] No query context for refresh');
+      return;
+    }
+
+    this.callbacks.onRefresh?.();
+    debugLog('[QueryResults] Refresh requested');
   }
 
   // ─────────────────────────────────────────────────────────────────────────
