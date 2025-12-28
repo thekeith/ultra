@@ -81,6 +81,7 @@ import {
   type SessionDocumentState,
   type SessionTerminalState,
   type SessionAIChatState,
+  type SessionSQLEditorState,
   type SessionLayoutNode,
   type SessionUIState,
 } from '../../../services/session/index.ts';
@@ -185,6 +186,9 @@ export class TUIClient {
 
   /** Open AI chats in panes by element ID -> AITerminalChat mapping */
   private paneAIChats = new Map<string, AITerminalChat>();
+
+  /** Open SQL editors in panes by element ID -> SQLEditor mapping */
+  private paneSQLEditors = new Map<string, SQLEditor>();
 
   /** Whether client is running */
   private running = false;
@@ -1626,6 +1630,12 @@ export class TUIClient {
    * Open a file in the editor.
    */
   async openFile(uri: string, options: OpenFileOptions = {}): Promise<DocumentEditor | null> {
+    // Check if this is a SQL file - use SQLEditor instead
+    if (uri.endsWith('.sql') || uri.endsWith('.pgsql') || uri.endsWith('.psql')) {
+      await this.openSqlFile(uri, options);
+      return null; // SQLEditor is not a DocumentEditor
+    }
+
     // Check if already open
     const existing = this.openDocuments.get(uri);
     if (existing) {
@@ -2198,6 +2208,31 @@ export class TUIClient {
       if (this.paneAIChats.has(elementId)) {
         debugLog(`[TUIClient] Removing AI chat from tracking: ${elementId}`);
         this.paneAIChats.delete(elementId);
+      }
+      return true;
+    } else if (element instanceof SQLEditor) {
+      // Check if SQL editor has unsaved changes
+      if (element.getIsDirty()) {
+        if (!this.dialogManager) {
+          return false;
+        }
+        const result = await this.dialogManager.showConfirm({
+          title: 'Unsaved Changes',
+          message: 'This SQL file has unsaved changes. Close anyway?',
+          confirmText: 'Close',
+          declineText: 'Cancel',
+          destructive: true,
+        });
+
+        if (!result.confirmed) {
+          return false;
+        }
+      }
+
+      // Clean up SQL editor tracking
+      if (this.paneSQLEditors.has(elementId)) {
+        debugLog(`[TUIClient] Removing SQL editor from tracking: ${elementId}`);
+        this.paneSQLEditors.delete(elementId);
       }
       return true;
     }
@@ -6353,6 +6388,30 @@ export class TUIClient {
     }
     debugLog(`[TUIClient] Serialized ${aiChats.length} AI chats in panes`);
 
+    // Serialize SQL editors in panes
+    const sqlEditors: SessionSQLEditorState[] = [];
+    for (const [elementId, editor] of this.paneSQLEditors) {
+      const pane = this.findPaneForElement(elementId);
+      if (pane) {
+        const state = editor.getState();
+        sqlEditors.push({
+          elementId,
+          paneId: pane.id,
+          tabOrder: tabOrder++,
+          isActiveInPane: pane.getActiveElement() === editor,
+          filePath: state.filePath,
+          content: state.content,
+          connectionId: state.connectionId,
+          cursorLine: state.cursorLine,
+          cursorColumn: state.cursorColumn,
+          scrollTop: state.scrollTop,
+          title: editor.getTitle(),
+        });
+        debugLog(`[TUIClient] Serialized SQL editor: ${elementId} in pane ${pane.id} (file: ${state.filePath})`);
+      }
+    }
+    debugLog(`[TUIClient] Serialized ${sqlEditors.length} SQL editors in panes`);
+
     // Determine active document
     const focusedElement = this.window.getFocusedElement();
     let activeDocumentPath: string | null = null;
@@ -6404,6 +6463,7 @@ export class TUIClient {
       documents,
       terminals: terminals.length > 0 ? terminals : undefined,
       aiChats: aiChats.length > 0 ? aiChats : undefined,
+      sqlEditors: sqlEditors.length > 0 ? sqlEditors : undefined,
       activeDocumentPath,
       activePaneId,
       layout,
@@ -6455,6 +6515,11 @@ export class TUIClient {
     if (session.aiChats) {
       for (const chat of session.aiChats) {
         neededPaneIds.add(chat.paneId);
+      }
+    }
+    if (session.sqlEditors) {
+      for (const sqlEditor of session.sqlEditors) {
+        neededPaneIds.add(sqlEditor.paneId);
       }
     }
 
@@ -6592,6 +6657,59 @@ export class TUIClient {
           }
         } catch (error) {
           this.log(`Failed to restore AI chat: ${error}`);
+        }
+      }
+    }
+
+    // Restore SQL editors in panes
+    if (session.sqlEditors && session.sqlEditors.length > 0) {
+      this.log(`Restoring ${session.sqlEditors.length} SQL editors in panes`);
+
+      // Initialize database service to load saved connections
+      await localDatabaseService.init(this.workingDirectory || undefined);
+
+      for (const sqlEditorState of session.sqlEditors) {
+        try {
+          const targetPane = existingPanes.get(sqlEditorState.paneId);
+          if (targetPane) {
+            // Create SQL editor in the target pane
+            const editorId = targetPane.addElement('SQLEditor', sqlEditorState.title);
+            if (editorId) {
+              const element = targetPane.getElement(editorId);
+              if (element instanceof SQLEditor) {
+                this.setupSqlEditorCallbacks(element);
+                element.setContent(sqlEditorState.content);
+                if (sqlEditorState.filePath) {
+                  element.setFilePath(sqlEditorState.filePath);
+                }
+                // Only restore connection if it still exists
+                let validConnectionId: string | null = null;
+                if (sqlEditorState.connectionId) {
+                  const conn = localDatabaseService.getConnection(sqlEditorState.connectionId);
+                  if (conn) {
+                    element.setConnection(sqlEditorState.connectionId, conn.name);
+                    validConnectionId = sqlEditorState.connectionId;
+                  } else {
+                    debugLog(`[TUIClient] Connection ${sqlEditorState.connectionId} no longer exists`);
+                  }
+                }
+                element.setState({
+                  content: sqlEditorState.content,
+                  connectionId: validConnectionId,
+                  filePath: sqlEditorState.filePath,
+                  cursorLine: sqlEditorState.cursorLine,
+                  cursorColumn: sqlEditorState.cursorColumn,
+                  scrollTop: sqlEditorState.scrollTop,
+                });
+                this.paneSQLEditors.set(editorId, element);
+                debugLog(`[TUIClient] Restored SQL editor in pane ${sqlEditorState.paneId} (file: ${sqlEditorState.filePath})`);
+              }
+            }
+          } else {
+            debugLog(`[TUIClient] Pane ${sqlEditorState.paneId} not found for SQL editor`);
+          }
+        } catch (error) {
+          this.log(`Failed to restore SQL editor: ${error}`);
         }
       }
     }
@@ -7208,12 +7326,80 @@ export class TUIClient {
     if (element && element instanceof SQLEditor) {
       this.setupSqlEditorCallbacks(element);
 
+      // Track the SQL editor
+      this.paneSQLEditors.set(editorId, element);
+
       // Set connection if provided
       if (connectionId) {
         const conn = localDatabaseService.getConnection(connectionId);
         element.setConnection(connectionId, conn?.name);
       }
 
+      this.markSessionDirty();
+      this.scheduleRender();
+      return element;
+    }
+
+    this.scheduleRender();
+    return null;
+  }
+
+  /**
+   * Open a SQL file in SQLEditor.
+   */
+  private async openSqlFile(uri: string, options: OpenFileOptions = {}): Promise<SQLEditor | null> {
+    const activePane = this.getTargetEditorPane(options.pane);
+    if (!activePane) return null;
+
+    const filePath = uri.replace('file://', '');
+
+    // Check if already open - find existing SQLEditor with this file
+    const elements = activePane.getElements();
+    let existingEditor: SQLEditor | undefined;
+    for (const el of elements) {
+      if (el instanceof SQLEditor && el.getFilePath() === filePath) {
+        existingEditor = el;
+        break;
+      }
+    }
+    if (existingEditor) {
+      if (options.focus !== false) {
+        activePane.setActiveElement(existingEditor.id);
+      }
+      return existingEditor;
+    }
+
+    // Read file content
+    let content = '';
+    try {
+      const fileResult = await this.fileService.read(uri);
+      content = fileResult.content;
+    } catch {
+      // File doesn't exist - will create on save
+    }
+
+    // Create SQL editor element
+    const filename = uri.split('/').pop() ?? 'query.sql';
+    const editorId = activePane.addElement('SQLEditor', filename);
+    if (!editorId) {
+      this.window.showNotification('Failed to create SQL editor', 'error');
+      return null;
+    }
+
+    const element = activePane.getElement(editorId);
+    if (element && element instanceof SQLEditor) {
+      this.setupSqlEditorCallbacks(element);
+      element.setContent(content);
+      element.setFilePath(filePath);
+
+      // Track the SQL editor
+      this.paneSQLEditors.set(editorId, element);
+
+      if (options.focus !== false) {
+        activePane.setActiveElement(element.id);
+      }
+
+      this.markSessionDirty();
       this.scheduleRender();
       return element;
     }
@@ -7336,6 +7522,19 @@ export class TUIClient {
    */
   private async executeSqlQuery(sql: string, connectionId: string): Promise<QueryResult> {
     try {
+      // Initialize database service if needed
+      await localDatabaseService.init(this.workingDirectory || undefined);
+
+      // Check if connection exists and auto-connect if needed
+      const connection = localDatabaseService.getConnection(connectionId);
+      if (!connection) {
+        throw new Error('Connection not found');
+      }
+
+      if (connection.status === 'disconnected' || connection.status === 'error') {
+        await localDatabaseService.connect(connectionId);
+      }
+
       const result = await localDatabaseService.executeQuery(connectionId, sql);
       return result;
     } catch (error) {

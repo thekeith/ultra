@@ -324,7 +324,7 @@ export class ConnectionEditDialog extends PromiseDialog<ConnectionEditResult> {
     }
 
     const config: ConnectionConfig = {
-      id: this.connectionId,
+      id: connectionId,
       name: this.formData.name.trim(),
       type: this.formData.type,
       host: this.formData.host.trim(),
@@ -341,7 +341,7 @@ export class ConnectionEditDialog extends PromiseDialog<ConnectionEditResult> {
     // Add Supabase-specific fields
     if (this.formData.type === 'supabase') {
       config.supabaseUrl = this.formData.supabaseUrl.trim();
-      config.supabaseKeySecret = `database.${this.connectionId || 'new'}.supabase-key`;
+      config.supabaseKeySecret = `database.${connectionId}.supabase-key`;
     }
 
     return {

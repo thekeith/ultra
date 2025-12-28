@@ -10,6 +10,7 @@ export type {
   SessionDocumentState,
   SessionTerminalState,
   SessionAIChatState,
+  SessionSQLEditorState,
   AIProvider,
   SessionUIState,
   SessionLayoutNode,

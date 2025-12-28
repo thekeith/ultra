@@ -194,6 +194,17 @@ export class SQLEditor extends BaseElement {
    * Execute the current query.
    */
   async executeQuery(): Promise<void> {
+    // Verify connection still exists, clear if stale
+    if (this.connectionId && this.callbacks.getConnection) {
+      const conn = this.callbacks.getConnection(this.connectionId);
+      if (!conn) {
+        // Connection no longer exists, clear it
+        this.connectionId = null;
+        this.connectionName = 'No connection';
+        this.updateTitle();
+      }
+    }
+
     // If no connection, prompt user to pick one first
     if (!this.connectionId) {
       const picked = await this.pickConnection();

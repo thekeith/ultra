@@ -55,6 +55,34 @@ export interface SessionAIChatState {
 }
 
 /**
+ * Session state for a SQL editor tab.
+ */
+export interface SessionSQLEditorState {
+  /** Element ID */
+  elementId: string;
+  /** Pane ID where SQL editor is open */
+  paneId: string;
+  /** Tab order within pane (0-indexed) */
+  tabOrder: number;
+  /** Whether this tab is active in its pane */
+  isActiveInPane: boolean;
+  /** File path (if saved) */
+  filePath: string | null;
+  /** SQL content */
+  content: string;
+  /** Database connection ID */
+  connectionId: string | null;
+  /** Cursor line */
+  cursorLine: number;
+  /** Cursor column */
+  cursorColumn: number;
+  /** Scroll position */
+  scrollTop: number;
+  /** Tab title */
+  title: string;
+}
+
+/**
  * Re-export SerializedUndoState from core undo module for session persistence.
  */
 import type { SerializedUndoState } from '../../core/undo.ts';
@@ -153,6 +181,8 @@ export interface SessionState {
   terminals?: SessionTerminalState[];
   /** All open AI chats in panes */
   aiChats?: SessionAIChatState[];
+  /** All open SQL editors in panes */
+  sqlEditors?: SessionSQLEditorState[];
   /** Active document path */
   activeDocumentPath: string | null;
   /** Active pane ID */

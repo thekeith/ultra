@@ -70,6 +70,7 @@ export class LocalDatabaseService implements DatabaseService {
   private workspaceRoot: string | null = null;
   private historyManager = new QueryHistoryManager();
   private initialized = false;
+  private connectionsLoaded = false; // Track if we actually loaded from disk
 
   // Running queries for cancellation support
   private runningQueries = new Map<string, { connectionId: string; startedAt: Date }>();
@@ -999,12 +1000,19 @@ export class LocalDatabaseService implements DatabaseService {
       await this.loadConnections(join(workspaceRoot, PROJECT_CONNECTIONS_FILE), 'project');
     }
 
+    this.connectionsLoaded = true;
     this.initialized = true;
     debugLog(`[DatabaseService] Initialized with ${this.connections.size} connections`);
   }
 
   async shutdown(): Promise<void> {
     debugLog('[DatabaseService] Shutting down...');
+
+    // Only save if we were initialized (otherwise we'd overwrite saved connections with empty)
+    if (!this.initialized) {
+      debugLog('[DatabaseService] Not initialized, skipping shutdown');
+      return;
+    }
 
     // Disconnect all connections
     for (const [id, conn] of this.connections) {
@@ -1022,6 +1030,7 @@ export class LocalDatabaseService implements DatabaseService {
     await this.historyManager.shutdown();
 
     this.connections.clear();
+    this.connectionsLoaded = false;
     this.initialized = false;
   }
 
@@ -1079,6 +1088,12 @@ export class LocalDatabaseService implements DatabaseService {
   }
 
   private async saveConnections(): Promise<void> {
+    // Only save if we actually loaded connections (prevents tests from wiping real data)
+    if (!this.connectionsLoaded) {
+      debugLog('[DatabaseService] Skipping save - connections not loaded from disk');
+      return;
+    }
+
     const global: ConnectionConfig[] = [];
     const project: ConnectionConfig[] = [];
 
