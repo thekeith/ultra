@@ -386,41 +386,41 @@ export class SQLEditor extends BaseElement {
 
   handleKey(event: KeyEvent): boolean {
     // Execute query: Ctrl+Enter
-    if (event.ctrl && event.key === 'enter') {
+    if (event.ctrl && event.key === 'Enter') {
       this.executeQuery();
       return true;
     }
 
     // Pick connection: Ctrl+Shift+C
-    if (event.ctrl && event.shift && event.key === 'c') {
+    if (event.ctrl && event.shift && (event.key === 'c' || event.key === 'C')) {
       this.pickConnection();
       return true;
     }
 
     // Navigation
-    if (event.key === 'up') {
+    if (event.key === 'ArrowUp') {
       this.moveCursor(-1, 0);
       return true;
     }
-    if (event.key === 'down') {
+    if (event.key === 'ArrowDown') {
       this.moveCursor(1, 0);
       return true;
     }
-    if (event.key === 'left') {
+    if (event.key === 'ArrowLeft') {
       this.moveCursor(0, -1);
       return true;
     }
-    if (event.key === 'right') {
+    if (event.key === 'ArrowRight') {
       this.moveCursor(0, 1);
       return true;
     }
-    if (event.key === 'home') {
+    if (event.key === 'Home') {
       this.cursor.column = 0;
       this.ensureCursorVisible();
       this.ctx.markDirty();
       return true;
     }
-    if (event.key === 'end') {
+    if (event.key === 'End') {
       this.cursor.column = this.lines[this.cursor.line].length;
       this.ensureCursorVisible();
       this.ctx.markDirty();
@@ -428,19 +428,19 @@ export class SQLEditor extends BaseElement {
     }
 
     // Editing
-    if (event.key === 'backspace') {
+    if (event.key === 'Backspace') {
       this.handleBackspace();
       return true;
     }
-    if (event.key === 'delete') {
+    if (event.key === 'Delete') {
       this.handleDelete();
       return true;
     }
-    if (event.key === 'enter') {
+    if (event.key === 'Enter') {
       this.handleEnter();
       return true;
     }
-    if (event.key === 'tab') {
+    if (event.key === 'Tab') {
       this.insertText('  '); // 2 spaces
       return true;
     }
