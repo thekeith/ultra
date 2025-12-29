@@ -9,6 +9,8 @@ A terminal-native code editor with Sublime Text ergonomics, VS Code configuratio
 
 Ultra is developed as a proof-of-concept for using AI to develop large, highly complex applications. Zero lines of code have been written by a human. **Do not use Ultra for production work as it may consume your data while making loud belching noises.**
 
+![Ultra Editor](screenshots/ultra-main-ux.png)
+
 ## Quick Start
 
 ```bash
@@ -251,6 +253,8 @@ The terminal supports:
 ## AI Integration
 
 Ultra integrates AI assistants directly into the editor.
+
+![Ultra AI Chat](screenshots/ultra-ai-chat.png)
 
 ### Claude Code
 
