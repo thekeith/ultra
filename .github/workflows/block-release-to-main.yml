@@ -1,0 +1,15 @@
+name: Block release to main
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block merges from release
+        if: github.head_ref == 'release'
+        run: |
+          echo "::error::Cannot merge release into main. Only main → release is allowed."
+          exit 1
