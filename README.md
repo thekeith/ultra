@@ -10,6 +10,10 @@ A terminal-native code editor with Sublime Text ergonomics, VS Code configuratio
 ## Quick Start
 
 ```bash
+# clone the repo
+git clone https://github.com/zorz/ultra.git
+cd ultra
+
 # Install dependencies
 bun install
 
