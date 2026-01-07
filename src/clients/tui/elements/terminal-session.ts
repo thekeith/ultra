@@ -804,6 +804,11 @@ export class TerminalSession extends BaseElement {
       for (let col = 0; col < width; col++) {
         const cell = line[col];
         if (cell) {
+          // Skip placeholder cells for wide characters (char === '')
+          // The wide character in the previous cell already occupies this space
+          if (cell.char === '') {
+            continue;
+          }
           buffer.set(x + col, screenY, this.convertTerminalCell(cell, defaultFg, defaultBg));
         } else {
           buffer.set(x + col, screenY, { char: ' ', fg: defaultFg, bg: defaultBg });

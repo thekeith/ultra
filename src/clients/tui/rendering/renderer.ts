@@ -205,6 +205,15 @@ export class Renderer {
     let lastY = -1;
 
     for (const { x, y, cell } of cells) {
+      // Skip placeholder cells for wide characters (char === '')
+      // The wide character in the previous cell already occupies this space
+      // But still update position tracking for correct adjacency calculation
+      if (cell.char === '') {
+        lastX = x;
+        lastY = y;
+        continue;
+      }
+
       // Move cursor if not adjacent
       if (y !== lastY || x !== lastX + 1) {
         output += cursorToZero(y, x);

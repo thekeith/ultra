@@ -21,6 +21,7 @@ import {
 /**
  * Get the display width of a character in terminal cells.
  * Most emojis are 2 cells wide, ASCII chars are 1 cell.
+ * Zero-width characters (variation selectors, combining marks) return 0.
  */
 function getCharDisplayWidth(char: string): number {
   const code = char.codePointAt(0) ?? 0;
@@ -30,6 +31,25 @@ function getCharDisplayWidth(char: string): number {
 
   // Basic ASCII (most common case)
   if (code < 127) return 1;
+
+  // Zero-width characters (must check before other ranges)
+  if (
+    (code >= 0x200B && code <= 0x200F) ||   // Zero-width space, joiners, direction marks
+    (code >= 0x2028 && code <= 0x202F) ||   // Line/paragraph separators, embedding controls
+    (code >= 0x2060 && code <= 0x206F) ||   // Word joiner, invisible operators
+    (code >= 0xFE00 && code <= 0xFE0F) ||   // Variation Selectors (VS1-VS16)
+    (code >= 0xFEFF && code <= 0xFEFF) ||   // BOM / Zero-width no-break space
+    (code >= 0xE0100 && code <= 0xE01EF) || // Variation Selectors Supplement
+    (code >= 0x0300 && code <= 0x036F) ||   // Combining Diacritical Marks
+    (code >= 0x0483 && code <= 0x0489) ||   // Combining Cyrillic marks
+    (code >= 0x0591 && code <= 0x05BD) ||   // Hebrew combining marks
+    (code >= 0x1AB0 && code <= 0x1AFF) ||   // Combining Diacritical Marks Extended
+    (code >= 0x1DC0 && code <= 0x1DFF) ||   // Combining Diacritical Marks Supplement
+    (code >= 0x20D0 && code <= 0x20FF) ||   // Combining Diacritical Marks for Symbols
+    (code >= 0xFE20 && code <= 0xFE2F)      // Combining Half Marks
+  ) {
+    return 0;
+  }
 
   // Common emoji ranges (simplified - most emojis are 2 cells wide)
   if (
@@ -199,13 +219,19 @@ export class ScreenBuffer {
     // Use for...of to properly iterate Unicode code points (not UTF-16 code units)
     for (const char of text) {
       if (px >= this.width) break;
+
+      const charWidth = getCharDisplayWidth(char);
+
+      // Skip zero-width characters (variation selectors, combining marks)
+      if (charWidth === 0) {
+        continue;
+      }
+
       if (px < 0) {
-        px += getCharDisplayWidth(char);
+        px += charWidth;
         continue;
       }
       if (y < 0 || y >= this.height) continue;
-
-      const charWidth = getCharDisplayWidth(char);
 
       this.set(px, y, {
         char,
